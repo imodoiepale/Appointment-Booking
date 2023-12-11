@@ -7,7 +7,7 @@ const nextConfig = {
                 hostname: "bcltraining.com"
             }
         ]
-    }
+    },
 }
 
 module.exports = nextConfig

@@ -3,6 +3,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { addEvent } from './send';
 
 const supabaseUrl = 'https://qnfoxdfnevcjxqpkjcwm.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuZm94ZGZuZXZjanhxcGtqY3dtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTY5OTk2MTE1OCwiZXhwIjoyMDE1NTM3MTU4fQ.-U2eC5IP7Xr6Uc4EXCKjXUIbJq9srz7pDf7b1UbYiJo';
@@ -138,7 +139,7 @@ const Page = () => {
     const [showOtherMeetingVenueInput, setShowOtherMeetingVenueInput] = useState(false);
     const [showOtherClientCompanyInput, setShowOtherClientCompanyInput] = useState(false);
 
-    const handleChange = (e) => {
+   const handleChange = (e) => {
     const { name, value } = e.target;
 
     if (name === 'companyType') {
@@ -162,15 +163,20 @@ const Page = () => {
         setShowOtherMeetingVenueInput(false);
     }
 
-    // Update meetingVenueArea based on user input or default value
-    const updatedMeetingVenueArea = name === 'meetingVenueArea' && value === 'Other' ? formData.otherMeetingVenue : value;
-
-    setFormData((prevFormData) => ({
-        ...prevFormData,
-        [name]: value,
-        meetingVenueArea: updatedMeetingVenueArea,
-        otherClientCompany: name === 'clientCompany' && value !== 'Other' ? '' : prevFormData.otherClientCompany,
-    }));
+    if (name === 'meetingVenueArea') {
+        // Update meetingVenueArea based on user input or default value
+        setFormData((prevFormData) => ({
+            ...prevFormData,
+            [name]: value,
+            otherClientCompany: name === 'clientCompany' && value !== 'Other' ? '' : prevFormData.otherClientCompany,
+        }));
+    } else {
+        // For other fields, update normally
+        setFormData((prevFormData) => ({
+            ...prevFormData,
+            [name]: value,
+        }));
+    }
 
     if (name === 'clientCompany' && value === 'Other') {
         // If "Other" is selected for client company, show the input for otherClientCompany
@@ -179,6 +185,8 @@ const Page = () => {
         setShowOtherClientCompanyInput(false);
     }
 };
+
+
 
     const [formStatus, setFormStatus] = useState('idle');
 
@@ -302,7 +310,7 @@ const handleSubmit = async (e) => {
         if (error) {
             throw error;
         }
-        
+        addEvent(formData);
         
 
         // Reset error state after successful submission
@@ -411,30 +419,15 @@ const handleSubmit = async (e) => {
                     </label>
 
                     <div className="mb-4 col-span-1">
-                        <select
+                        <input
+                            type="text"
                             id="meetingVenueArea"
                             name="meetingVenueArea"
-                            placeholder="Enter Meeting Venue"
                             value={formData.meetingVenueArea}
                             onChange={handleChange}
                             className="mt-1 p-2 border rounded-md w-full"
-                        >
-                            <option value="BCL Boardroom">BCL Boardroom</option>
-                            <option value="Other">Other Location</option>
-                        </select>
-
-                        {/* Render the input field only when "Other" is selected */}
-                        {formData.meetingVenueArea === 'Other' && (
-                            <input
-                                type="text"
-                                id="otherMeetingVenue"
-                                name="otherMeetingVenue"
-                                value={formData.otherMeetingVenue}
-                                onChange={handleChange}
-                                placeholder="Enter Meeting Venue"
-                                className="absolute top-0 right-0 mt-1 p-2 border rounded-md w-1/2"
-                            />
-                        )}
+                            placeholder="Enter Meeting Venue"
+                        />
                     </div>
                 </div>
 
