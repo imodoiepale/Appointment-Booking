@@ -24,9 +24,8 @@ const Dashboard = () => {
         if (error) {
           throw error;
         }
-        console.log('Fetched data:', data)
-
-        setAppointments(data);
+        console.log('Fetched data:', data);
+        setAppointments(data ?? []); // Handle potential null or undefined
       } catch (error) {
         console.error('Error fetching events:', error.message);
       } finally {
@@ -59,6 +58,8 @@ const Dashboard = () => {
 
   const totalAppointmentsToday = appointments.filter(appointment => appointment.meeting_date === today).length;
 
+
+  console.log('Appointments:', appointments);
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-4">Dashboard</h1>
@@ -80,7 +81,9 @@ const Dashboard = () => {
               <div key={appointment.id} className="border p-2 mb-2 cursor-pointer" onClick={() => handleAppointmentClick(appointment)}>
                 <p><strong>Client:</strong> {appointment.client_name}</p>
                 <p><strong>Date:</strong> {appointment.meeting_date}</p>
-                <p><strong>Time:</strong> {appointment.meeting_start_time}</p>
+                <p><strong>Time:</strong> {appointment.meeting_start_time} - {appointment.meeting_end_time}</p>
+                <p><strong>Meeting Type:</strong> {appointment.meeting_type}</p>
+                <p><strong>Agenda:</strong> {appointment.meeting_agenda}</p>
               </div>
             ))}
           </div>
