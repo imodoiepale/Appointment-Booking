@@ -31,7 +31,6 @@ const Page = () => {
         meetingEndTime: '',
         meetingSlotStartTime: '',
         meetingSlotEndTime: '',
-        otherClientCompany: '',
     });
 
     useEffect(() => {
@@ -135,9 +134,6 @@ const Page = () => {
             console.error('Error fetching companies:', error.message);
         }
     };
-
-    const [showOtherMeetingVenueInput, setShowOtherMeetingVenueInput] = useState(false);
-    const [showOtherClientCompanyInput, setShowOtherClientCompanyInput] = useState(false);
 
    const handleChange = (e) => {
     const { name, value } = e.target;
@@ -304,6 +300,7 @@ const handleSubmit = async (e) => {
                 meeting_end_time: formData.meetingEndTime,
                 meeting_slot_start_time: formData.meetingSlotStartTime,
                 meeting_slot_end_time: formData.meetingSlotEndTime,
+                status: 'upcoming',
             },
         ]);
 

@@ -8,7 +8,6 @@ const SCOPES = ['https://www.googleapis.com/auth/calendar'];
 
 export async function addEvent(formData) {
     const { userId } = auth(formData);
-    console.log(formData)
 
   // Retrieve the Google access token for the authenticated user
   const [oauthAccessToken] = await clerk.users.getUserOauthAccessToken(userId, 'oauth_google');
