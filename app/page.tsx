@@ -32,12 +32,9 @@ const Dashboard = () => {
 
 
    const [rescheduleFormData, setRescheduleFormData] = useState({
-    venueDistance: '',
     meetingStartTime: '',
     meetingDuration: '',
     meetingEndTime: '',
-    meetingSlotStartTime: '',
-    meetingSlotEndTime: '',
   });
 
   const handleRescheduleClick = () => {
@@ -52,12 +49,9 @@ const Dashboard = () => {
       const { data, error } = await supabase
         .from('events')
         .update({
-          venue_distance: rescheduleFormData.venueDistance,
           meeting_start_time: rescheduleFormData.meetingStartTime,
           meeting_duration: rescheduleFormData.meetingDuration,
           meeting_end_time: rescheduleFormData.meetingEndTime,
-          meeting_slot_start_time: rescheduleFormData.meetingSlotStartTime,
-          meeting_slot_end_time: rescheduleFormData.meetingSlotEndTime,
           status: 'rescheduled',
         })
         .eq('id', selectedAppointment.id);
@@ -89,93 +83,82 @@ const Dashboard = () => {
   }
   return (
     <div>
-      <div className="mb-4">
-        <label htmlFor="venueDistance" className="block text-sm font-medium text-gray-600">
-          Venue Distance:
-        </label>
+      
+<div className="mb-4 col-span-1">
+  <label htmlFor="meetingStartTime" className="block text-sm font-medium text-gray-600">
+    Meeting Start Time:
+  </label>
         <input
-          type="text"
-          id="venueDistance"
-          name="venueDistance"
-          value={rescheduleFormData.venueDistance}
-          onChange={handleRescheduleInputChange}
-          className="mt-1 p-2 border rounded-md w-full"
-        />
-      </div>
+          type="datetime-local"
+    id="meetingStartTime"
+    name="meetingStartTime"
+    value={rescheduleFormData.meetingStartTime}
+    className="mt-1 p-2 border rounded-md w-full"
+  >
+  </input>
+</div>
 
-      <div className="mb-4">
-        <label htmlFor="meetingStartTime" className="block text-sm font-medium text-gray-600">
-          Meeting Start Time:
-        </label>
-        <input
-          type="text"
-          id="meetingStartTime"
-          name="meetingStartTime"
-          value={rescheduleFormData.meetingStartTime}
-          onChange={handleRescheduleInputChange}
-          className="mt-1 p-2 border rounded-md w-full"
-        />
-      </div>
+<div className="mb-4 col-span-1">
+  <label htmlFor="meetingDuration" className="block text-sm font-medium text-gray-600">
+    Meeting Duration:
+  </label>
+  <select
+    id="meetingDuration"
+    name="meetingDuration"
+    value={rescheduleFormData.meetingDuration}
+    className="mt-1 p-2 border rounded-md w-full"
+  >
+    <option value="">Select Duration</option>
+    <option value="15">15 minutes</option>
+    <option value="30">30 minutes</option>
+    <option value="45">45 minutes</option>
+    <option value="60">1 hour</option>
+    <option value="90">1.5 hours</option>
+    <option value="120">2 hours</option>
+    <option value="150">2.5 hours</option>
+    <option value="180">3 hours</option>
+    <option value="240">4 hours</option>
+    <option value="300">5 hours</option>
+    <option value="360">6 hours</option>
+    <option value="420">7 hours</option>
+    <option value="480">8 hours</option>
+    <option value="540">9 hours</option>
+    <option value="600">10 hours</option>
+    <option value="660">11 hours</option>
+    <option value="720">12 hours</option>
+    <option value="780">13 hours</option>
+    <option value="840">14 hours</option>
+    <option value="900">15 hours</option>
+    <option value="960">16 hours</option>
+    <option value="1020">17 hours</option>
+    <option value="1080">18 hours</option>
+    <option value="1140">19 hours</option>
+    <option value="1200">20 hours</option>
+    <option value="1260">21 hours</option>
+    <option value="1320">22 hours</option>
+    <option value="1380">23 hours</option>
+    <option value="1440">24 hours</option>
+  </select>
+</div>
 
-      <div className="mb-4">
-        <label htmlFor="meetingDuration" className="block text-sm font-medium text-gray-600">
-          Meeting Duration:
-        </label>
-        <input
-          type="text"
-          id="meetingDuration"
-          name="meetingDuration"
-          value={rescheduleFormData.meetingDuration}
-          onChange={handleRescheduleInputChange}
-          className="mt-1 p-2 border rounded-md w-full"
-        />
-      </div>
+<div className="mb-4 col-span-1">
+  <label htmlFor="meetingEndTime" className="block text-sm font-medium text-gray-600">
+    Meeting End Time:
+  </label>
+  <input
+    id="meetingEndTime"
+    name="meetingEndTime"
+    readOnly
+    value={rescheduleFormData.meetingEndTime}
+    className="mt-1 p-2 border rounded-md w-full bg-gray-200"
+  />
+</div>
 
-      <div className="mb-4">
-        <label htmlFor="meetingEndTime" className="block text-sm font-medium text-gray-600">
-          Meeting End Time:
-        </label>
-        <input
-          type="text"
-          id="meetingEndTime"
-          name="meetingEndTime"
-          value={rescheduleFormData.meetingEndTime}
-          onChange={handleRescheduleInputChange}
-          className="mt-1 p-2 border rounded-md w-full"
-        />
-      </div>
 
-      <div className="mb-4">
-        <label htmlFor="meetingSlotStartTime" className="block text-sm font-medium text-gray-600">
-          Slot Start Time:
-        </label>
-        <input
-          type="text"
-          id="meetingSlotStartTime"
-          name="meetingSlotStartTime"
-          value={rescheduleFormData.meetingSlotStartTime}
-          onChange={handleRescheduleInputChange}
-          className="mt-1 p-2 border rounded-md w-full"
-        />
-      </div>
-
-      <div className="mb-4">
-        <label htmlFor="meetingSlotEndTime" className="block text-sm font-medium text-gray-600">
-          Slot End Time:
-        </label>
-        <input
-          type="text"
-          id="meetingSlotEndTime"
-          name="meetingSlotEndTime"
-          value={rescheduleFormData.meetingSlotEndTime}
-          onChange={handleRescheduleInputChange}
-          className="mt-1 p-2 border rounded-md w-full"
-        />
-      </div>
 
       {/* Final Reschedule Button */}
       <button className="bg-green-500 text-white rounded px-4 py-2 mt-2" onClick={handleFinalReschedule}>
-        Final Reschedule
+        Reschedule Event
       </button>
     </div>
   );
@@ -318,10 +301,7 @@ const Dashboard = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
+    
   };
 
 
