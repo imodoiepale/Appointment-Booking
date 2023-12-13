@@ -32,7 +32,13 @@ export async function addEvent(formData) {
     end: {
         dateTime: `${formData.meetingDate}T${formData.meetingEndTime}:00+03:00`, // Replace with your end date and time
         timeZone: 'Africa/Nairobi',
-        },
+    },
+    attendees: [
+    {
+      {"email": "ijepale@gmail.com"},
+      {"email": "jeimodoi@gmail.com"},
+    },
+  ],
   };
 
   // Insert the event
