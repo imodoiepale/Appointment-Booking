@@ -27,31 +27,28 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState(0);
 
   const [isRescheduleClicked, setRescheduleClicked] = useState(false);
-  
   const [setRescheduleMode, setSetRescheduleMode] = useState(false);
 
-
-   const [rescheduleFormData, setRescheduleFormData] = useState({
+  const [rescheduleFormData, setRescheduleFormData] = useState({
     meetingStartTime: '',
     meetingDuration: '',
     meetingEndTime: '',
+    meetingDate: '',
   });
 
   const handleRescheduleClick = () => {
-  console.log("Reschedule clicked");
-  setRescheduleClicked(true);
-};
-
+    setRescheduleClicked(true);
+  };
 
   const handleFinalReschedule = async () => {
     try {
-      // Update the appointment details in the database
       const { data, error } = await supabase
         .from('events')
         .update({
           meeting_start_time: rescheduleFormData.meetingStartTime,
           meeting_duration: rescheduleFormData.meetingDuration,
           meeting_end_time: rescheduleFormData.meetingEndTime,
+          meeting_date: rescheduleFormData.meetingDate,
           status: 'rescheduled',
         })
         .eq('id', selectedAppointment.id);
@@ -62,13 +59,22 @@ const Dashboard = () => {
 
       console.log(`Successfully rescheduled appointment with ID ${selectedAppointment.id}`);
 
-      // Update the local state to reflect the change
-      setAppointments((prevAppointments) => {
-        const updatedAppointments = prevAppointments.map((appointment) =>
-          appointment.id === selectedAppointment.id ? { ...appointment, status: 'rescheduled' } : appointment
-        );
-        return updatedAppointments;
+      setAppointments((prevAppointments) =>
+        prevAppointments.map((appointment) =>
+          appointment.id === selectedAppointment.id
+            ? { ...appointment, ...rescheduleFormData, status: 'rescheduled' }
+            : appointment
+        )
+      );
+
+      setRescheduleClicked(false);
+      setRescheduleFormData({
+        meetingStartTime: '',
+        meetingDuration: '',
+        meetingEndTime: '',
+        meetingDate: '',
       });
+      setSelectedAppointment(null);
     } catch (error) {
       console.error('Error rescheduling appointment:', error.message);
     } finally {
@@ -77,103 +83,114 @@ const Dashboard = () => {
   };
 
   const renderRescheduleFields = () => {
-
     if (!isRescheduleClicked) {
-    return null; // Do not render anything if reschedule is not clicked
-  }
-  return (
-    <div>
-      
-<div className="mb-4 col-span-1">
-  <label htmlFor="meetingStartTime" className="block text-sm font-medium text-gray-600">
-    Meeting Start Time:
-  </label>
+      return (
+      <button className="bg-green-500 text-white rounded px-4 py-2 mt-2" onClick={handleRescheduleClick}>
+        Reschedule Event
+      </button>
+    );
+    }
+
+    return (
+      <div>
+      <div className="mb-4 col-span-1">
+        <label htmlFor="meetingStartTime" className="block text-sm font-medium text-gray-600">
+          Meeting Start Time:
+        </label>
         <input
           type="datetime-local"
-    id="meetingStartTime"
-    name="meetingStartTime"
-    value={rescheduleFormData.meetingStartTime}
-    className="mt-1 p-2 border rounded-md w-full"
-  >
-  </input>
-</div>
+          id="meetingStartTime"
+          name="meetingStartTime"
+          value={rescheduleFormData.meetingStartTime}
+          className="mt-1 p-2 border rounded-md w-full"
+          onChange={handleRescheduleInputChange}
+        />
+      </div>
 
-<div className="mb-4 col-span-1">
-  <label htmlFor="meetingDuration" className="block text-sm font-medium text-gray-600">
-    Meeting Duration:
-  </label>
-  <select
-    id="meetingDuration"
-    name="meetingDuration"
-    value={rescheduleFormData.meetingDuration}
-    className="mt-1 p-2 border rounded-md w-full"
-  >
-    <option value="">Select Duration</option>
-    <option value="15">15 minutes</option>
-    <option value="30">30 minutes</option>
-    <option value="45">45 minutes</option>
-    <option value="60">1 hour</option>
-    <option value="90">1.5 hours</option>
-    <option value="120">2 hours</option>
-    <option value="150">2.5 hours</option>
-    <option value="180">3 hours</option>
-    <option value="240">4 hours</option>
-    <option value="300">5 hours</option>
-    <option value="360">6 hours</option>
-    <option value="420">7 hours</option>
-    <option value="480">8 hours</option>
-    <option value="540">9 hours</option>
-    <option value="600">10 hours</option>
-    <option value="660">11 hours</option>
-    <option value="720">12 hours</option>
-    <option value="780">13 hours</option>
-    <option value="840">14 hours</option>
-    <option value="900">15 hours</option>
-    <option value="960">16 hours</option>
-    <option value="1020">17 hours</option>
-    <option value="1080">18 hours</option>
-    <option value="1140">19 hours</option>
-    <option value="1200">20 hours</option>
-    <option value="1260">21 hours</option>
-    <option value="1320">22 hours</option>
-    <option value="1380">23 hours</option>
-    <option value="1440">24 hours</option>
-  </select>
-</div>
+      <div className="mb-4 col-span-1">
+        <label htmlFor="meetingDuration" className="block text-sm font-medium text-gray-600">
+          Meeting Duration:
+        </label>
+        <select
+          id="meetingDuration"
+          name="meetingDuration"
+          value={rescheduleFormData.meetingDuration}
+          className="mt-1 p-2 border rounded-md w-full"
+          onChange={handleRescheduleInputChange}
+        >
+            <option value="">Select Duration</option>
+            <option value="15">15 minutes</option>
+            <option value="30">30 minutes</option>
+            <option value="45">45 minutes</option>
+            <option value="60">1 hour</option>
+            <option value="90">1.5 hours</option>
+            <option value="120">2 hours</option>
+            <option value="150">2.5 hours</option>
+            <option value="180">3 hours</option>
+            <option value="240">4 hours</option>
+            <option value="300">5 hours</option>
+            <option value="360">6 hours</option>
+            <option value="420">7 hours</option>
+            <option value="480">8 hours</option>
+            <option value="540">9 hours</option>
+            <option value="600">10 hours</option>
+            <option value="660">11 hours</option>
+            <option value="720">12 hours</option>
+            <option value="780">13 hours</option>
+            <option value="840">14 hours</option>
+            <option value="900">15 hours</option>
+            <option value="960">16 hours</option>
+            <option value="1020">17 hours</option>
+            <option value="1080">18 hours</option>
+            <option value="1140">19 hours</option>
+            <option value="1200">20 hours</option>
+            <option value="1260">21 hours</option>
+            <option value="1320">22 hours</option>
+            <option value="1380">23 hours</option>
+            <option value="1440">24 hours</option>
+        </select>
+      </div>
 
-<div className="mb-4 col-span-1">
-  <label htmlFor="meetingEndTime" className="block text-sm font-medium text-gray-600">
-    Meeting End Time:
-  </label>
-  <input
-    id="meetingEndTime"
-    name="meetingEndTime"
-    readOnly
-    value={rescheduleFormData.meetingEndTime}
-    className="mt-1 p-2 border rounded-md w-full bg-gray-200"
-  />
-</div>
-
-
+      <div className="mb-4 col-span-1">
+        <label htmlFor="meetingEndTime" className="block text-sm font-medium text-gray-600">
+          Meeting End Time:
+        </label>
+        <input
+          id="meetingEndTime"
+          name="meetingEndTime"
+          readOnly
+          value={rescheduleFormData.meetingEndTime}
+          className="mt-1 p-2 border rounded-md w-full bg-gray-200"
+        />
+      </div>
 
       {/* Final Reschedule Button */}
       <button className="bg-green-500 text-white rounded px-4 py-2 mt-2" onClick={handleFinalReschedule}>
         Reschedule Event
       </button>
     </div>
-  );
-};
+    );
+  };
 
   const handleRescheduleInputChange = (e) => {
-  const { name, value } = e.target;
-  console.log(`Updating ${name} to ${value}`);
-  setRescheduleFormData({
-    ...rescheduleFormData,
-    [name]: value,
-  });
-};
+    const { name, value } = e.target;
 
+    if (name === 'meetingStartTime' || name === 'meetingDuration') {
+      const updatedData = { ...rescheduleFormData, [name]: value };
 
+      if (name === 'meetingStartTime') {
+        const [date, time] = value.split('T');
+        updatedData.meetingDate = date;
+        updatedData.meetingStartTime = time;
+      } else if (name === 'meetingDuration') {
+        const startDateTime = new Date(`${rescheduleFormData.meetingDate}T${rescheduleFormData.meetingStartTime}`);
+        const meetingEndTime = new Date(startDateTime.getTime() + parseInt(value, 10) * 60 * 1000);
+        updatedData.meetingEndTime = meetingEndTime.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+      }
+
+      setRescheduleFormData(updatedData);
+    }
+  };
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -206,6 +223,13 @@ const Dashboard = () => {
   };
 
   const handleCloseModal = () => {
+    setRescheduleClicked(false);
+    setRescheduleFormData({
+      meetingStartTime: '',
+      meetingDuration: '',
+      meetingEndTime: '',
+      meetingDate: '',
+    });
     setSelectedAppointment(null);
     setSetRescheduleMode(false);
   };
@@ -213,7 +237,6 @@ const Dashboard = () => {
   const handleReschedule = async () => {
     setSetRescheduleMode(true);
     try {
-      // Update the appointment status to 'canceled' in the database
       const { data, error } = await supabase
         .from('events')
         .update({ status: 'rescheduled' })
@@ -223,15 +246,13 @@ const Dashboard = () => {
         throw error;
       }
 
-      console.log(`Successfully canceled appointment with ID ${selectedAppointment.id}`);
+      console.log(`Successfully rescheduled appointment with ID ${selectedAppointment.id}`);
 
-      // Update the local state to reflect the change
-      setAppointments((prevAppointments) => {
-        const updatedAppointments = prevAppointments.map((appointment) =>
+      setAppointments((prevAppointments) =>
+        prevAppointments.map((appointment) =>
           appointment.id === selectedAppointment.id ? { ...appointment, status: 'rescheduled' } : appointment
-        );
-        return updatedAppointments;
-      });
+        )
+      );
     } catch (error) {
       console.error('Error canceling appointment:', error.message);
     } finally {
@@ -241,7 +262,6 @@ const Dashboard = () => {
 
   const handleCancel = async () => {
     try {
-      // Update the appointment status to 'canceled' in the database
       const { data, error } = await supabase
         .from('events')
         .update({ status: 'canceled' })
@@ -253,13 +273,11 @@ const Dashboard = () => {
 
       console.log(`Successfully canceled appointment with ID ${selectedAppointment.id}`);
 
-      // Update the local state to reflect the change
-      setAppointments((prevAppointments) => {
-        const updatedAppointments = prevAppointments.map((appointment) =>
+      setAppointments((prevAppointments) =>
+        prevAppointments.map((appointment) =>
           appointment.id === selectedAppointment.id ? { ...appointment, status: 'canceled' } : appointment
-        );
-        return updatedAppointments;
-      });
+        )
+      );
     } catch (error) {
       console.error('Error canceling appointment:', error.message);
     } finally {
@@ -269,7 +287,6 @@ const Dashboard = () => {
 
   const handleComplete = async () => {
     try {
-      // Update the appointment status to 'completed' in the database
       const { data, error } = await supabase
         .from('events')
         .update({ status: 'completed' })
@@ -281,13 +298,11 @@ const Dashboard = () => {
 
       console.log(`Successfully completed appointment with ID ${selectedAppointment.id}`);
 
-      // Update the local state to reflect the change
-      setAppointments((prevAppointments) => {
-        const updatedAppointments = prevAppointments.map((appointment) =>
+      setAppointments((prevAppointments) =>
+        prevAppointments.map((appointment) =>
           appointment.id === selectedAppointment.id ? { ...appointment, status: 'completed' } : appointment
-        );
-        return updatedAppointments;
-      });
+        )
+      );
     } catch (error) {
       console.error('Error completing appointment:', error.message);
     } finally {
@@ -301,7 +316,6 @@ const Dashboard = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    
   };
 
 
