@@ -34,19 +34,30 @@ export async function addEvent(formData) {
         timeZone: 'Africa/Nairobi',
     },
     attendees: [
-    {
-      {"email": "ijepale@gmail.com"},
-      {"email": "jeimodoi@gmail.com"},
-    },
-  ],
+      {email: "ijepale@gmail.com"},
+      {email: "jeimodoi@gmail.com"},
+    ],
+
+     conferenceData: formData.meetingType === 'virtual' ? {
+      createRequest: {
+        requestId: Math.random().toString(36).substring(2), // Unique ID
+        conferenceSolutionKey: { type: "hangoutsMeet" }, // Use Google Meet
+      },
+    } : undefined,
   };
+
 
   // Insert the event
   try {
     const response = await calendar.events.insert({
       calendarId: 'primary',
       resource: event,
+      conferenceDataVersion: 1, // Required for conference data
     });
+
+    return response.data.id;
+
+    console.log(response.data.id)
 
   } catch (error) {
     console.error('Error creating event:', error.message);

@@ -1,13 +1,18 @@
 "use server"
+
 import { auth } from '@clerk/nextjs';
 import { google } from 'googleapis';
 import clerk from '@clerk/clerk-sdk-node';
+import { createClient } from '@supabase/supabase-js';
 
+const supabaseUrl = 'https://qnfoxdfnevcjxqpkjcwm.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuZm94ZGZuZXZjanhxcGtqY3dtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTY5OTk2MTE1OCwiZXhwIjoyMDE1NTM3MTU4fQ.-U2eC5IP7Xr6Uc4EXCKjXUIbJq9srz7pDf7b1UbYiJo';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 const SCOPES = ['https://www.googleapis.com/auth/calendar'];
 
-export async function rescheduleEvent(formData, eventId) {
-    const { userId } = auth(formData);
+export async function updateEvent(formData) {
+  const { userId } = auth(formData);
 
   // Retrieve the Google access token for the authenticated user
   const [oauthAccessToken] = await clerk.users.getUserOauthAccessToken(userId, 'oauth_google');
@@ -20,29 +25,51 @@ export async function rescheduleEvent(formData, eventId) {
   // Create a new calendar instance
   const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
+  // Fetch the Google event ID from the "events" table in Supabase
+  const { data, error } = await supabase
+    .from('events')
+    .select('google_event_id')
+    .eq('id', formData.eventId); // Use the event ID from formData
+
+  if (error) {
+    console.error('Error fetching Google event ID:', error.message);
+    return;
+  }
+
+  const googleEventId = data[0].google_event_id; // The Google event ID
+
+
+   const currentEventResponse = await calendar.events.get({
+    calendarId: 'primary',
+    eventId: googleEventId,
+  });
+
+  const currentEvent = currentEventResponse.data;
+
   // Define the updated event
-  const updatedEvent  = {
-    summary: `${formData.meetingAgenda} with ${formData.clientName} from ${formData.clientCompany}`,
-    description: `Scheduled meeting from ${formData.meetingStartTime} to ${formData.meetingEndTime}. Slot: ${formData.meetingSlotStartTime} - ${formData.meetingSlotEndTime}`,
-    location: formData.meetingVenueArea,
+  const event = {
+
+    ...currentEvent, 
+    description: `Scheduled meeting from ${formData.meetingStartTime} to ${formData.meetingEndTime}`,
     start: {
-        dateTime: `${formData.meetingDate}T${formData.meetingStartTime}:00+03:00`, // Replace with your start date and time
-        timeZone: 'Africa/Nairobi',
-        },
+      dateTime: `${formData.meetingDate}T${formData.meetingStartTime}:00+03:00`,
+      timeZone: 'Africa/Nairobi',
+    },
     end: {
-        dateTime: `${formData.meetingDate}T${formData.meetingEndTime}:00+03:00`, // Replace with your end date and time
-        timeZone: 'Africa/Nairobi',
-        },
+      dateTime: `${formData.meetingDate}T${formData.meetingEndTime}:00+03:00`,
+      timeZone: 'Africa/Nairobi',
+    },
   };
 
-  // Insert the event
+  // Update the event
   try {
-    const response = await calendar.events.insert({
+    const response = await calendar.events.update({
       calendarId: 'primary',
+      eventId: googleEventId, // Use the Google event ID
       resource: event,
     });
 
   } catch (error) {
-    console.error('Error creating event:', error.message);
+    console.error('Error updating event:', error.message);
   }
 }

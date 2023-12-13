@@ -3,6 +3,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { updateEvent } from './dashboard/reshedule';
+
 import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
 import 'react-tabs/style/react-tabs.css';
 import {
@@ -41,46 +43,52 @@ const Dashboard = () => {
   };
 
   const handleFinalReschedule = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('events')
-        .update({
-          meeting_start_time: rescheduleFormData.meetingStartTime,
-          meeting_duration: rescheduleFormData.meetingDuration,
-          meeting_end_time: rescheduleFormData.meetingEndTime,
-          meeting_date: rescheduleFormData.meetingDate,
-          status: 'rescheduled',
-        })
-        .eq('id', selectedAppointment.id);
+  try {
+    const { data, error } = await supabase
+      .from('events')
+      .update({
+        meeting_start_time: rescheduleFormData.meetingStartTime,
+        meeting_duration: rescheduleFormData.meetingDuration,
+        meeting_end_time: rescheduleFormData.meetingEndTime,
+        meeting_date: rescheduleFormData.meetingDate,
+        status: 'rescheduled',
+      })
+      .eq('id', selectedAppointment.id);
 
-      if (error) {
-        throw error;
-      }
-
-      console.log(`Successfully rescheduled appointment with ID ${selectedAppointment.id}`);
-
-      setAppointments((prevAppointments) =>
-        prevAppointments.map((appointment) =>
-          appointment.id === selectedAppointment.id
-            ? { ...appointment, ...rescheduleFormData, status: 'rescheduled' }
-            : appointment
-        )
-      );
-
-      setRescheduleClicked(false);
-      setRescheduleFormData({
-        meetingStartTime: '',
-        meetingDuration: '',
-        meetingEndTime: '',
-        meetingDate: '',
-      });
-      setSelectedAppointment(null);
-    } catch (error) {
-      console.error('Error rescheduling appointment:', error.message);
-    } finally {
-      handleCloseModal();
+    if (error) {
+      throw error;
     }
-  };
+
+    // Call updateEvent to update the event in Google Calendar
+    await updateEvent({
+      ...rescheduleFormData,
+      eventId: selectedAppointment.id, // Pass the event ID to updateEvent
+    });
+
+    console.log(`Successfully rescheduled appointment with ID ${selectedAppointment.id}`);
+
+    setAppointments((prevAppointments) =>
+      prevAppointments.map((appointment) =>
+        appointment.id === selectedAppointment.id
+          ? { ...appointment, ...rescheduleFormData, status: 'rescheduled' }
+          : appointment
+      )
+    );
+
+    setRescheduleClicked(false);
+    setRescheduleFormData({
+      meetingStartTime: '',
+      meetingDuration: '',
+      meetingEndTime: '',
+      meetingDate: '',
+    });
+    setSelectedAppointment(null);
+  } catch (error) {
+    console.error('Error rescheduling appointment:', error.message);
+  } finally {
+    handleCloseModal();
+  }
+};
 
   const renderRescheduleFields = () => {
     if (!isRescheduleClicked) {
@@ -312,11 +320,46 @@ const Dashboard = () => {
 
   const today = new Date().toISOString().split('T')[0];
 
-  const totalAppointmentsToday = appointments.filter((appointment) => appointment.meeting_date === today).length;
+  const totalAppointmentsToday = appointments.filter(
+  (appointment) => 
+    appointment.meeting_date === today && 
+    (appointment.status === 'upcoming' || appointment.status === 'rescheduled')
+).length;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
   };
+
+
+  const appointmentDetails = selectedAppointment
+    ? [
+      { label: 'Booking Date', value: selectedAppointment.booking_date },
+      { label: 'Booking Day', value: selectedAppointment.booking_day },
+      { label: 'Meeting ID', value: selectedAppointment.id, fillEmpty: true },
+      { label: '', value: '', fillEmpty: true, isGrey: true }, // Empty space
+      { label: 'Meeting Date', value: selectedAppointment.meeting_date },
+      { label: 'Meeting Day', value: selectedAppointment.meeting_day },
+      { label: 'Client Name', value: selectedAppointment.client_name },
+      { label: 'Client Company', value: selectedAppointment.client_company },
+      { label: 'Client Mobile', value: selectedAppointment.client_mobile },
+      { label: 'Meeting Venue Area', value: selectedAppointment.meeting_venue_area },
+      { label: '', value: '', fillEmpty: true, isGrey: true }, // Empty space
+      { label: 'Meeting Start Time', value: selectedAppointment.meeting_start_time },
+      { label: 'Meeting End Time', value: selectedAppointment.meeting_end_time },
+      { label: 'Meeting Type', value: selectedAppointment.meeting_type },
+      { label: 'Agenda', value: selectedAppointment.meeting_agenda },
+      { label: 'Status', value: selectedAppointment.status },
+      { label: '', value: '', fillEmpty: true, isGrey: true }, // Empty space
+      { label: 'BCL Attendee', value: selectedAppointment.bcl_attendee },
+      { label: 'BCL Attendee Mobile', value: selectedAppointment.bcl_attendee_mobile },
+      { label: 'Meeting Duration', value: `${selectedAppointment.meeting_duration} Minutes` },
+      { label: 'Venue Distance', value: selectedAppointment.venue_distance },
+      { label: 'Slot Start Time', value: selectedAppointment.meeting_slot_start_time },
+      { label: 'Meeting Slot End Time', value: selectedAppointment.meeting_slot_end_time },
+    ].map(item => ({ label: item.label.replace('', ''), value: item.value, fillEmpty: item.fillEmpty, isGrey: item.isGrey }))
+  : [];
+
+
 
 
   
@@ -331,51 +374,69 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <Tabs selectedIndex={activeTab} onSelect={tabIndex => setActiveTab(tabIndex)}>
-        <TabList>
-          <Tab>Upcoming</Tab>
-          <Tab>Rescheduled</Tab>
-          <Tab>Canceled</Tab>
-          <Tab>Completed</Tab>
-        </TabList>
+      <Tabs selectedIndex={activeTab} onSelect={tabIndex => setActiveTab(tabIndex)} style={{ width: '120%' }}>
+  <TabList>
+    <Tab>Upcoming</Tab>
+    <Tab>Pending</Tab>
+    <Tab>Canceled</Tab>
+    <Tab>Completed</Tab>
+  </TabList>
 
-        {[appointments.filter(appointment => appointment.status === 'upcoming' || appointment.status === 'rescheduled'),
-          appointments.filter(appointment => appointment.status === 'rescheduled'),
-          appointments.filter(appointment => appointment.status === 'canceled'),
-          appointments.filter(appointment => appointment.status === 'completed')].map((filteredAppointments, index) => (
-            <TabPanel key={index}>
-              <Table>
-                <TableCaption>{`List of ${filteredAppointments.length} appointments`}</TableCaption>
-                <TableHeader>
-                  <TableRow>
-                    <TableCell>ID</TableCell>
-                    <TableCell>Client Name</TableCell>
-                    <TableCell>Date</TableCell>
-                    <TableCell>Start Time</TableCell>
-                    <TableCell>End Time</TableCell>
-                    <TableCell>Type</TableCell>
-                    <TableCell>Agenda</TableCell>
-                    <TableCell>Status</TableCell>
+  {[appointments.filter(appointment => appointment.status === 'upcoming' || appointment.status === 'rescheduled'),
+    appointments.filter(appointment => appointment.status === 'pending'),
+    appointments.filter(appointment => appointment.status === 'canceled'),
+    appointments.filter(appointment => appointment.status === 'completed')].map((filteredAppointments, index) => (
+      <TabPanel key={index}>
+        <Table style={{ borderCollapse: 'collapse', width: '100%', border: '1px solid #ddd' }}>
+          <TableCaption>{`List of ${filteredAppointments.length} appointments`}</TableCaption>
+          <TableHeader>
+            <TableRow>
+              <TableCell style={{ fontWeight: 'bold' }}>Meeting ID</TableCell>
+              <TableCell style={{ fontWeight: 'bold' }}>Meeting Date</TableCell>
+              <TableCell style={{ fontWeight: 'bold' }}>Meeting Day</TableCell>
+              <TableCell style={{ fontWeight: 'bold' }}>Client Name</TableCell>
+              <TableCell style={{ fontWeight: 'bold' }}>Company</TableCell>
+              <TableCell style={{ fontWeight: 'bold' }}>Venue</TableCell>
+              <TableCell style={{ fontWeight: 'bold' }}>Start Time</TableCell>
+              <TableCell style={{ fontWeight: 'bold' }}>End Time</TableCell>
+              <TableCell style={{ fontWeight: 'bold' }}>Meeting Type</TableCell>
+              <TableCell style={{ fontWeight: 'bold' }}>Agenda</TableCell>
+              <TableCell style={{ fontWeight: 'bold' }}>Status</TableCell>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredAppointments
+              .sort((a, b) => new Date(b.meeting_date) - new Date(a.meeting_date))
+              .map((appointment, index, array) => (
+                <React.Fragment key={appointment.id}>
+                  <TableRow onClick={() => handleAppointmentClick(appointment)}>
+                    <TableCell>{appointment.id}</TableCell>
+                    <TableCell>{new Date(appointment.meeting_date).toLocaleDateString('en-GB')}</TableCell>
+                    <TableCell className="text-blue-500">{appointment.meeting_day}</TableCell>
+                    <TableCell>{appointment.client_name}</TableCell>
+                    <TableCell>{appointment.client_company}</TableCell>
+                    <TableCell>{appointment.meeting_venue_area}</TableCell>
+                    <TableCell className="text-blue-500">{appointment.meeting_start_time}</TableCell>
+                    <TableCell className="text-blue-800">{appointment.meeting_end_time}</TableCell>
+                    <TableCell>{appointment.meeting_type}</TableCell>
+                    <TableCell>{appointment.meeting_agenda}</TableCell>
+                    <TableCell>{appointment.status}</TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredAppointments.map(appointment => (
-                    <TableRow key={appointment.id} onClick={() => handleAppointmentClick(appointment)}>
-                      <TableCell>{appointment.id}</TableCell>
-                      <TableCell>{appointment.client_name}</TableCell>
-                      <TableCell>{appointment.meeting_date}</TableCell>
-                      <TableCell>{appointment.meeting_start_time}</TableCell>
-                      <TableCell>{appointment.meeting_end_time}</TableCell>
-                      <TableCell>{appointment.meeting_type}</TableCell>
-                      <TableCell>{appointment.meeting_agenda}</TableCell>
-                      <TableCell>{appointment.status}</TableCell>
+                  {index < array.length - 1 && appointment.meeting_day !== array[index + 1].meeting_day && (
+                    <TableRow className="bg-blue-200">
+                      <TableCell colSpan={11}></TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TabPanel>
-          ))}
-      </Tabs>
+                  )}
+                </React.Fragment>
+              ))}
+          </TableBody>
+        </Table>
+      </TabPanel>
+    ))}
+</Tabs>
+
+
+
 
       {selectedAppointment && (
         <div className="fixed z-10 inset-0 overflow-y-auto">
@@ -392,25 +453,19 @@ const Dashboard = () => {
                       Appointment Details for {selectedAppointment.client_name}
                     </h3>
                     <div className="mt-2">
-                      <p className="text-sm text-gray-600">Client Name: {selectedAppointment.client_name}</p>
-                      <p className="text-sm text-gray-600">Date:{selectedAppointment.meeting_day}, {selectedAppointment.meeting_date}</p>
-                      <p className="text-sm text-gray-600"> Meeting Time : {selectedAppointment.meeting_start_time} - {selectedAppointment.meeting_end_time}</p>
-                      <p className="text-sm text-gray-600">Meeting Type: {selectedAppointment.meeting_type}</p>
-                      <p className="text-sm text-gray-600">Agenda: {selectedAppointment.meeting_agenda}</p>
-                      <p className="text-sm text-gray-600">Status: {selectedAppointment.status}</p>
-                      <p className="text-sm text-gray-600">Booking Date: {selectedAppointment.booking_date}</p>
-                      <p className="text-sm text-gray-600">Booking Day: {selectedAppointment.booking_day}</p>
-                      <p className="text-sm text-gray-600">Meeting Venue Area: {selectedAppointment.meeting_venue_area}</p>
-                      <p className="text-sm text-gray-600">Client Company: {selectedAppointment.client_company}</p>
-                      <p className="text-sm text-gray-600">Client Mobile: {selectedAppointment.client_mobile}</p>
-                      <p className="text-sm text-gray-600">BCL Attendee: {selectedAppointment.bcl_attendee}</p>
-                      <p className="text-sm text-gray-600">BCL Attendee Mobile: {selectedAppointment.bcl_attendee_mobile}</p>
-                      <p className="text-sm text-gray-600">Meeting Duration: {selectedAppointment.meeting_duration} Minutes</p>
-                      <p className="text-sm text-gray-600">Venue Distance: {selectedAppointment.venue_distance} Minutes</p>
-                      <p className="text-sm text-gray-600">Meeting Slot Start Time: {selectedAppointment.meeting_slot_start_time}</p>
-                      <p className="text-sm text-gray-600">Meeting Slot End Time: {selectedAppointment.meeting_slot_end_time}</p>
-                      <p>  </p>
-                      <p>  </p>
+                      <Table style={{ borderCollapse: 'collapse', width: '100%', border: '1px solid #ddd' }}>
+                        <TableBody>
+                          {appointmentDetails.map((detail, index) => (
+                            <TableRow key={index} style={{ borderBottom: '1px solid #ddd', backgroundColor: detail.isGrey ? '#f2f2f2' : 'white' }}>
+                              <TableCell style={{ padding: '8px', borderRight: '1px solid #ddd' }}>
+                                <strong>{detail.label}</strong>
+                              </TableCell>
+                              <TableCell style={{ padding: '8px' }}>{detail.value}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+
                     </div>
 
                     {isRescheduleClicked && renderRescheduleFields()}

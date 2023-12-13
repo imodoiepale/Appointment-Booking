@@ -10,13 +10,16 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const Page = () => {
+
+    const [showOtherMeetingVenueInput, setShowOtherMeetingVenueInput] = useState(false);
+
     const [formData, setFormData] = useState({
         bookingDate: '',
         bookingDay: '',
         meetingDate: '',
         meetingDay: '',
         meetingType: '',
-        meetingVenueArea: 'BCL Boardroom',
+        meetingVenueArea: 'BCL BR',
         clientName: '',
         clientCompany: '',
         clientMobile: '',
@@ -159,6 +162,7 @@ const Page = () => {
         setShowOtherMeetingVenueInput(false);
     }
 
+
     if (name === 'meetingVenueArea') {
         // Update meetingVenueArea based on user input or default value
         setFormData((prevFormData) => ({
@@ -258,9 +262,11 @@ const Page = () => {
         return endTime;
   };
   
-    
-const handleSubmit = async (e) => {
+    const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Call addEvent and get the event ID
+    const eventId = await addEvent(formData);
 
     // Check for empty fields
     const emptyFields = Object.entries(formData).filter(([key, value]) => {
@@ -276,7 +282,6 @@ const handleSubmit = async (e) => {
     }
 
     setFormStatus('submitting');
-
 
     try {
         // Insert form data into the "events" table
@@ -301,14 +306,13 @@ const handleSubmit = async (e) => {
                 meeting_slot_start_time: formData.meetingSlotStartTime,
                 meeting_slot_end_time: formData.meetingSlotEndTime,
                 status: 'upcoming',
+                google_event_id: eventId, // Use the event ID from Google Calendar
             },
         ]);
 
         if (error) {
             throw error;
         }
-        addEvent(formData);
-        
 
         // Reset error state after successful submission
         setInvalidFields([]);
@@ -327,6 +331,7 @@ const handleSubmit = async (e) => {
         setFormStatus('error');
     }
 };
+
 
 
     return (
