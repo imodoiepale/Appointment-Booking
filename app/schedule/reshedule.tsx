@@ -7,7 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 
 
 interface FormData {
-  eventId: string;
+  eventId: number;
   meetingStartTime: string;
   meetingEndTime: string;
   meetingDate: string;

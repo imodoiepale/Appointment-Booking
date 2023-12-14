@@ -318,7 +318,7 @@ const handleCancel = async () => {
     if (!selectedAppointment) {
       throw new Error('No appointment selected for cancellation.');
     }
-
+// @ts-ignore
     await cancelEvent(selectedAppointment)
 
     const { data, error } = await supabase
@@ -334,6 +334,7 @@ const handleCancel = async () => {
 
     // Check if selectedAppointment is not null before calling cancelEvent
     if (selectedAppointment) {
+      // @ts-ignore
       await cancelEvent(selectedAppointment);
 
       setAppointments((prevAppointments) =>
