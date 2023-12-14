@@ -103,7 +103,7 @@ const Page = () => {
     };
 
 
-    const calculateSlotTime = (baseTime, minutesToAdd) => {
+    const calculateSlotTime = (baseTime: string, minutesToAdd: number): string => {
         const [hours, minutes] = baseTime.split(':');
         const baseDate = new Date();
         baseDate.setHours(hours, minutes);
@@ -195,7 +195,7 @@ const Page = () => {
 
     const [formStatus, setFormStatus] = useState('idle');
 
-    const fetchClientDetails = async (clientCompanyName) => {
+    const fetchClientDetails = async (clientCompanyName:string) => {
         try {
             // Fetch client details from Supabase based on the selected client company
             const { data, error } = await supabase
@@ -253,7 +253,7 @@ const Page = () => {
         handleMeetingEndTimeChange({ target: { value: meetingEndTime } });
     };
 
-    const calculateEndTime = (startTime, duration) => {
+    const calculateEndTime = (startTime: string, duration: string): string => {
         const [startHour, startMinute] = startTime.split(':');
         let totalMinutes = parseInt(startHour) * 60 + parseInt(startMinute) + duration;
 
