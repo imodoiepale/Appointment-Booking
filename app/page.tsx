@@ -248,7 +248,8 @@ const Dashboard = () => {
           throw error;
         }
 
-        setAppointments(data ?? []);
+        setAppointments((data ?? []).sort((a, b) => new Date(b.meeting_date).getTime() - new Date(a.meeting_date).getTime()));
+
       } catch (error: any) {
         console.error('Error fetching events:', error.message);
       } finally {
