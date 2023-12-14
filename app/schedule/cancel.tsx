@@ -13,7 +13,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const SCOPES = ['https://www.googleapis.com/auth/calendar'];
 
 interface FormData {
-  eventId:string,
+  id:string,
   meetingAgenda: string;
   clientName: string;
   clientCompany: string;
@@ -55,7 +55,7 @@ export async function cancelEvent(selectedAppointment: FormData): Promise<string
   const { data, error } = await supabase
     .from('events')
     .select('id, google_event_id')
-    .eq('id', selectedAppointment.eventId);
+    .eq('id', selectedAppointment.id);
 
 
     console.log('Supabase data:', data);
