@@ -21,6 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { cancelEvent } from './schedule/cancel';
 
 const supabaseUrl = 'https://qnfoxdfnevcjxqpkjcwm.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuZm94ZGZuZXZjanhxcGtqY3dtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTY5OTk2MTE1OCwiZXhwIjoyMDE1NTM3MTU4fQ.-U2eC5IP7Xr6Uc4EXCKjXUIbJq9srz7pDf7b1UbYiJo';
@@ -200,7 +201,7 @@ const Dashboard = () => {
     );
   };
 
-  const handleRescheduleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleRescheduleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
 
     if (name === 'meetingStartTime' || name === 'meetingDuration') {
@@ -219,6 +220,7 @@ const Dashboard = () => {
       setRescheduleFormData(updatedData);
     }
   };
+
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -246,9 +248,10 @@ const Dashboard = () => {
     return <p>Loading...</p>;
   }
 
-  const handleAppointmentClick = (appointment :string) => {
+  const handleAppointmentClick = (appointment: Appointment | null) => {
     setSelectedAppointment(appointment);
   };
+
 
   const handleCloseModal = () => {
     setRescheduleClicked(false);
@@ -263,80 +266,102 @@ const Dashboard = () => {
   };
 
   const handleReschedule = async () => {
-    setSetRescheduleMode(true);
-    try {
-      const { data, error } = await supabase
-        .from('events')
-        .update({ status: 'rescheduled' })
-        .eq('id', selectedAppointment.id);
+  setSetRescheduleMode(true);
 
-      if (error) {
-        throw error;
-      }
-
-      console.log(`Successfully rescheduled appointment with ID ${selectedAppointment.id}`);
-
-      setAppointments((prevAppointments) =>
-        prevAppointments.map((appointment) =>
-          appointment.id === selectedAppointment.id ? { ...appointment, status: 'rescheduled' } : appointment
-        )
-      );
-    } catch (error: any) {
-      console.error('Error canceling appointment:', error.message);
-    } finally {
-      handleCloseModal();
+  try {
+    // Check if selectedAppointment is null
+    if (!selectedAppointment) {
+      throw new Error('No appointment selected for rescheduling.');
     }
-  };
 
-  const handleCancel = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('events')
-        .update({ status: 'canceled' })
-        .eq('id', selectedAppointment.id);
+    const { data, error } = await supabase
+      .from('events')
+      .update({ status: 'rescheduled' })
+      .eq('id', selectedAppointment.id);
 
-      if (error) {
-        throw error;
-      }
+    if (error) {
+      throw error;
+    }
 
-      console.log(`Successfully canceled appointment with ID ${selectedAppointment.id}`);
+    console.log(`Successfully rescheduled appointment with ID ${selectedAppointment.id}`);
+
+    setAppointments((prevAppointments) =>
+      prevAppointments.map((appointment) =>
+        appointment.id === selectedAppointment.id ? { ...appointment, status: 'rescheduled' } : appointment
+      )
+    );
+  } catch (error: any) {
+    console.error('Error rescheduling appointment:', error.message);
+  } finally {
+    handleCloseModal();
+  }
+};
+
+const handleCancel = async () => {
+  try {
+    // Check if selectedAppointment is null
+    if (!selectedAppointment) {
+      throw new Error('No appointment selected for cancellation.');
+    }
+
+    const { data, error } = await supabase
+      .from('events')
+      .update({ status: 'canceled' })
+      .eq('id', selectedAppointment.id);
+
+    if (error) {
+      throw error;
+    }
+
+    console.log(`Successfully canceled appointment with ID ${selectedAppointment.id}`);
+
+    // Check if selectedAppointment is not null before calling cancelEvent
+    if (selectedAppointment) {
+      await cancelEvent(selectedAppointment);
 
       setAppointments((prevAppointments) =>
         prevAppointments.map((appointment) =>
           appointment.id === selectedAppointment.id ? { ...appointment, status: 'canceled' } : appointment
         )
       );
-    } catch (error: any) {
-      console.error('Error canceling appointment:', error.message);
-    } finally {
-      handleCloseModal();
     }
-  };
+  } catch (error: any) {
+    console.error('Error canceling appointment:', error.message);
+  } finally {
+    handleCloseModal();
+  }
+};
 
-  const handleComplete = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('events')
-        .update({ status: 'completed' })
-        .eq('id', selectedAppointment.id);
-
-      if (error) {
-        throw error;
-      }
-
-      console.log(`Successfully completed appointment with ID ${selectedAppointment.id}`);
-
-      setAppointments((prevAppointments) =>
-        prevAppointments.map((appointment) =>
-          appointment.id === selectedAppointment.id ? { ...appointment, status: 'completed' } : appointment
-        )
-      );
-    } catch (error: any) {
-      console.error('Error completing appointment:', error.message);
-    } finally {
-      handleCloseModal();
+const handleComplete = async () => {
+  try {
+    // Check if selectedAppointment is null
+    if (!selectedAppointment) {
+      throw new Error('No appointment selected for completion.');
     }
-  };
+
+    const { data, error } = await supabase
+      .from('events')
+      .update({ status: 'completed' })
+      .eq('id', selectedAppointment.id);
+
+    if (error) {
+      throw error;
+    }
+
+    console.log(`Successfully completed appointment with ID ${selectedAppointment.id}`);
+
+    setAppointments((prevAppointments) =>
+      prevAppointments.map((appointment) =>
+        appointment.id === selectedAppointment.id ? { ...appointment, status: 'completed' } : appointment
+      )
+    );
+  } catch (error: any) {
+    console.error('Error completing appointment:', error.message);
+  } finally {
+    handleCloseModal();
+  }
+};
+
 
   const today = new Date().toISOString().split('T')[0];
 
