@@ -24,8 +24,12 @@ const SCOPES = ['https://www.googleapis.com/auth/calendar'];
 export async function addEvent(formData: FormData): Promise<string | undefined> {
   const { userId } = auth();
 
-  // Retrieve the Google access token for the authenticated user
   const [oauthAccessToken] = await clerk.users.getUserOauthAccessToken(userId, 'oauth_google');
+
+  if (!oauthAccessToken || !oauthAccessToken.token) {
+    throw new Error('User oauthAccessToken is null, undefined, or missing the token property.');
+  }
+
   const { token } = oauthAccessToken;
 
   // Create a new OAuth2 client with the Google access token
@@ -66,14 +70,21 @@ export async function addEvent(formData: FormData): Promise<string | undefined> 
   try {
     const response = await calendar.events.insert({
       calendarId: 'primary',
-      resource: event,
+      requestBody: event,
       conferenceDataVersion: 1,
     });
 
-    console.log(response.data.id);
-    return response.data.id;
-  } catch (error) {
+    const eventId = response.data.id;
+    if (eventId) {
+      console.log(eventId);
+      return eventId;
+    } else {
+      console.error('Error: Event ID is null or undefined.');
+      return undefined;
+    }
+  } catch (error:any) {
     console.error('Error creating event:', error.message);
     return undefined;
   }
+
 }

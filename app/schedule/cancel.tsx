@@ -14,11 +14,15 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const SCOPES = ['https://www.googleapis.com/auth/calendar'];
 
 
-export async function cancelEvent(formData) {
-  const { userId } = auth(formData);
+export async function cancelEvent(formData:any) {
+ const { userId } = auth();
 
-  // Retrieve the Google access token for the authenticated user
   const [oauthAccessToken] = await clerk.users.getUserOauthAccessToken(userId, 'oauth_google');
+
+  if (!oauthAccessToken || !oauthAccessToken.token) {
+    throw new Error('User oauthAccessToken is null, undefined, or missing the token property.');
+  }
+
   const { token } = oauthAccessToken;
 
   // Create a new OAuth2 client with the Google access token
@@ -49,7 +53,7 @@ export async function cancelEvent(formData) {
     });
 
     console.log('Event deleted successfully');
-  } catch (error) {
+  } catch (error:any) {
     console.error('Error deleting event:', error.message);
   }
 }
