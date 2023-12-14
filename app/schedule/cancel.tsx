@@ -13,7 +13,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const SCOPES = ['https://www.googleapis.com/auth/calendar'];
 
 interface FormData {
-eventId:string,
+  eventId:string,
   meetingAgenda: string;
   clientName: string;
   clientCompany: string;
@@ -26,7 +26,7 @@ eventId:string,
   clientEmail: string;
   meetingType: string;
 }
-export async function cancelEvent(formData: FormData): Promise<string | undefined> {
+export async function cancelEvent(selectedAppointment: FormData): Promise<string | undefined> {
    const { userId } = auth();
 
   if (userId === null) {
@@ -42,6 +42,7 @@ export async function cancelEvent(formData: FormData): Promise<string | undefine
 
   const { token } = oauthAccessToken;
 
+
   // Create a new OAuth2 client with the Google access token
   const oauth2Client = new google.auth.OAuth2();
   oauth2Client.setCredentials({ access_token: token });
@@ -53,7 +54,8 @@ export async function cancelEvent(formData: FormData): Promise<string | undefine
   // Fetch the Google event ID from the "events" table in Supabase
   const { data, error } = await supabase
     .from('events')
-    .select('id, google_event_id');
+    .select('id, google_event_id')
+    .eq('id', selectedAppointment.eventId);
 
 
     console.log('Supabase data:', data);
@@ -64,6 +66,8 @@ export async function cancelEvent(formData: FormData): Promise<string | undefine
     return;
   }
 
+  const supabaseEventId = data[0]?.id;
+  console.log(supabaseEventId)
   const googleEventId = data[0]?.google_event_id;
 
   // Delete the event
