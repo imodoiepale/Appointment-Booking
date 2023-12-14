@@ -51,7 +51,7 @@ const Page = () => {
         }));
     }, []);
 
-    const handleMeetingDateChange = (date) => {
+    const handleMeetingDateChange = (date: Date) => {
         setFormData({
             ...formData,
             meetingDate: date.toISOString().split('T')[0],
