@@ -136,13 +136,17 @@ interface formData {
 
 
 
-    const calculateSlotTime = (baseTime: string, minutesToAdd: number): string => {
-        const [hours, minutes] = baseTime.split(':');
-        const baseDate = new Date();
-        baseDate.setHours(hours, minutes);
-        const slotDate = new Date(baseDate.getTime() + minutesToAdd * 60000);
-        return slotDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    };
+    const calculateSlotTime = (baseTime: string, minutesToAdd: number) => {
+    const [hours, minutes] = baseTime.split(':').map(Number); // Convert to numbers
+
+    const baseDate = new Date();
+    baseDate.setHours(hours, minutes);
+
+    const slotDate = new Date(baseDate.getTime() + minutesToAdd * 60000);
+
+    return slotDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+};
+
 
     const [companyOptions, setCompanyOptions] = useState([]);
     const [loadingCompanies, setLoadingCompanies] = useState(true);
@@ -163,18 +167,25 @@ interface formData {
     }, [formData]);
 
     const fetchCompanies = async () => {
-        try {
-            // Fetch companies from your Supabase database
-            const response = await supabase.from('clients').select('name');
+    try {
+        // Fetch companies from your Supabase database
+        const response = await supabase.from('clients').select('name');
+        
+        if (response.data !== null) {
             const companies = response.data.map((company) => company.name);
 
             // Add "Other" as the first option
             setCompanyOptions(['Select Company', ...companies]);
             setLoadingCompanies(false);
-        } catch (error) {
-            console.error('Error fetching companies:', error.message);
+        } else {
+            // Handle the case where response.data is null
+            console.error('Error fetching companies: Response data is null');
         }
-    };
+    } catch (error) {
+        console.error('Error fetching companies:', error.message);
+    }
+};
+
 
    const handleChange = (e: ChangeEvent<HTMLSelectElement>) => {
     const { name, value } = e.target;
