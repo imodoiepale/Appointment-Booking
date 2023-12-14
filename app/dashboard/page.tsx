@@ -118,14 +118,22 @@ interface formData {
 
     const handleMeetingEndTimeChange = (e: ChangeEvent<HTMLSelectElement>) => {
         const endTime = e.target.value;
-        const slotEndTime = calculateSlotTime(endTime, formData.venueDistance);
+        const venueDistanceAsNumber = parseFloat(formData.venueDistance);
 
-        setFormData((prevFormData) => ({
-            ...prevFormData,
-            meetingEndTime: endTime,
-            meetingSlotEndTime: slotEndTime,
-        }));
+        if (!isNaN(venueDistanceAsNumber)) {
+            const slotEndTime = calculateSlotTime(endTime, venueDistanceAsNumber);
+
+            setFormData((prevFormData) => ({
+                ...prevFormData,
+                meetingEndTime: endTime,
+                meetingSlotEndTime: slotEndTime,
+            }));
+        } else {
+            // Handle the case where formData.venueDistance is not a valid number
+            console.error('Invalid venueDistance:', formData.venueDistance);
+        }
     };
+
 
 
     const calculateSlotTime = (baseTime: string, minutesToAdd: number): string => {
