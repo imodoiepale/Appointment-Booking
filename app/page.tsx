@@ -74,7 +74,7 @@ const Dashboard = () => {
         })
         .eq('id', selectedAppointment.id);
 
-      if (error) {
+      if (error: any) {
         throw error;
       }
 
@@ -102,7 +102,7 @@ const Dashboard = () => {
         meetingDate: '',
       });
       setSelectedAppointment(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error rescheduling appointment:', error.message);
     } finally {
       handleCloseModal();
@@ -227,12 +227,12 @@ const Dashboard = () => {
           .from('events')
           .select('*');
 
-        if (error) {
+        if (error: any) {
           throw error;
         }
 
         setAppointments(data ?? []);
-      } catch (error) {
+      } catch (error: any: any) {
         console.error('Error fetching events:', error.message);
       } finally {
         setLoading(false);
@@ -270,7 +270,7 @@ const Dashboard = () => {
         .update({ status: 'rescheduled' })
         .eq('id', selectedAppointment.id);
 
-      if (error) {
+      if (error: any) {
         throw error;
       }
 
@@ -281,7 +281,7 @@ const Dashboard = () => {
           appointment.id === selectedAppointment.id ? { ...appointment, status: 'rescheduled' } : appointment
         )
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error canceling appointment:', error.message);
     } finally {
       handleCloseModal();
@@ -295,7 +295,7 @@ const Dashboard = () => {
         .update({ status: 'canceled' })
         .eq('id', selectedAppointment.id);
 
-      if (error) {
+      if (error: any) {
         throw error;
       }
 
@@ -306,7 +306,7 @@ const Dashboard = () => {
           appointment.id === selectedAppointment.id ? { ...appointment, status: 'canceled' } : appointment
         )
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error canceling appointment:', error.message);
     } finally {
       handleCloseModal();
@@ -320,7 +320,7 @@ const Dashboard = () => {
         .update({ status: 'completed' })
         .eq('id', selectedAppointment.id);
 
-      if (error) {
+      if (error: any) {
         throw error;
       }
 
@@ -331,7 +331,7 @@ const Dashboard = () => {
           appointment.id === selectedAppointment.id ? { ...appointment, status: 'completed' } : appointment
         )
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error completing appointment:', error.message);
     } finally {
       handleCloseModal();
