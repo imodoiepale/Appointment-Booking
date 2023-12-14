@@ -13,6 +13,29 @@ const supabaseUrl = 'https://qnfoxdfnevcjxqpkjcwm.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuZm94ZGZuZXZjanhxcGtqY3dtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTY5OTk2MTE1OCwiZXhwIjoyMDE1NTM3MTU4fQ.-U2eC5IP7Xr6Uc4EXCKjXUIbJq9srz7pDf7b1UbYiJo';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+interface FormData {
+  bookingDate: string;
+  bookingDay: string;
+  meetingDate: string;
+  meetingDay: string;
+  meetingType: string;
+  meetingVenueArea: string;
+  clientName: string;
+  clientCompany: string;
+  clientMobile: string;
+  clientEmail: string;
+  companyType: string;
+  bclAttendee: string;
+  bclAttendeeMobile: string;
+  meetingAgenda: string;
+  meetingDuration: string;
+  venueDistance: string;
+  meetingStartTime: string;
+  meetingEndTime: string;
+  meetingSlotStartTime: string;
+  meetingSlotEndTime: string;
+}
+
 const Page = () => {
 
     const [showOtherMeetingVenueInput, setShowOtherMeetingVenueInput] = useState(false);
