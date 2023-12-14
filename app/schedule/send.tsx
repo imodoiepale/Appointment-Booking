@@ -22,7 +22,12 @@ interface FormData {
 const SCOPES = ['https://www.googleapis.com/auth/calendar'];
 
 export async function addEvent(formData: FormData): Promise<string | undefined> {
-  const { userId } = auth();
+   const { userId } = auth();
+
+  if (userId === null) {
+    console.error('User is not authenticated.');
+    return undefined;
+  }
 
   const [oauthAccessToken] = await clerk.users.getUserOauthAccessToken(userId, 'oauth_google');
 
@@ -40,7 +45,7 @@ export async function addEvent(formData: FormData): Promise<string | undefined> 
   const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
   // Define the event
-  const event: google.calendar_v3.Schema.Event = {
+  const event= {
     summary: `${formData.meetingAgenda} with ${formData.clientName} from ${formData.clientCompany}`,
     description: `Scheduled meeting from ${formData.meetingStartTime} to ${formData.meetingEndTime}. Slot: ${formData.meetingSlotStartTime} - ${formData.meetingSlotEndTime}`,
     location: formData.meetingVenueArea,

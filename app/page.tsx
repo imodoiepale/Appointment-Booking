@@ -319,6 +319,8 @@ const handleCancel = async () => {
       throw new Error('No appointment selected for cancellation.');
     }
 
+    await cancelEvent(selectedAppointment)
+
     const { data, error } = await supabase
       .from('events')
       .update({ status: 'canceled' })
