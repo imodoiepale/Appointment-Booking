@@ -439,7 +439,7 @@ const handleComplete = async () => {
       <Tabs selectedIndex={activeTab} onSelect={tabIndex => setActiveTab(tabIndex)} style={{ width: '100%' }}>
         <TabList>
           <Tab>Upcoming</Tab>
-          <Tab>Pending</Tab>
+          <Tab>To be Rescheduled</Tab>
           <Tab>Canceled</Tab>
           <Tab>Completed</Tab>
         </TabList>
