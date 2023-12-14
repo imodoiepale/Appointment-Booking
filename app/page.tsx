@@ -39,7 +39,7 @@ const Dashboard = () => {
 }
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [activeTab, setActiveTab] = useState(0);
 
   const [isRescheduleClicked, setRescheduleClicked] = useState(false);
@@ -246,7 +246,7 @@ const Dashboard = () => {
     return <p>Loading...</p>;
   }
 
-  const handleAppointmentClick = (appointment) => {
+  const handleAppointmentClick = (appointment :string):string => {
     setSelectedAppointment(appointment);
   };
 
@@ -384,8 +384,7 @@ const Dashboard = () => {
 
   
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Dashboard</h1>
+    <div className="p-2">
 
       <div className="fixed right-0 top-20 m-6">
         <div className="animate-bounce bg-white shadow-lg rounded-lg p-6 w-24 h-24 flex items-center justify-center flex-col">
