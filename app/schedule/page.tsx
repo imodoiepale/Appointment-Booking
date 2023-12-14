@@ -1,6 +1,5 @@
 "use client"
-// @ts-nocheck
-// @ts-ignore
+
 
 import React, { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
@@ -182,7 +181,7 @@ interface formData {
             // Handle the case where response.data is null
             console.error('Error fetching companies: Response data is null');
         }
-    } catch (error) {
+    } catch (error:any) {
         console.error('Error fetching companies:', error.message);
     }
 };

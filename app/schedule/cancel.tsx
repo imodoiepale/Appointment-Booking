@@ -4,7 +4,6 @@ import { auth } from '@clerk/nextjs';
 import { google } from 'googleapis';
 import clerk from '@clerk/clerk-sdk-node';
 import { createClient } from '@supabase/supabase-js';
-import { ChangeEvent } from 'react';
 
 
 const supabaseUrl = 'https://qnfoxdfnevcjxqpkjcwm.supabase.co';
@@ -13,13 +12,26 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 const SCOPES = ['https://www.googleapis.com/auth/calendar'];
 
+interface FormData {
+eventId:string,
+  meetingAgenda: string;
+  clientName: string;
+  clientCompany: string;
+  meetingStartTime: string;
+  meetingEndTime: string;
+  meetingSlotStartTime: string;
+  meetingSlotEndTime: string;
+  meetingDate: string;
+  meetingVenueArea: string;
+  clientEmail: string;
+  meetingType: string;
+}
+export async function cancelEvent(formData: FormData): Promise<string | undefined> {
+   const { userId } = auth();
 
-export async function cancelEvent(formData:any) {
-    const { userId } = auth();
-    
-    if (userId === null) {
+  if (userId === null) {
     console.error('User is not authenticated.');
-    return undefined; // or handle it in your way
+    return undefined;
   }
 
   const [oauthAccessToken] = await clerk.users.getUserOauthAccessToken(userId, 'oauth_google');
@@ -37,18 +49,22 @@ export async function cancelEvent(formData:any) {
   // Create a new calendar instance
   const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
+
   // Fetch the Google event ID from the "events" table in Supabase
   const { data, error } = await supabase
     .from('events')
-    .select('google_event_id')
-    .eq('id', formData.eventId); // Use the event ID from formData
+    .select('id, google_event_id');
+
+
+    console.log('Supabase data:', data);
+
 
   if (error) {
     console.error('Error fetching Google event ID:', error.message);
     return;
   }
 
-  const googleEventId = data[0].google_event_id; // The Google event ID
+  const googleEventId = data[0]?.google_event_id;
 
   // Delete the event
   try {
@@ -58,7 +74,7 @@ export async function cancelEvent(formData:any) {
     });
 
     console.log('Event deleted successfully');
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('Error deleting event:', error.message);
   }
 }
