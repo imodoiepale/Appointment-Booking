@@ -181,7 +181,7 @@ const Dashboard = () => {
     );
   };
 
-  const handleRescheduleInputChange = (e) => {
+  const handleRescheduleInputChange = (e: ChangeEvent<HTMLSelectElement>) => {
     const { name, value } = e.target;
 
     if (name === 'meetingStartTime' || name === 'meetingDuration') {
@@ -327,7 +327,7 @@ const Dashboard = () => {
     (appointment.status === 'upcoming' || appointment.status === 'rescheduled')
 ).length;
 
-  const handleChange = (e) => {
+  const handleChange = (e: ChangeEvent<HTMLSelectElement>) => {
     const { name, value } = e.target;
   };
 

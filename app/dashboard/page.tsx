@@ -80,7 +80,7 @@ const Page = () => {
     };
 
 
-    const handleMeetingStartTimeChange = (e) => {
+    const handleMeetingStartTimeChange = (e: ChangeEvent<HTMLSelectElement>) => {
         const startTime = e.target.value;
         setFormData({
             ...formData,
@@ -89,7 +89,7 @@ const Page = () => {
         });
     };
 
-    const handleMeetingEndTimeChange = (e) => {
+    const handleMeetingEndTimeChange = (e: ChangeEvent<HTMLSelectElement>) => {
         const endTime = e.target.value;
         const slotEndTime = calculateSlotTime(endTime, formData.venueDistance);
 
@@ -141,7 +141,7 @@ const Page = () => {
         }
     };
 
-   const handleChange = (e) => {
+   const handleChange = (e: ChangeEvent<HTMLSelectElement>) => {
     const { name, value } = e.target;
 
     if (name === 'companyType') {
@@ -226,7 +226,7 @@ const Page = () => {
         'Other',
     ]);
 
-    const handleAgendaChange = (e) => {
+    const handleAgendaChange = (e: ChangeEvent<HTMLSelectElement>) => {
         const { value } = e.target;
         setFormData({
             ...formData,
@@ -234,7 +234,7 @@ const Page = () => {
         });
     };
 
-    const handleDurationChange = (e) => {
+    const handleDurationChange = (e: ChangeEvent<HTMLSelectElement>) => {
         const { value } = e.target;
         const duration = parseInt(value);
 
@@ -265,7 +265,7 @@ const Page = () => {
         return endTime;
   };
   
-    const handleSubmit = async (e) => {
+    const handleSubmit = async (e: ChangeEvent<HTMLSelectElement>) => {
     e.preventDefault();
 
     // Call addEvent and get the event ID
@@ -386,7 +386,7 @@ const Page = () => {
                         name="meetingDate"
                         min={new Date().toISOString().split('T')[0]}
                         value={formData.meetingDate}
-                        onChange={(e) => handleMeetingDateChange(new Date(e.target.value))}
+                        onChange={(e: ChangeEvent<HTMLSelectElement>) => handleMeetingDateChange(new Date(e.target.value))}
                         className="mt-1 p-2 border rounded-md w-full"
                     />
                 </div>
