@@ -5,6 +5,8 @@ import React, { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { addEvent } from './send';
 import { DateTimeFormatOptions } from 'intl';
+import { ChangeEvent } from 'react';
+
 
 
 const supabaseUrl = 'https://qnfoxdfnevcjxqpkjcwm.supabase.co';

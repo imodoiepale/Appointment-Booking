@@ -4,6 +4,8 @@ import { auth } from '@clerk/nextjs';
 import { google } from 'googleapis';
 import clerk from '@clerk/clerk-sdk-node';
 import { createClient } from '@supabase/supabase-js';
+import { ChangeEvent } from 'react';
+
 
 const supabaseUrl = 'https://qnfoxdfnevcjxqpkjcwm.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuZm94ZGZuZXZjanhxcGtqY3dtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTY5OTk2MTE1OCwiZXhwIjoyMDE1NTM3MTU4fQ.-U2eC5IP7Xr6Uc4EXCKjXUIbJq9srz7pDf7b1UbYiJo';
