@@ -465,7 +465,7 @@ const handleComplete = async () => {
                 </TableHeader>
                 <TableBody>
                   {filteredAppointments
-                    .sort((a, b) => new Date(b.meeting_date) - new Date(a.meeting_date))
+                    .sort((a, b) => (new Date(b.meeting_date) as any) - (new Date(a.meeting_date) as any))
                     .map((appointment, index, array) => (
                       <React.Fragment key={appointment.id}>
                         <TableRow onClick={() => handleAppointmentClick(appointment)}>
