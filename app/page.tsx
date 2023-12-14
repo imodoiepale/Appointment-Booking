@@ -31,13 +31,27 @@ const Dashboard = () => {
 
 
   interface Appointment {
-  id: number;
-  meeting_start_time: string;
-  meeting_duration: number;
-  meeting_end_time: string;
-  meeting_date: string;
-  status: string;
-}
+    id: number;
+    meeting_start_time: string;
+    meeting_duration: number;
+    meeting_end_time: string;
+    meeting_date: string;
+    status: string;
+    booking_date: string; 
+    booking_day: string;  
+    client_name: string;
+    client_company: string;
+    client_mobile: string;
+    meeting_venue_area: string;
+    meeting_type: string;
+    meeting_agenda: string;
+    bcl_attendee: string;
+    bcl_attendee_mobile: string;
+    venue_distance: string;
+    meeting_slot_start_time: string;
+    meeting_slot_end_time: string;
+  }
+
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
