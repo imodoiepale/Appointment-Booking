@@ -246,7 +246,7 @@ const Dashboard = () => {
     return <p>Loading...</p>;
   }
 
-  const handleAppointmentClick = (appointment :string):string => {
+  const handleAppointmentClick = (appointment :string) => {
     setSelectedAppointment(appointment);
   };
 

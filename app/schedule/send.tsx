@@ -6,7 +6,7 @@ import clerk from '@clerk/clerk-sdk-node';
 
 const SCOPES = ['https://www.googleapis.com/auth/calendar'];
 
-export async function addEvent(formData) {
+export async function addEvent(formData:string) {
     const { userId } = auth(formData);
 
   // Retrieve the Google access token for the authenticated user
@@ -34,7 +34,7 @@ export async function addEvent(formData) {
         timeZone: 'Africa/Nairobi',
     },
     attendees: [
-      {email: "ijepale@gmail.com"},
+      {email: formData.clientEmail},
       {email: "jeimodoi@gmail.com"},
     ],
 
