@@ -74,7 +74,7 @@ const Dashboard = () => {
         })
         .eq('id', selectedAppointment.id);
 
-      if (error: any) {
+      if (error) {
         throw error;
       }
 
@@ -227,12 +227,12 @@ const Dashboard = () => {
           .from('events')
           .select('*');
 
-        if (error: any) {
+        if (error:) {
           throw error;
         }
 
         setAppointments(data ?? []);
-      } catch (error: any: any) {
+      } catch (error: any) {
         console.error('Error fetching events:', error.message);
       } finally {
         setLoading(false);
@@ -270,7 +270,7 @@ const Dashboard = () => {
         .update({ status: 'rescheduled' })
         .eq('id', selectedAppointment.id);
 
-      if (error: any) {
+      if (error) {
         throw error;
       }
 
@@ -295,7 +295,7 @@ const Dashboard = () => {
         .update({ status: 'canceled' })
         .eq('id', selectedAppointment.id);
 
-      if (error: any) {
+      if (error) {
         throw error;
       }
 
@@ -320,7 +320,7 @@ const Dashboard = () => {
         .update({ status: 'completed' })
         .eq('id', selectedAppointment.id);
 
-      if (error: any) {
+      if (error) {
         throw error;
       }
 
