@@ -227,7 +227,7 @@ const Dashboard = () => {
           .from('events')
           .select('*');
 
-        if (error:) {
+        if (error) {
           throw error;
         }
 
