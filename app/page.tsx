@@ -27,7 +27,17 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const Dashboard = () => {
-  const [appointments, setAppointments] = useState([]);
+
+
+  interface Appointment {
+  id: number;
+  meeting_start_time: string;
+  meeting_duration: number;
+  meeting_end_time: string;
+  meeting_date: string;
+  status: string;
+}
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [activeTab, setActiveTab] = useState(0);
@@ -47,52 +57,58 @@ const Dashboard = () => {
   };
 
   const handleFinalReschedule = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('events')
-      .update({
-        meeting_start_time: rescheduleFormData.meetingStartTime,
-        meeting_duration: rescheduleFormData.meetingDuration,
-        meeting_end_time: rescheduleFormData.meetingEndTime,
-        meeting_date: rescheduleFormData.meetingDate,
-        status: 'rescheduled',
-      })
-      .eq('id', selectedAppointment.id);
+    try {
+      // Check if selectedAppointment is null
+      if (!selectedAppointment) {
+        throw new Error('No appointment selected for rescheduling.');
+      }
 
-    if (error) {
-      throw error;
+      const { data, error } = await supabase
+        .from('events')
+        .update({
+          meeting_start_time: rescheduleFormData.meetingStartTime,
+          meeting_duration: rescheduleFormData.meetingDuration,
+          meeting_end_time: rescheduleFormData.meetingEndTime,
+          meeting_date: rescheduleFormData.meetingDate,
+          status: 'rescheduled',
+        })
+        .eq('id', selectedAppointment.id);
+
+      if (error) {
+        throw error;
+      }
+
+      // Call updateEvent to update the event in Google Calendar
+      await updateEvent({
+        ...rescheduleFormData,
+        eventId: selectedAppointment.id, // Pass the event ID to updateEvent
+      });
+
+      console.log(`Successfully rescheduled appointment with ID ${selectedAppointment.id}`);
+
+      setAppointments((prevAppointments) =>
+        prevAppointments.map((appointment) =>
+          appointment.id === selectedAppointment.id
+            ? { ...appointment, ...rescheduleFormData, status: 'rescheduled' }
+            : appointment
+        )
+      );
+
+      setRescheduleClicked(false);
+      setRescheduleFormData({
+        meetingStartTime: '',
+        meetingDuration: '',
+        meetingEndTime: '',
+        meetingDate: '',
+      });
+      setSelectedAppointment(null);
+    } catch (error) {
+      console.error('Error rescheduling appointment:', error.message);
+    } finally {
+      handleCloseModal();
     }
+  };
 
-    // Call updateEvent to update the event in Google Calendar
-    await updateEvent({
-      ...rescheduleFormData,
-      eventId: selectedAppointment.id, // Pass the event ID to updateEvent
-    });
-
-    console.log(`Successfully rescheduled appointment with ID ${selectedAppointment.id}`);
-
-    setAppointments((prevAppointments) =>
-      prevAppointments.map((appointment) =>
-        appointment.id === selectedAppointment.id
-          ? { ...appointment, ...rescheduleFormData, status: 'rescheduled' }
-          : appointment
-      )
-    );
-
-    setRescheduleClicked(false);
-    setRescheduleFormData({
-      meetingStartTime: '',
-      meetingDuration: '',
-      meetingEndTime: '',
-      meetingDate: '',
-    });
-    setSelectedAppointment(null);
-  } catch (error) {
-    console.error('Error rescheduling appointment:', error.message);
-  } finally {
-    handleCloseModal();
-  }
-};
 
   const renderRescheduleFields = () => {
     if (!isRescheduleClicked) {
