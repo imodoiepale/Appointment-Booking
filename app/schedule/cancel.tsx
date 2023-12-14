@@ -15,7 +15,12 @@ const SCOPES = ['https://www.googleapis.com/auth/calendar'];
 
 
 export async function cancelEvent(formData:any) {
- const { userId } = auth();
+    const { userId } = auth();
+    
+    if (userId === null) {
+    console.error('User is not authenticated.');
+    return undefined; // or handle it in your way
+  }
 
   const [oauthAccessToken] = await clerk.users.getUserOauthAccessToken(userId, 'oauth_google');
 
