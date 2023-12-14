@@ -38,8 +38,8 @@ const Page = () => {
 
     useEffect(() => {
         const currentDate = new Date();
-        const options: DateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-            const formattedDate = currentDate.toLocaleDateString(undefined, options);
+        const options: dateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        const formattedDate = currentDate.toLocaleDateString(undefined, options);
 
 
         setFormData((prevFormData) => ({
