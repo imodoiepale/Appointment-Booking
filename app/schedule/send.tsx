@@ -59,7 +59,7 @@ export async function addEvent(formData: FormData): Promise<string | undefined> 
     },
     attendees: [
       { email: formData.clientEmail },
-      { email: 'jeimodoi@gmail.com' },
+      { email: 'info@booksmartconsult.com' },
     ],
     conferenceData: formData.meetingType === 'virtual'
       ? {
