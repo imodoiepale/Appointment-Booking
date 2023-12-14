@@ -25,7 +25,9 @@ const Header = () => {
         <ThemeToggler/>
         <UserButton afterSignOutUrl="/" />
         <SignedOut>
-          <SignInButton afterSignInUrl="/dashboard"  mode="modal" className="font-bold">Sign In</SignInButton>
+          <SignInButton afterSignInUrl="/dashboard" mode="modal"
+          // @ts-ignore
+            className="font-bold">Sign In</SignInButton>
         </SignedOut>
       </div>
     </header>
