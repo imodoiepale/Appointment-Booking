@@ -4,7 +4,15 @@ import { auth } from '@clerk/nextjs';
 import { google } from 'googleapis';
 import clerk from '@clerk/clerk-sdk-node';
 import { createClient } from '@supabase/supabase-js';
-import { ChangeEvent } from 'react';
+
+
+interface FormData {
+  eventId: string;
+  meetingStartTime: string;
+  meetingEndTime: string;
+  meetingDate: string;
+  // Add other properties as needed
+}
 
 
 const supabaseUrl = 'https://qnfoxdfnevcjxqpkjcwm.supabase.co';
@@ -13,11 +21,20 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 const SCOPES = ['https://www.googleapis.com/auth/calendar'];
 
-export async function updateEvent(formData) {
-  const { userId } = auth(formData);
+export async function updateEvent(formData: FormData): Promise<string | undefined> {
+   const { userId } = auth();
 
-  // Retrieve the Google access token for the authenticated user
+  if (userId === null) {
+    console.error('User is not authenticated.');
+    return undefined;
+  }
+
   const [oauthAccessToken] = await clerk.users.getUserOauthAccessToken(userId, 'oauth_google');
+
+  if (!oauthAccessToken || !oauthAccessToken.token) {
+    throw new Error('User oauthAccessToken is null, undefined, or missing the token property.');
+  }
+
   const { token } = oauthAccessToken;
 
   // Create a new OAuth2 client with the Google access token
@@ -31,7 +48,7 @@ export async function updateEvent(formData) {
   const { data, error } = await supabase
     .from('events')
     .select('google_event_id')
-    .eq('id', formData.eventId); // Use the event ID from formData
+    .eq('id', formData.eventId)
 
   if (error) {
     console.error('Error fetching Google event ID:', error.message);
@@ -40,18 +57,16 @@ export async function updateEvent(formData) {
 
   const googleEventId = data[0].google_event_id; // The Google event ID
 
-
-   const currentEventResponse = await calendar.events.get({
+  const currentEventResponse = await calendar.events.get({
     calendarId: 'primary',
     eventId: googleEventId,
   });
 
-  const currentEvent = currentEventResponse.data;
+  const currentEvent = currentEventResponse.data ;
 
   // Define the updated event
-  const event = {
-
-    ...currentEvent, 
+  const event= {
+    ...currentEvent,
     description: `Scheduled meeting from ${formData.meetingStartTime} to ${formData.meetingEndTime}`,
     start: {
       dateTime: `${formData.meetingDate}T${formData.meetingStartTime}:00+03:00`,
@@ -65,13 +80,12 @@ export async function updateEvent(formData) {
 
   // Update the event
   try {
-    const response = await calendar.events.update({
-      calendarId: 'primary',
-      eventId: googleEventId, // Use the Google event ID
-      resource: event,
-    });
-
-  } catch (error) {
-    console.error('Error updating event:', error.message);
-  }
+  const response = await calendar.events.update({
+    calendarId: 'primary',
+    eventId: googleEventId, // Use the Google event ID
+    requestBody: event,
+  });
+} catch (error:any) {
+  console.error('Error updating event:', error.message);
+}
 }
