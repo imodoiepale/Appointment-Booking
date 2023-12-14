@@ -29,7 +29,7 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             
-          <div className='mx-auto max-w-5xl text-md gap-2 mb-1'>
+          <div className='mx-auto max-w-7xl text-md gap-2 mb-1'>
             <Header/>
             <Navbar />
             {children}

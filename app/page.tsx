@@ -200,7 +200,7 @@ const Dashboard = () => {
     );
   };
 
-  const handleRescheduleInputChange = (e: ChangeEvent<HTMLSelectElement>) => {
+  const handleRescheduleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
 
     if (name === 'meetingStartTime' || name === 'meetingDuration') {
