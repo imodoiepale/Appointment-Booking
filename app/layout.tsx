@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { ClerkProvider } from '@clerk/nextjs'
@@ -9,10 +9,13 @@ import Navbar from '@/components/Navbar'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
+  manifest:"/manifest.json",
   title: 'BCL APPOINTMENTS',
   description: 'APPOINTMENT SCHEDULER',
 }
-
+export const viewport: Viewport = {
+  themeColor: "#10B1AE",
+};
 export default function RootLayout({
   children,
 }: {
