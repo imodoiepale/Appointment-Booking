@@ -261,7 +261,9 @@ const Dashboard = () => {
   }, []);
 
   if (loading) {
-    return <p>Loading...</p>;
+    return <div className="flex justify-center items-center h-screen">
+    <p className="text-center text-gray-500">Loading...</p>
+  </div>;
   }
 
   const handleAppointmentClick = (appointment: Appointment | null) => {
