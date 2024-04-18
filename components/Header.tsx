@@ -18,11 +18,13 @@ const Header = () => {
             width={50}
           />
         </div>
-      <h1 className="font-bold text-xl">Booksmart Consultancy Ltd</h1>
+      <p className="font-bold text-sm lg:text-xl">Booksmart Consultancy Ltd</p>
       </Link>
 
       <div className="px-5 flex items-center gap-3">
-        <ThemeToggler/>
+        <div className="hidden lg:visible">
+          <ThemeToggler />
+        </div>
         <UserButton afterSignOutUrl="/" />
         <SignedOut>
           <SignInButton afterSignInUrl="/dashboard" mode="modal"
