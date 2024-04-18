@@ -423,7 +423,21 @@ const handleComplete = async () => {
     ].map(item => ({ label: item.label.replace('', ''), value: item.value, fillEmpty: item.fillEmpty, isGrey: item.isGrey }))
   : [];
 
-
+  function getStatusColor(status: string) {
+    switch (status) {
+      case 'upcoming':
+      case 'rescheduled':
+        return 'text-blue-500 font-bold'; 
+      case 'pending':
+        return 'text-yellow-500 font-bold';
+      case 'canceled':
+        return 'text-red-500 font-bold';
+      case 'completed':
+        return 'text-green-500 font-bold';
+      default:
+        return ''; 
+    }
+  }
 
 
   
@@ -437,11 +451,11 @@ const handleComplete = async () => {
         </div>
       </div>
 
-      <div className='w-full'>
-        <Tabs selectedIndex={activeTab} onSelect={tabIndex => setActiveTab(tabIndex)} style={{ width: '890%' }}>
-          <TabList className='overflow-none pb-4'>
+      <div className='w-full flex'>
+        <Tabs selectedIndex={activeTab} onSelect={tabIndex => setActiveTab(tabIndex)} style={{ width: '100%' }}>
+          <TabList className='flex-grow pb-4'>
             <Tab>Upcoming</Tab>
-            <Tab>Rescheduled</Tab>
+            <Tab>To be Rescheduled</Tab>
             <Tab>Canceled</Tab>
             <Tab>Completed</Tab>
           </TabList>
@@ -450,50 +464,74 @@ const handleComplete = async () => {
             appointments.filter(appointment => appointment.status === 'canceled'),
             appointments.filter(appointment => appointment.status === 'completed')].map((filteredAppointments, index) => (
               <TabPanel key={index}>
-                <Table className="w-full sm:min-w-screen-md" style={{ borderCollapse: 'collapse', width: '100%', border: '1px solid #ddd' }}>
-                  <TableCaption>{`List of ${filteredAppointments.length} appointments`}</TableCaption>
-                  <TableHeader>
-                    <TableRow>
-                      <TableCell style={{ fontWeight: 'bold' }}>Meeting ID</TableCell>
-                      <TableCell style={{ fontWeight: 'bold' }}>Meeting Date</TableCell>
-                      <TableCell style={{ fontWeight: 'bold' }}>Meeting Day</TableCell>
-                      <TableCell style={{ fontWeight: 'bold' }}>Client Name</TableCell>
-                      <TableCell style={{ fontWeight: 'bold' }}>Company</TableCell>
-                      <TableCell style={{ fontWeight: 'bold' }}>Venue</TableCell>
-                      <TableCell style={{ fontWeight: 'bold' }}>Start Time</TableCell>
-                      <TableCell style={{ fontWeight: 'bold' }}>End Time</TableCell>
-                      <TableCell style={{ fontWeight: 'bold' }}>Meeting Type</TableCell>
-                      <TableCell style={{ fontWeight: 'bold' }}>Agenda</TableCell>
-                      <TableCell style={{ fontWeight: 'bold' }}>Status</TableCell>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredAppointments
-                      .sort((a, b) => (new Date(b.meeting_date) as any) - (new Date(a.meeting_date) as any))
-                      .map((appointment, index, array) => (
-                        <React.Fragment key={appointment.id}>
-                          <TableRow onClick={() => handleAppointmentClick(appointment)}>
-                            <TableCell>{appointment.id}</TableCell>
-                            <TableCell>{new Date(appointment.meeting_date).toLocaleDateString('en-GB')}</TableCell>
-                            <TableCell className="text-blue-500">{appointment.meeting_day}</TableCell>
-                            <TableCell>{appointment.client_name}</TableCell>
-                            <TableCell>{appointment.client_company}</TableCell>
-                            <TableCell>{appointment.meeting_venue_area}</TableCell>
-                            <TableCell className="text-blue-500">{appointment.meeting_start_time}</TableCell>
-                            <TableCell className="text-blue-800">{appointment.meeting_end_time}</TableCell>
-                            <TableCell>{appointment.meeting_type}</TableCell>
-                            <TableCell>{appointment.meeting_agenda}</TableCell>
-                            <TableCell>{appointment.status}</TableCell>
-                          </TableRow>
-                          {index < array.length - 1 && appointment.meeting_day !== array[index + 1].meeting_day && (
-                            <TableRow className="bg-blue-200">
-                              <TableCell colSpan={11}></TableCell>
+                <div className="p-2 overflow-auto rounded-lg shadow hidden md:block">
+                  <Table className="" style={{ borderCollapse: 'collapse', width: '100%', border: '1px solid #ddd' }}>
+                    <TableCaption>{`List of ${filteredAppointments.length} appointments`}</TableCaption>
+                    <TableHeader className='bg-zinc-300/60 items-center'>
+                      <TableRow className='items-center'>
+                        <TableCell style={{ fontWeight: 'bold' }}>Meeting ID</TableCell>
+                        <TableCell style={{ fontWeight: 'bold' }}>Meeting Date</TableCell>
+                        <TableCell style={{ fontWeight: 'bold' }}>Meeting Day</TableCell>
+                        <TableCell style={{ fontWeight: 'bold' }}>Client Name</TableCell>
+                        <TableCell style={{ fontWeight: 'bold' }}>Company</TableCell>
+                        <TableCell style={{ fontWeight: 'bold' }}>Venue</TableCell>
+                        <TableCell style={{ fontWeight: 'bold' }}>Start Time</TableCell>
+                        <TableCell style={{ fontWeight: 'bold' }}>End Time</TableCell>
+                        <TableCell style={{ fontWeight: 'bold' }}>Meeting Type</TableCell>
+                        <TableCell style={{ fontWeight: 'bold' }}>Agenda</TableCell>
+                        <TableCell style={{ fontWeight: 'bold' }}>Status</TableCell>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredAppointments
+                        .sort((a, b) => (new Date(b.meeting_date) as any) - (new Date(a.meeting_date) as any))
+                        .map((appointment, index, array) => (
+                          <React.Fragment key={appointment.id}>
+                            <TableRow onClick={() => handleAppointmentClick(appointment)}>
+                              <TableCell>{appointment.id}</TableCell>
+                              <TableCell>{new Date(appointment.meeting_date).toLocaleDateString('en-GB')}</TableCell>
+                              <TableCell className="text-blue-500">{appointment.meeting_day}</TableCell>
+                              <TableCell>{appointment.client_name}</TableCell>
+                              <TableCell>{appointment.client_company}</TableCell>
+                              <TableCell>{appointment.meeting_venue_area}</TableCell>
+                              <TableCell className="text-blue-500">{appointment.meeting_start_time}</TableCell>
+                              <TableCell className="text-blue-800">{appointment.meeting_end_time}</TableCell>
+                              <TableCell>{appointment.meeting_type}</TableCell>
+                              <TableCell>{appointment.meeting_agenda}</TableCell>
+                              <TableCell>{appointment.status}</TableCell>
                             </TableRow>
-                          )}
-                        </React.Fragment>
-                      ))}
-                  </TableBody>
-                </Table>
+                            {index < array.length - 1 && appointment.meeting_day !== array[index + 1].meeting_day && (
+                              <TableRow className="bg-blue-200">
+                                <TableCell colSpan={11}></TableCell>
+                              </TableRow>
+                            )}
+                          </React.Fragment>
+                        ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:hidden ">
+                  {filteredAppointments.map(appointment => (
+                    <div key={appointment.id} className="bg-white space-y-3 p-4 rounded-lg shadow border">
+                      <div className='flex justify-between'>
+                        <div className="text-md text-gray-900 uppercase font-bold">{appointment.client_name} </div>
+                        <span className={`text-xs font-bold uppercase tracking-wider ${getStatusColor(appointment.status)}`}>{appointment.status}</span>
+                      </div>
+                      <div className="text-sm font-medium text-gray-700 italic">{appointment.client_company}</div>
+                      <div className="flex items-center space-x-2 text-sm">
+                        <div>
+                          <a href="#" className="text-blue-500 font-bold hover:underline">{appointment.meeting_day}</a>
+                        </div>
+                        <div className="text-black">{new Date(appointment.meeting_date).toLocaleDateString('en-GB')}</div>
+                      <div className="text-sm font-medium text-gray-600">{appointment.meeting_start_time} - {appointment.meeting_end_time}</div>
+                      </div>
+                      <div className="flex items-center space-x-2 text-sm text-black justify-between">
+                        <div className="text-sm font-medium ">Venue: {appointment.meeting_venue_area}</div>
+                        <div className="text-sm font-medium">Meeting Type: {appointment.meeting_type}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </TabPanel>
             ))}
         </Tabs>
