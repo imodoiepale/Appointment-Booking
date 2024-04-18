@@ -16,15 +16,15 @@ const Navbar = () => {
     ]
 
     return (
-        <nav className="shadow-md w-auto">
+        <nav className=" pl-3 md:pl-4  border-gray-600  w-14 md:w-auto items-center">
             <ul className='flex justify-start my-6 items-center'>
-                <div>
-                <ul className='flex space-x-2'>
+                <div className='flex items-center'>
+                <ul className='flex space-x-2 '>
                     {links.map(links =>
                     <Link
                         key={links.href}
                         href={links.href}
-                        className={`py-2 px-4 font-bold rounded ${links.href === currentPath ? 'bg-zinc-500 text-white' : 'text-zinc-600 hover:text-zinc-800 hover:shadow-lg'}`}
+                        className={`py-2 px-4 items-center text-sm md:text-md font-bold rounded ${links.href === currentPath ? 'bg-zinc-500 text-white' : 'text-zinc-600 bg-zinc-200 hover:text-zinc-800 hover:shadow-lg'}`}
                     >
                         {links.label}
                     </Link>

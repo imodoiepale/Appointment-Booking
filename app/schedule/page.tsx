@@ -7,6 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 import { addEvent } from './send';
 import { DateTimeFormatOptions } from 'intl';
 import { ChangeEvent } from 'react';
+import toast, { Toaster } from 'react-hot-toast';
 
 
 
@@ -328,10 +329,22 @@ interface formData {
     });
 
     if (emptyFields.length > 0) {
-        // Update state to mark invalid fields and show error message
+        // Extract the names of the empty fields
+        const emptyFieldNames = emptyFields.map(([key]) => key);
         
-        setInvalidFields(emptyFields.map(([key]) => key));
-        setErrorMessage('Please fill in all required fields.');
+        // Extract the names of all fields
+        const allFieldNames = Object.keys(formData);
+        
+        // Calculate the non-empty fields
+        const nonEmptyFieldNames = allFieldNames.filter(fieldName => !emptyFieldNames.includes(`${fieldName} `));
+    
+        // Update state to mark invalid fields and show error message
+        setInvalidFields(emptyFieldNames);
+        setErrorMessage(`
+            Please fill in all required fields. 
+            ${nonEmptyFieldNames.join(', ')}
+        `);
+        
         console.log('Empty fields:', emptyFields);
         return;
     }
@@ -379,6 +392,8 @@ interface formData {
             setFormStatus('idle');
         }, 3000);
 
+        
+        toast.success('Appointment scheduled successfully!');
     } catch (error:any) {
         console.error('Error inserting form data:', error.message);
         setErrorMessage('Error submitting the form. Please try again.');
@@ -398,13 +413,18 @@ interface formData {
                     Appointment scheduled successfully!
                 </div>
             )}
+
+                <Toaster
+                position="top-right"
+                reverseOrder={false}
+                />
             {formStatus === 'error' && (
                 <div className="text-red-600 mt-4">
                     {errorMessage}
                 </div>
             )}
 
-            <form onSubmit={handleSubmit} className="grid grid-cols-4 gap-4">
+            <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 {/* Column 1 */}
                 <div className="mb-4 col-span-1">
                     <label htmlFor="bookingDate" className="block text-sm font-medium text-gray-600">Booking Date:</label>
@@ -764,9 +784,14 @@ interface formData {
                     </select>
                 </div>
 
+                {/* Display error message */}
+                {errorMessage && (
+                    <div className="text-red-600 mt-4">
+                        {errorMessage}
+                    </div>
+                )}
 
                 {/* Submit Button */}
-                
                 <button type="submit"
                     
                     onClick={handleSubmit} className="bg-blue-500 text-white items-center p-2 rounded-md hover:bg-blue-600">
@@ -774,12 +799,7 @@ interface formData {
                 </button>
             </form>
 
-            {/* Display error message */}
-            {errorMessage && (
-                <div className="text-red-600 mt-4">
-                    {errorMessage}
-                </div>
-            )}
+            
         </div>
     );
 };
