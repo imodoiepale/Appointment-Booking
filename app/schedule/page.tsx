@@ -415,7 +415,7 @@ interface formData {
             )}
 
                 <Toaster
-                position="top-right"
+                position="top-left"
                 reverseOrder={false}
                 />
             {formStatus === 'error' && (
