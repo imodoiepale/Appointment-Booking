@@ -606,7 +606,7 @@ const handleComplete = async () => {
                     {isRescheduleClicked && renderRescheduleFields()}
 
                     <div className=" align-bottom rounded-lg text-left overflow-hidden  transform transition-all sm:my-8 sm:align-middle sm:w-full">
-                      <div className=" px-4 ">
+                      <div className=" pt-2 px-2 ">
                         <div className="flex justify-center">
                           <div className="mt-2 items-center">  <button className="bg-blue-500 text-white rounded px-4 py-2" onClick={handleRescheduleClick}>
                               Reschedule
