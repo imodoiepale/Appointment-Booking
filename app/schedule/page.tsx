@@ -386,6 +386,31 @@ interface formData {
         setInvalidFields([]);
         setErrorMessage('');
         // Update form status to 'success'
+
+        // Reset form data after successful submission
+        setFormData({
+            bookingDate: '',
+            bookingDay: '',
+            meetingDate: '',
+            meetingDay: '',
+            meetingType: '',
+            meetingVenueArea: 'BCL BR',
+            clientName: '',
+            clientCompany: '',
+            clientMobile: '',
+            clientEmail: '',
+            companyType: '',
+            bclAttendee: '',
+            bclAttendeeMobile: '+254700298298',
+            meetingAgenda: '',
+            meetingDuration: '',
+            venueDistance: '10',
+            meetingStartTime: '',
+            meetingEndTime: '',
+            meetingSlotStartTime: '',
+            meetingSlotEndTime: '',
+        });
+
         setFormStatus('success');
 
         setTimeout(() => {
@@ -792,9 +817,12 @@ interface formData {
                 )}
 
                 {/* Submit Button */}
-                <button type="submit"
-                    
-                    onClick={handleSubmit} className="bg-blue-500 text-white items-center p-2 rounded-md hover:bg-blue-600">
+                <button
+                    type="submit"
+                    disabled={formStatus === 'submitting'} // Disable the button when form is submitting
+                    onClick={handleSubmit}
+                    className="bg-blue-500 text-white items-center p-2 rounded-md hover:bg-blue-600"
+                >
                     Submit
                 </button>
             </form>
