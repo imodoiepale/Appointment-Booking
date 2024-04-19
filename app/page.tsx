@@ -1,6 +1,6 @@
-"use client"
 // @ts-nocheck
 // @ts-ignore
+"use client"
 
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
@@ -401,6 +401,7 @@ const handleComplete = async () => {
     ? [
       { label: 'Booking Date', value: selectedAppointment.booking_date },
       { label: 'Booking Day', value: selectedAppointment.booking_day },
+      { label: 'Status', value: selectedAppointment.status },
       { label: 'Meeting ID', value: selectedAppointment.id, fillEmpty: true },
       { label: '', value: '', fillEmpty: true, isGrey: true }, // Empty space
       { label: 'Meeting Date', value: selectedAppointment.meeting_date },
@@ -414,7 +415,6 @@ const handleComplete = async () => {
       { label: 'Meeting End Time', value: selectedAppointment.meeting_end_time },
       { label: 'Meeting Type', value: selectedAppointment.meeting_type },
       { label: 'Agenda', value: selectedAppointment.meeting_agenda },
-      { label: 'Status', value: selectedAppointment.status },
       { label: '', value: '', fillEmpty: true, isGrey: true }, // Empty space
       { label: 'BCL Attendee', value: selectedAppointment.bcl_attendee },
       { label: 'BCL Attendee Mobile', value: selectedAppointment.bcl_attendee_mobile },
@@ -512,10 +512,10 @@ const handleComplete = async () => {
                     </TableBody>
                   </Table>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:hidden ">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:hidden ">
                   {filteredAppointments.map(appointment => (
                     <div key={appointment.id} className="bg-white space-y-3 p-4 rounded-lg shadow border">
-                      <div className='flex justify-between'>
+                      <div className='flex justify-between' onClick={() => handleAppointmentClick(appointment)}>
                         <div className="text-md text-gray-900 uppercase font-bold">{appointment.client_name} </div>
                         <span className={`text-xs font-bold uppercase tracking-wider ${getStatusColor(appointment.status)}`}>{appointment.status}</span>
                       </div>
@@ -546,14 +546,17 @@ const handleComplete = async () => {
               <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
             </div>
 
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:w-2/3 md:fixed md:top-1/2 md:left-1/2 md:transform md:-translate-x-1/2 md:-translate-y-1/2 md:inline-block md:align-bottom md:bg-white md:rounded-lg md:text-left md:overflow-hidden md:shadow-xl md:transition-all md:sm:my-8 md:sm:align-middle md:sm:w-2/3">
+
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
                   <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
                     <h3 className="text-lg leading-6 font-medium text-gray-900" id="modal-title">
                       Appointment Details for {selectedAppointment.client_name}
                     </h3>
-                    <div className="mt-2">
+
+                    {/* mobile view */}
+                    <div className="mt-2 md:hidden">
                       <Table style={{ borderCollapse: 'collapse', width: '100%', border: '1px solid #ddd' }}>
                         <TableBody>
                           {appointmentDetails.map((detail, index) => (
@@ -566,21 +569,57 @@ const handleComplete = async () => {
                           ))}
                         </TableBody>
                       </Table>
+                    </div>
 
+                    {/* desktop view */}
+                    <div className="mt-2 hidden md:block pb-6">
+                      <div className="flex flex-wrap space-x-3">
+                        {appointmentDetails.reduce((tables, detail, index) => {
+                          if (detail.fillEmpty) {
+                            tables.push([]);
+                          } else {
+                            if (tables.length === 0 || tables[tables.length - 1].length === 6) {
+                              tables.push([]);
+                            }
+                            tables[tables.length - 1].push(detail);
+                          }
+                          return tables;
+                        }, []).map((table, tableIndex) => (
+                          <div key={tableIndex} className="mt-4 ">
+                            <Table style={{ borderCollapse: 'collapse', width: '100%', border: '1px solid #ddd' }}>
+                              <TableBody>
+                                {table.map((detail, index) => (
+                                  <TableRow key={index} style={{ borderBottom: '1px solid #ddd', backgroundColor: detail.isGrey ? '#f2f2f2' : 'white' }}>
+                                    <TableCell style={{ padding: '8px', borderRight: '1px solid #ddd' }}>
+                                      <strong>{detail.label}</strong>
+                                    </TableCell>
+                                    <TableCell style={{ padding: '8px' }}>{detail.value}</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        ))}
+                      </div>
                     </div>
 
                     {isRescheduleClicked && renderRescheduleFields()}
 
-                    <div className="mt-2">
-                      <button className="bg-blue-500 text-white rounded px-4 py-2" onClick={handleRescheduleClick}>
-                        Reschedule
-                      </button>
-                      <button className="bg-red-500 text-white rounded px-4 py-2 ml-2" onClick={handleCancel}>
-                        Cancel
-                      </button>
-                      <button className="bg-green-500 text-white rounded px-4 py-2 ml-2" onClick={handleComplete}>
-                        Complete
-                      </button>
+                    <div className=" align-bottom rounded-lg text-left overflow-hidden  transform transition-all sm:my-8 sm:align-middle sm:w-full">
+                      <div className=" px-4 ">
+                        <div className="flex justify-center">
+                          <div className="mt-2 items-center">  <button className="bg-blue-500 text-white rounded px-4 py-2" onClick={handleRescheduleClick}>
+                              Reschedule
+                            </button>
+                            <button className="bg-red-500 text-white rounded px-4 py-2 ml-2" onClick={handleCancel}>
+                              Cancel
+                            </button>
+                            <button className="bg-green-500 text-white rounded px-4 py-2 ml-2" onClick={handleComplete}>
+                              Complete
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
