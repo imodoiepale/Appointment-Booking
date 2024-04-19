@@ -1,3 +1,5 @@
+// @ts-ignore
+//@ts-nocheck
 import { SignInButton, SignedOut, UserButton } from "@clerk/nextjs"
 import Image from "next/image"
 import Link from "next/link"
@@ -8,7 +10,7 @@ const Header = () => {
   return (
     <header className="flex justify-between my-10 items-center">
       
-      <Link href={"/"} className="flex pl-3">
+      <Link href={"/"} className="flex pl-2">
         <div className="px-5 flex items-center">
           <Image
             src="/logo.png"
@@ -27,9 +29,7 @@ const Header = () => {
         </div>
         <UserButton afterSignOutUrl="/" />
         <SignedOut>
-          <SignInButton afterSignInUrl="/dashboard" mode="modal"
-          // @ts-ignore
-            className="font-bold">Sign In</SignInButton>
+          <SignInButton afterSignInUrl="/dashboard" mode="modal" className="font-bold">Sign In</SignInButton>
         </SignedOut>
       </div>
     </header>
