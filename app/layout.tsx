@@ -9,6 +9,7 @@ import Navbar from '@/components/Navbar'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
+  applicationName:'BCL APPOINTMENTS',
   manifest:"/manifest.json",
   title: 'BCL APPOINTMENTS',
   description: 'APPOINTMENT SCHEDULER',
