@@ -11,18 +11,18 @@ const Header = () => {
       <Link href={"/"} className="flex pl-3">
         <div className="px-5 flex items-center">
           <Image
-            src="https://bcltraining.com/wp-content/uploads/2022/05/bcl_logo_fullcolor.png"
+            src="/logo.png"
             alt="logo"
             className=""
             height={50}
             width={50}
           />
+      <p className="font-bold text-sm lg:text-xl ">Booksmart Consultancy Ltd</p>
         </div>
-      <p className="font-bold text-sm lg:text-xl">Booksmart Consultancy Ltd</p>
       </Link>
 
       <div className="px-5 flex items-center gap-3">
-        <div className="hidden lg:visible">
+        <div className="hidden sm:block">
           <ThemeToggler />
         </div>
         <UserButton afterSignOutUrl="/" />
