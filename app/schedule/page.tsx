@@ -11,8 +11,8 @@ import toast, { Toaster } from 'react-hot-toast';
 
 
 
-const supabaseUrl = 'https://qnfoxdfnevcjxqpkjcwm.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuZm94ZGZuZXZjanhxcGtqY3dtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTY5OTk2MTE1OCwiZXhwIjoyMDE1NTM3MTU4fQ.-U2eC5IP7Xr6Uc4EXCKjXUIbJq9srz7pDf7b1UbYiJo';
+const supabaseUrl = 'https://zyszsqgdlrpnunkegipk.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5c3pzcWdkbHJwbnVua2VnaXBrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTcwODMyNzg5NCwiZXhwIjoyMDIzOTAzODk0fQ.7ICIGCpKqPMxaSLiSZ5MNMWRPqrTr5pHprM0lBaNing';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 
@@ -43,6 +43,7 @@ interface formData {
 }
 
     const [showOtherMeetingVenueInput, setShowOtherMeetingVenueInput] = useState(false);
+    const [showOtherClientCompanyInput, setShowOtherClientCompanyInput] = useState(false);
 
     const [formData, setFormData] = useState({
         bookingDate: '',
@@ -171,7 +172,7 @@ interface formData {
     const fetchCompanies = async () => {
     try {
         // Fetch companies from your Supabase database
-        const response = await supabase.from('clients').select('name');
+        const response = await supabase.from('companies').select('name');
         
         if (response.data !== null) {
             const companies = response.data.map((company) => company.name);
@@ -248,7 +249,7 @@ interface formData {
         try {
             // Fetch client details from Supabase based on the selected client company
             const { data, error } = await supabase
-                .from('clients')
+                .from('companies')
                 .select('phone_number, email')
                 .eq('name', clientCompanyName)
                 .single();
@@ -353,7 +354,7 @@ interface formData {
 
     try {
         // Insert form data into the "events" table
-        const { data, error } = await supabase.from('events').insert([
+        const { data, error } = await supabase.from('meetings').insert([
             {
                 booking_date: formData.bookingDate,
                 booking_day: formData.bookingDay,

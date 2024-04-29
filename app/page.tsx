@@ -23,8 +23,8 @@ import {
 } from "@/components/ui/table"
 import { cancelEvent } from './schedule/cancel';
 
-const supabaseUrl = 'https://qnfoxdfnevcjxqpkjcwm.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuZm94ZGZuZXZjanhxcGtqY3dtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTY5OTk2MTE1OCwiZXhwIjoyMDE1NTM3MTU4fQ.-U2eC5IP7Xr6Uc4EXCKjXUIbJq9srz7pDf7b1UbYiJo';
+const supabaseUrl = 'https://zyszsqgdlrpnunkegipk.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5c3pzcWdkbHJwbnVua2VnaXBrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTcwODMyNzg5NCwiZXhwIjoyMDIzOTAzODk0fQ.7ICIGCpKqPMxaSLiSZ5MNMWRPqrTr5pHprM0lBaNing';
 const supabase = createClient(supabaseUrl, supabaseKey);
 // add row 
 
@@ -80,7 +80,7 @@ const Dashboard = () => {
       }
 
       const { data, error } = await supabase
-        .from('events')
+        .from('meetings')
         .update({
           meeting_start_time: rescheduleFormData.meetingStartTime,
           meeting_duration: rescheduleFormData.meetingDuration,
@@ -241,7 +241,7 @@ const Dashboard = () => {
     const fetchEvents = async () => {
       try {
         const { data, error } = await supabase
-          .from('events')
+          .from('meetings')
           .select('*');
 
         if (error) {
@@ -293,7 +293,7 @@ const Dashboard = () => {
     }
 
     const { data, error } = await supabase
-      .from('events')
+      .from('meetings')
       .update({ status: 'rescheduled' })
       .eq('id', selectedAppointment.id);
 
@@ -325,7 +325,7 @@ const handleCancel = async () => {
     await cancelEvent(selectedAppointment)
 
     const { data, error } = await supabase
-      .from('events')
+      .from('meetings')
       .update({ status: 'canceled' })
       .eq('id', selectedAppointment.id);
 
@@ -361,7 +361,7 @@ const handleComplete = async () => {
     }
 
     const { data, error } = await supabase
-      .from('events')
+      .from('meetings')
       .update({ status: 'completed' })
       .eq('id', selectedAppointment.id);
 
