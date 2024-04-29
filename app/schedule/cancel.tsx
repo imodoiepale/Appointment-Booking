@@ -6,8 +6,8 @@ import clerk from '@clerk/clerk-sdk-node';
 import { createClient } from '@supabase/supabase-js';
 
 
-const supabaseUrl = 'https://qnfoxdfnevcjxqpkjcwm.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuZm94ZGZuZXZjanhxcGtqY3dtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTY5OTk2MTE1OCwiZXhwIjoyMDE1NTM3MTU4fQ.-U2eC5IP7Xr6Uc4EXCKjXUIbJq9srz7pDf7b1UbYiJo';
+const supabaseUrl = 'https://zyszsqgdlrpnunkegipk.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5c3pzcWdkbHJwbnVua2VnaXBrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTcwODMyNzg5NCwiZXhwIjoyMDIzOTAzODk0fQ.7ICIGCpKqPMxaSLiSZ5MNMWRPqrTr5pHprM0lBaNing';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const SCOPES = ['https://www.googleapis.com/auth/calendar'];
@@ -53,7 +53,7 @@ export async function cancelEvent(selectedAppointment: FormData): Promise<string
 
   // Fetch the Google event ID from the "events" table in Supabase
   const { data, error } = await supabase
-    .from('events')
+    .from('meetings')
     .select('id, google_event_id')
     .eq('id', selectedAppointment.id);
 
