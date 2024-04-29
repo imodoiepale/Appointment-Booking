@@ -12,7 +12,7 @@ import toast, { Toaster } from 'react-hot-toast';
 
 
 const supabaseUrl = 'https://zyszsqgdlrpnunkegipk.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5c3pzcWdkbHJwbnVua2VnaXBrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTcwODMyNzg5NCwiZXhwIjoyMDIzOTAzODk0fQ.7ICIGCpKqPMxaSLiSZ5MNMWRPqrTr5pHprM0lBaNing';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5c3pzcWdkbHJwbnVua2VnaXBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDgzMjc4OTQsImV4cCI6MjAyMzkwMzg5NH0.fK_zR8wR6Lg8HeK7KBTTnyF0zoyYBqjkeWeTKqi32ws';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 
@@ -356,28 +356,28 @@ interface formData {
         // Insert form data into the "events" table
         const { data, error } = await supabase.from('meetings').insert([
             {
-                booking_date: formData.bookingDate,
-                booking_day: formData.bookingDay,
-                meeting_date: formData.meetingDate,
-                meeting_day: formData.meetingDay,
-                meeting_type: formData.meetingType,
-                meeting_venue_area: formData.meetingVenueArea,
-                client_name: formData.clientName,
-                client_company: formData.clientCompany,
-                client_mobile: formData.clientMobile,
-                bcl_attendee: formData.bclAttendee,
-                bcl_attendee_mobile: formData.bclAttendeeMobile,
-                meeting_agenda: formData.meetingAgenda,
-                meeting_duration: formData.meetingDuration,
-                venue_distance: formData.venueDistance,
-                meeting_start_time: formData.meetingStartTime,
-                meeting_end_time: formData.meetingEndTime,
-                meeting_slot_start_time: formData.meetingSlotStartTime,
-                meeting_slot_end_time: formData.meetingSlotEndTime,
-                status: 'upcoming',
-                google_event_id: eventId, // Use the event ID from Google Calendar
+              booking_date: formData.bookingDate,
+              booking_day: formData.bookingDay,
+              meeting_date: formData.meetingDate,
+              meeting_day: formData.meetingDay,
+              meeting_type: formData.meetingType,
+              meeting_venue_area: formData.meetingVenueArea,
+              client_name: formData.clientName,
+              client_company: formData.clientCompany,
+              client_mobile: formData.clientMobile,
+              bcl_attendee: formData.bclAttendee,
+              bcl_attendee_mobile: formData.bclAttendeeMobile,
+              meeting_agenda: formData.meetingAgenda,
+              meeting_duration: formData.meetingDuration,
+              venue_distance: formData.venueDistance,
+              meeting_start_time: formData.meetingStartTime,
+              meeting_end_time: formData.meetingEndTime,
+              meeting_slot_start_time: formData.meetingSlotStartTime,
+              meeting_slot_end_time: formData.meetingSlotEndTime,
+              status: 'upcoming',
+              google_event_id: eventId, // Use the event ID from Google Calendar
             },
-        ]);
+          ]);
 
         if (error) {
             throw error;
