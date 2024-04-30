@@ -104,7 +104,7 @@ const Dashboard = () => {
 
       setAppointments((prevAppointments) =>
         prevAppointments.map((appointment) =>
-          appointment.id === selectedAppointment.id
+          appointment.id_main === selectedAppointment.id
             ? { ...appointment, ...rescheduleFormData, status: 'rescheduled' }
             : appointment
         )
@@ -305,7 +305,7 @@ const Dashboard = () => {
 
     setAppointments((prevAppointments) =>
       prevAppointments.map((appointment) =>
-        appointment.id === selectedAppointment.id ? { ...appointment, status: 'rescheduled' } : appointment
+        appointment.id_main === selectedAppointment.id ? { ...appointment, status: 'rescheduled' } : appointment
       )
     );
   } catch (error: any) {
@@ -342,7 +342,7 @@ const handleCancel = async () => {
 
       setAppointments((prevAppointments) =>
         prevAppointments.map((appointment) =>
-          appointment.id === selectedAppointment.id ? { ...appointment, status: 'canceled' } : appointment
+          appointment.id_main === selectedAppointment.id ? { ...appointment, status: 'canceled' } : appointment
         )
       );
     }
@@ -373,7 +373,7 @@ const handleComplete = async () => {
 
     setAppointments((prevAppointments) =>
       prevAppointments.map((appointment) =>
-        appointment.id === selectedAppointment.id ? { ...appointment, status: 'completed' } : appointment
+        appointment.id_main === selectedAppointment.id ? { ...appointment, status: 'completed' } : appointment
       )
     );
   } catch (error: any) {
@@ -402,7 +402,7 @@ const handleComplete = async () => {
       { label: 'Booking Date', value: selectedAppointment.booking_date },
       { label: 'Booking Day', value: selectedAppointment.booking_day },
       { label: 'Status', value: selectedAppointment.status },
-      { label: 'Meeting ID', value: selectedAppointment.id, fillEmpty: true },
+      { label: 'Meeting ID', value: selectedAppointment.id_main, fillEmpty: true },
       { label: '', value: '', fillEmpty: true, isGrey: true }, // Empty space
       { label: 'Meeting Date', value: selectedAppointment.meeting_date },
       { label: 'Meeting Day', value: selectedAppointment.meeting_day },
@@ -488,7 +488,7 @@ const handleComplete = async () => {
                       {filteredAppointments
                         .sort((a, b) => (new Date(b.meeting_date) as any) - (new Date(a.meeting_date) as any))
                         .map((appointment, index, array) => (
-                          <React.Fragment key={appointment.id}>
+                          <React.Fragment key={appointment.id_main}>
                             <TableRow onClick={() => handleAppointmentClick(appointment)}>
                               <TableCell>{appointment.id_main}</TableCell>
                               <TableCell>{new Date(appointment.meeting_date).toLocaleDateString('en-GB')}</TableCell>
@@ -514,7 +514,7 @@ const handleComplete = async () => {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:hidden ">
                   {filteredAppointments.map(appointment => (
-                    <div key={appointment.id} className="bg-white space-y-3 p-4 rounded-lg shadow border">
+                    <div key={appointment.id_main} className="bg-white space-y-3 p-4 rounded-lg shadow border">
                       <div className='flex justify-between' onClick={() => handleAppointmentClick(appointment)}>
                         <div className="text-md text-gray-900 uppercase font-bold">{appointment.client_name} </div>
                         <span className={`text-xs font-bold uppercase tracking-wider ${getStatusColor(appointment.status)}`}>{appointment.status}</span>
