@@ -48,7 +48,7 @@ export async function updateEvent(formData: FormData): Promise<string | undefine
   const { data, error } = await supabase
     .from('meetings')
     .select('google_event_id')
-    .eq('id', formData.eventId)
+    .eq('id_main', formData.eventId)
 
   if (error) {
     console.error('Error fetching Google event ID:', error.message);

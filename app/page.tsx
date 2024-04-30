@@ -88,7 +88,7 @@ const Dashboard = () => {
           meeting_date: rescheduleFormData.meetingDate,
           status: 'rescheduled',
         })
-        .eq('id', selectedAppointment.id);
+        .eq('id_main', selectedAppointment.id);
 
       if (error) {
         throw error;
@@ -295,7 +295,7 @@ const Dashboard = () => {
     const { data, error } = await supabase
       .from('meetings')
       .update({ status: 'rescheduled' })
-      .eq('id', selectedAppointment.id);
+      .eq('id_main', selectedAppointment.id);
 
     if (error) {
       throw error;
@@ -327,7 +327,7 @@ const handleCancel = async () => {
     const { data, error } = await supabase
       .from('meetings')
       .update({ status: 'canceled' })
-      .eq('id', selectedAppointment.id);
+      .eq('id_main', selectedAppointment.id);
 
     if (error) {
       throw error;
@@ -363,7 +363,7 @@ const handleComplete = async () => {
     const { data, error } = await supabase
       .from('meetings')
       .update({ status: 'completed' })
-      .eq('id', selectedAppointment.id);
+      .eq('id_main', selectedAppointment.id);
 
     if (error) {
       throw error;
@@ -490,7 +490,7 @@ const handleComplete = async () => {
                         .map((appointment, index, array) => (
                           <React.Fragment key={appointment.id}>
                             <TableRow onClick={() => handleAppointmentClick(appointment)}>
-                              <TableCell>{appointment.id}</TableCell>
+                              <TableCell>{appointment.id_main}</TableCell>
                               <TableCell>{new Date(appointment.meeting_date).toLocaleDateString('en-GB')}</TableCell>
                               <TableCell className="text-blue-500">{appointment.meeting_day}</TableCell>
                               <TableCell>{appointment.client_name}</TableCell>
