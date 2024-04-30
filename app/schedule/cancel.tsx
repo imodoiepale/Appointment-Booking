@@ -55,7 +55,7 @@ export async function cancelEvent(selectedAppointment: FormData): Promise<string
   const { data, error } = await supabase
     .from('meetings')
     .select('id, google_event_id')
-    .eq('id', selectedAppointment.id);
+    .eq('id_main', selectedAppointment.id);
 
 
     console.log('Supabase data:', data);
