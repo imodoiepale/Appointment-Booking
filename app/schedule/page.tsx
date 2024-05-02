@@ -18,6 +18,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 const Page = () => {
 
+    const publicKey = 'BBoQxdK2jaBHVraazx5rc9-9LjQIqKXC_viyGjQH9iLbdFDbUvQBl-MPMMqUFu-nhxe0TVwcusaR1MUJqxLIc3Q'
     
 interface formData {
   bookingDate: string;
@@ -79,7 +80,40 @@ interface formData {
             bookingDate: currentDate.toISOString().split('T')[0],
             bookingDay: currentDate.toLocaleDateString('en-US', { weekday: 'long' }),
         }));
-    }, []);
+
+        // Push notification subscription logic
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/service-worker.js');
+
+            const subscribeToPushNotifications = async () => {
+            try {
+                const registration = await navigator.serviceWorker.ready;
+                const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(publicKey),
+                });
+
+                const response = await fetch('/api/subscribe', {
+                method: 'POST',
+                body: JSON.stringify(subscription),
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                });
+
+                if (response.ok) {
+                console.log('Successfully subscribed to push notifications');
+                } else {
+                console.error('Error subscribing to push notifications');
+                }
+            } catch (error) {
+                console.error('Error subscribing to push notifications:', error);
+            }
+            };
+
+            subscribeToPushNotifications();
+        }
+        }, []);
 
     const handleMeetingDateChange = (date: Date) => {
         setFormData({

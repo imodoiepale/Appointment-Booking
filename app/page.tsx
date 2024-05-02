@@ -8,7 +8,6 @@ import { updateEvent } from './schedule/reshedule';
 import { ChangeEvent } from 'react';
 
 
-
 import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
 import 'react-tabs/style/react-tabs.css';
 import {
@@ -29,6 +28,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // add row 
 
 const Dashboard = () => {
+  
 
   interface Appointment {
     id: number;
