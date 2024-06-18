@@ -558,7 +558,7 @@ const confirmMeetingClick = async () => {
                               <TableCell className='flex gap-2'>
                               {appointment.id_main}
                                 <div className="top-0">
-                                  <Badge variant="outline"> {appointment.badge_status === 'Confirmed' ? '✔️' : '❌'}</Badge>
+                                  <Badge variant="outline"> {appointment.badge_status === 'Confirmed' ? '✔️' : '⏳'}</Badge>
                                 </div>
                               </TableCell>
                               <TableCell>{new Date(appointment.meeting_date).toLocaleDateString('en-GB')}</TableCell>
