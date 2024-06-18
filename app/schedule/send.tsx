@@ -58,9 +58,54 @@ export async function addEvent(formData: FormData): Promise<string | undefined> 
       timeZone: 'Africa/Nairobi',
     },
     attendees: [
-      { email: formData.clientEmail },
-      { email: 'info@booksmartconsult.com' },
-      { email: 'sandip@booksmartconsult.com' },
+      { email: formData.clientEmail,
+        reminders: {
+          useDefault: false,
+          overrides: [
+          { method: 'popup', minutes: 120 }, // 2 hours before
+          { method: 'popup', minutes: 480 }, // 8 hours before
+          { method: 'popup', minutes: 240 }, // 4 hours before
+          { method: 'popup', minutes: 120 }, // 2 hours before (repeated)
+          { method: 'popup', minutes: 60 },  // 1 hour before
+          { method: 'popup', minutes: 30 },  // 30 minutes before
+          { method: 'popup', minutes: 15 },  // 15 minutes before
+          { method: 'popup', minutes: 10 },  // 10 minutes before
+          { method: 'popup', minutes: 5 },  // 5 minutes before
+          ],
+        },
+      },
+      { email: 'info@booksmartconsult.com',
+      reminders: {
+        useDefault: false,
+        overrides: [
+          { method: 'popup', minutes: 120 }, // 2 hours before
+          { method: 'popup', minutes: 480 }, // 8 hours before
+          { method: 'popup', minutes: 240 }, // 4 hours before
+          { method: 'popup', minutes: 120 }, // 2 hours before (repeated)
+          { method: 'popup', minutes: 60 },  // 1 hour before
+          { method: 'popup', minutes: 30 },  // 30 minutes before
+          { method: 'popup', minutes: 15 },  // 15 minutes before
+          { method: 'popup', minutes: 10 },  // 10 minutes before
+          { method: 'popup', minutes: 5 },  // 5 minutes before
+        ],
+      },
+    },
+      { email: 'sandip@booksmartconsult.com',
+      reminders: {
+        useDefault: false,
+        overrides: [
+          { method: 'popup', minutes: 120 }, // 2 hours before
+          { method: 'popup', minutes: 480 }, // 8 hours before
+          { method: 'popup', minutes: 240 }, // 4 hours before
+          { method: 'popup', minutes: 120 }, // 2 hours before (repeated)
+          { method: 'popup', minutes: 60 },  // 1 hour before
+          { method: 'popup', minutes: 30 },  // 30 minutes before
+          { method: 'popup', minutes: 15 },  // 15 minutes before
+          { method: 'popup', minutes: 10 },  // 10 minutes before
+          { method: 'popup', minutes: 5 },  // 5 minutes before
+        ],
+      },
+    },
     ],
     conferenceData: formData.meetingType === 'virtual'
       ? {
