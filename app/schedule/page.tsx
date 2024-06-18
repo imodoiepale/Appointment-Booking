@@ -373,6 +373,7 @@ interface formData {
               meeting_end_time: formData.meetingEndTime,
               meeting_slot_start_time: formData.meetingSlotStartTime,
               meeting_slot_end_time: formData.meetingSlotEndTime,
+              badge_status: 'Open',
               status: 'upcoming',
                 google_event_id: eventId, // Use the event ID from Google Calendar
                 google_meet_link: hangoutLink || "",
