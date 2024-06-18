@@ -297,7 +297,7 @@ const Dashboard = () => {
 
     const { data, error } = await supabase
       .from('meetings')
-      .update({ status: 'rescheduled' })
+      .update({ status: 'rescheduled',badge_status: 'Open' })
       .eq('id_main', selectedAppointment.id_main);
 
     if (error) {
@@ -329,7 +329,7 @@ const handleCancel = async () => {
 
     const { data, error } = await supabase
       .from('meetings')
-      .update({ status: 'canceled' })
+      .update({ status: 'canceled', badge_status: 'Rejected' })
       .eq('id_main', selectedAppointment.id_main);
 
     if (error) {
@@ -526,7 +526,7 @@ const confirmMeetingClick = async () => {
             <Tab>Completed</Tab>
           </TabList>
           {[appointments.filter(appointment => appointment.status === 'upcoming' || appointment.status === 'rescheduled'),
-            appointments.filter(appointment => appointment.status === 'pending'),
+            appointments.filter(appointment => appointment.status === 'rescheduled'),
             appointments.filter(appointment => appointment.status === 'canceled'),
             appointments.filter(appointment => appointment.status === 'completed')].map((filteredAppointments, index) => (
               <TabPanel key={index}>
