@@ -295,7 +295,7 @@ const Dashboard = () => {
     const { data, error } = await supabase
       .from('meetings')
       .update({ status: 'rescheduled' })
-      .eq('id_main', selectedAppointment.id);
+      .eq('id_main', selectedAppointment.id_main);
 
     if (error) {
       throw error;
@@ -327,7 +327,7 @@ const handleCancel = async () => {
     const { data, error } = await supabase
       .from('meetings')
       .update({ status: 'canceled' })
-      .eq('id_main', selectedAppointment.id);
+      .eq('id_main', selectedAppointment.id_main);
 
     if (error) {
       throw error;
@@ -345,6 +345,11 @@ const handleCancel = async () => {
           appointment.id_main === selectedAppointment.id ? { ...appointment, status: 'canceled' } : appointment
         )
       );
+      setAppointments((prevAppointments) =>
+    prevAppointments.map((appointment) =>
+    appointment.id_main === id ? { ...appointment, status: 'completed' } : appointment
+    )
+    );  
     }
   } catch (error: any) {
     console.error('Error canceling appointment:', error.message);
@@ -360,22 +365,29 @@ const handleComplete = async () => {
       throw new Error('No appointment selected for completion.');
     }
 
+    const id = selectedAppointment.id_main;
+    
+    // Check if id is a valid number
+    if (typeof id !== 'number' || isNaN(id)) {
+      throw new Error('Invalid appointment ID');
+    }
+
     const { data, error } = await supabase
       .from('meetings')
       .update({ status: 'completed' })
-      .eq('id_main', selectedAppointment.id);
+      .eq('id_main', id);
 
     if (error) {
       throw error;
     }
 
-    console.log(`Successfully completed appointment with ID ${selectedAppointment.id}`);
-
+    console.log(`Successfully completed appointment with ID ${id}`);
+    
     setAppointments((prevAppointments) =>
-      prevAppointments.map((appointment) =>
-        appointment.id_main === selectedAppointment.id ? { ...appointment, status: 'completed' } : appointment
-      )
-    );
+    prevAppointments.map((appointment) =>
+    appointment.id_main === id ? { ...appointment, status: 'completed' } : appointment
+    )
+    );  
   } catch (error: any) {
     console.error('Error completing appointment:', error.message);
   } finally {

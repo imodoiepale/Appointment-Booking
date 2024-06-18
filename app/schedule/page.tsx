@@ -4,7 +4,7 @@
 
 import React, { FormEventHandler, useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { addEvent } from './send';
+import { addEvent} from './send';
 import { DateTimeFormatOptions } from 'intl';
 import { ChangeEvent } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
@@ -80,39 +80,6 @@ interface formData {
             bookingDate: currentDate.toISOString().split('T')[0],
             bookingDay: currentDate.toLocaleDateString('en-US', { weekday: 'long' }),
         }));
-
-        // Push notification subscription logic
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/service-worker.js');
-
-            const subscribeToPushNotifications = async () => {
-            try {
-                const registration = await navigator.serviceWorker.ready;
-                const subscription = await registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(publicKey),
-                });
-
-                const response = await fetch('/api/subscribe', {
-                method: 'POST',
-                body: JSON.stringify(subscription),
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                });
-
-                if (response.ok) {
-                console.log('Successfully subscribed to push notifications');
-                } else {
-                console.error('Error subscribing to push notifications');
-                }
-            } catch (error) {
-                console.error('Error subscribing to push notifications:', error);
-            }
-            };
-
-            subscribeToPushNotifications();
-        }
         }, []);
 
     const handleMeetingDateChange = (date: Date) => {
@@ -275,8 +242,6 @@ interface formData {
     }
 };
 
-
-
     const [formStatus, setFormStatus] = useState('idle');
 
     const fetchClientDetails = async (clientCompanyName:string) => {
@@ -355,8 +320,8 @@ interface formData {
     const handleSubmit: FormEventHandler<HTMLFormElement> = async (event) => {
         event.preventDefault();
 
-    // Call addEvent and get the event ID
-    const eventId = await addEvent(formData);
+    // Call addEvent and get the event ID and hangout link
+    const { eventId, hangoutLink } = await addEvent(formData);
 
     // Check for empty fields
     const emptyFields = Object.entries(formData).filter(([key, value]) => {
@@ -409,7 +374,8 @@ interface formData {
               meeting_slot_start_time: formData.meetingSlotStartTime,
               meeting_slot_end_time: formData.meetingSlotEndTime,
               status: 'upcoming',
-              google_event_id: eventId, // Use the event ID from Google Calendar
+                google_event_id: eventId, // Use the event ID from Google Calendar
+                google_meet_link: hangoutLink || "",
             },
           ]);
 
