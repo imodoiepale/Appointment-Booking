@@ -21,12 +21,12 @@ interface FormData {
 
 const SCOPES = ['https://www.googleapis.com/auth/calendar'];
 
-export async function addEvent(formData: FormData): Promise<string | undefined> {
-   const { userId } = auth();
+export async function addEvent(formData: FormData): Promise<{ eventId: string, hangoutLink: string | null | undefined }> {
+  const { userId } = auth();
 
   if (userId === null) {
     console.error('User is not authenticated.');
-    return undefined;
+    return { eventId: '', hangoutLink: undefined };
   }
 
   const [oauthAccessToken] = await clerk.users.getUserOauthAccessToken(userId, 'oauth_google');
@@ -45,8 +45,8 @@ export async function addEvent(formData: FormData): Promise<string | undefined> 
   const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
   // Define the event
-  const event= {
-    summary: `${formData.meetingAgenda} with ${formData.clientName} from ${formData.clientCompany}`,
+  const event = {
+    summary: `MEETING with ${formData.clientName} from ${formData.clientCompany}`,
     description: `Scheduled meeting from ${formData.meetingStartTime} to ${formData.meetingEndTime}. Slot: ${formData.meetingSlotStartTime} - ${formData.meetingSlotEndTime}`,
     location: formData.meetingVenueArea,
     start: {
@@ -58,55 +58,20 @@ export async function addEvent(formData: FormData): Promise<string | undefined> 
       timeZone: 'Africa/Nairobi',
     },
     attendees: [
-      { email: formData.clientEmail,
-        reminders: {
-          useDefault: false,
-          overrides: [
-          { method: 'popup', minutes: 120 }, // 2 hours before
-          { method: 'popup', minutes: 480 }, // 8 hours before
-          { method: 'popup', minutes: 240 }, // 4 hours before
-          { method: 'popup', minutes: 120 }, // 2 hours before (repeated)
-          { method: 'popup', minutes: 60 },  // 1 hour before
-          { method: 'popup', minutes: 30 },  // 30 minutes before
-          { method: 'popup', minutes: 15 },  // 15 minutes before
-          { method: 'popup', minutes: 10 },  // 10 minutes before
-          { method: 'popup', minutes: 5 },  // 5 minutes before
-          ],
-        },
-      },
-      { email: 'info@booksmartconsult.com',
-      reminders: {
-        useDefault: false,
-        overrides: [
-          { method: 'popup', minutes: 120 }, // 2 hours before
-          { method: 'popup', minutes: 480 }, // 8 hours before
-          { method: 'popup', minutes: 240 }, // 4 hours before
-          { method: 'popup', minutes: 120 }, // 2 hours before (repeated)
-          { method: 'popup', minutes: 60 },  // 1 hour before
-          { method: 'popup', minutes: 30 },  // 30 minutes before
-          { method: 'popup', minutes: 15 },  // 15 minutes before
-          { method: 'popup', minutes: 10 },  // 10 minutes before
-          { method: 'popup', minutes: 5 },  // 5 minutes before
-        ],
-      },
-    },
-      { email: 'sandip@booksmartconsult.com',
-      reminders: {
-        useDefault: false,
-        overrides: [
-          { method: 'popup', minutes: 120 }, // 2 hours before
-          { method: 'popup', minutes: 480 }, // 8 hours before
-          { method: 'popup', minutes: 240 }, // 4 hours before
-          { method: 'popup', minutes: 120 }, // 2 hours before (repeated)
-          { method: 'popup', minutes: 60 },  // 1 hour before
-          { method: 'popup', minutes: 30 },  // 30 minutes before
-          { method: 'popup', minutes: 15 },  // 15 minutes before
-          { method: 'popup', minutes: 10 },  // 10 minutes before
-          { method: 'popup', minutes: 5 },  // 5 minutes before
-        ],
-      },
-    },
+      { email: formData.clientEmail },
+      {email: 'info@booksmartconsult.com'},
+      { email: 'sandip@booksmartconsult.com'},
     ],
+    reminders: {
+      useDefault: false,
+      overrides: [
+        { method: 'popup', minutes: 24 * 60 }, // 24hrs hours before
+        { method: 'popup', minutes: 240 }, // 4 hours before
+        { method: 'popup', minutes: 120 }, // 2 hours before
+        { method: 'popup', minutes: 60 },  // 1 hour before
+        { method: 'popup', minutes: 15 },  // 15 minutes before
+      ],
+    },
     conferenceData: formData.meetingType === 'virtual'
       ? {
         createRequest: {
@@ -126,16 +91,18 @@ export async function addEvent(formData: FormData): Promise<string | undefined> 
     });
 
     const eventId = response.data.id;
+    const hangoutLink = response.data.hangoutLink;
     if (eventId) {
       console.log(eventId);
-      return eventId;
+      console.log('Google Meet Link:', hangoutLink)
+      return { eventId, hangoutLink };
     } else {
       console.error('Error: Event ID is null or undefined.');
-      return undefined;
+      return { eventId: '', hangoutLink: undefined };
     }
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('Error creating event:', error.message);
-    return undefined;
+    return { eventId: '', hangoutLink: undefined };
   }
 
 }
