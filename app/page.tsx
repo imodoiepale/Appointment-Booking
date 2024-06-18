@@ -6,6 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { updateEvent } from './schedule/reshedule';
 import { ChangeEvent } from 'react';
+import { Badge } from "@/components/ui/badge"
 
 
 import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
@@ -25,11 +26,13 @@ import { cancelEvent } from './schedule/cancel';
 const supabaseUrl = 'https://zyszsqgdlrpnunkegipk.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5c3pzcWdkbHJwbnVua2VnaXBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDgzMjc4OTQsImV4cCI6MjAyMzkwMzg5NH0.fK_zR8wR6Lg8HeK7KBTTnyF0zoyYBqjkeWeTKqi32ws';
 const supabase = createClient(supabaseUrl, supabaseKey);
-// add row 
+
+
 
 const Dashboard = () => {
-  
-
+  const { data, error } =    supabase
+  .from('meetings')
+  .select('*');
   interface Appointment {
     id: number;
     meeting_start_time: string;
@@ -395,6 +398,40 @@ const handleComplete = async () => {
   }
 };
 
+const confirmMeetingClick = async () => {
+  try {
+    // Check if selectedAppointment is null
+    if (!selectedAppointment) {
+      throw new Error('No appointment selected for confirmation.');
+    }
+
+    // Update the badge_status to 'Confirmed' in the database
+    const { data, error } = await supabase
+      .from('meetings')
+      .update({ badge_status: 'Confirmed' })
+      .eq('id_main', selectedAppointment.id_main);
+
+    if (error) {
+      throw error;
+    }
+
+    console.log(`Successfully confirmed appointment with ID ${selectedAppointment.id}`);
+
+    // Update the appointments state
+    setAppointments((prevAppointments) =>
+      prevAppointments.map((appointment) =>
+        appointment.id_main === selectedAppointment.id_main
+          ? { ...appointment, badge_status: 'Confirmed' }
+          : appointment
+      )
+    );
+  } catch (error: any) {
+    console.error('Error confirming appointment:', error.message);
+  } finally {
+    handleCloseModal(); // You might want to close the modal here
+  }
+};
+
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -453,8 +490,23 @@ const handleComplete = async () => {
     }
   }
 
+  function getStatusBadgeColor(badgeStatus: string) {
+    switch (badgeStatus) {
+      case 'Open'|| "":
+        return 'blue-400/70';
+      case 'Confirmed':
+        return 'green-400/70';
+      case 'Tentative':
+        return 'red-400/70';
+      case 'Rejected':
+        return 'red-600';
+      default:
+        return '';
+    }
+  }
 
-  
+
+
   return (
     <div className="p-2">
 
@@ -502,7 +554,13 @@ const handleComplete = async () => {
                         .map((appointment, index, array) => (
                           <React.Fragment key={appointment.id_main}>
                             <TableRow onClick={() => handleAppointmentClick(appointment)}>
-                              <TableCell>{appointment.id_main}</TableCell>
+                              {/* <TableCell>{appointment.id_main}</TableCell> */}
+                              <TableCell className='flex gap-2'>
+                              {appointment.id_main}
+                                <div className="top-0">
+                                  <Badge variant="outline"> {appointment.badge_status === 'Confirmed' ? '✔️' : '❌'}</Badge>
+                                </div>
+                              </TableCell>
                               <TableCell>{new Date(appointment.meeting_date).toLocaleDateString('en-GB')}</TableCell>
                               <TableCell className="text-blue-500">{appointment.meeting_day}</TableCell>
                               <TableCell>{appointment.client_name}</TableCell>
@@ -563,10 +621,19 @@ const handleComplete = async () => {
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
                   <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                    <h3 className="text-lg uppercase leading-6 font-bold text-gray-900" id="modal-title">
-                      Appointment Details for {selectedAppointment.client_name}
-                    </h3>
-
+                    <div className="flex justify-between">
+                      <h3 className=" text-left md:text-lg uppercase leading-6 font-bold text-gray-900" id="modal-title">
+                        Appointment Details for {selectedAppointment.client_name}
+                      </h3>
+                      <div className=" hidden lg:flex gap-4 ">
+                        <Badge
+                          variant="outline"
+                          className={`bg-${getStatusBadgeColor(selectedAppointment.badge_status)} text-xs md:text-lg uppercase font-bold text-gray-900`}
+                        >
+                          {selectedAppointment.badge_status}
+                        </Badge>
+                      </div>
+                    </div>
                     {/* mobile view */}
                     <div className="mt-2 md:hidden">
                       <Table style={{ borderCollapse: 'collapse', width: '100%', border: '1px solid #ddd' }}>
@@ -616,19 +683,22 @@ const handleComplete = async () => {
                     </div>
 
                     {isRescheduleClicked && renderRescheduleFields()}
-
                     <div className=" align-bottom rounded-lg text-left overflow-hidden  transform transition-all sm:my-8 sm:align-middle sm:w-full">
                       <div className=" pt-2 px-2 ">
-                        <div className="flex justify-center">
-                          <div className="mt-2 items-center">  <button className="bg-blue-500 text-white rounded px-4 py-2" onClick={handleRescheduleClick}>
-                              Reschedule
-                            </button>
-                            <button className="bg-red-500 text-white rounded px-4 py-2 ml-2" onClick={handleCancel}>
-                              Cancel
-                            </button>
-                            <button className="bg-green-500 text-white rounded px-4 py-2 ml-2" onClick={handleComplete}>
-                              Complete
-                            </button>
+                        <div className="flex justify-center ">
+                          <div className="mt-2 items-center gap-6">  
+                            <button className="bg-blue-500 text-white rounded px-4 py-2" onClick={handleRescheduleClick}>
+                                Reschedule
+                              </button>
+                              <button className="bg-blue-500 text-white rounded px-4 py-2 ml-2" onClick={confirmMeetingClick}>
+                                Confirm Meeting ✔️
+                              </button>
+                              <button className="bg-red-500 text-white rounded px-4 py-2 ml-2" onClick={handleCancel}>
+                                Cancel
+                              </button>
+                              <button className="bg-green-500 text-white rounded px-4 py-2 ml-2" onClick={handleComplete}>
+                                Complete
+                              </button>
                           </div>
                         </div>
                       </div>
