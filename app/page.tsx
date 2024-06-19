@@ -81,17 +81,19 @@ const Dashboard = () => {
       if (!selectedAppointment) {
         throw new Error('No appointment selected for rescheduling.');
       }
+      console.log(selectedAppointment.id_main)
 
       const { data, error } = await supabase
         .from('meetings')
         .update({
+          id_main : selectedAppointment.id_main,
           meeting_start_time: rescheduleFormData.meetingStartTime,
           meeting_duration: rescheduleFormData.meetingDuration,
           meeting_end_time: rescheduleFormData.meetingEndTime,
           meeting_date: rescheduleFormData.meetingDate,
           status: 'rescheduled',
         })
-        .eq('id_main', selectedAppointment.id);
+        .eq('id_main', selectedAppointment.id_main)
 
       if (error) {
         throw error;
@@ -100,10 +102,10 @@ const Dashboard = () => {
       // Call updateEvent to update the event in Google Calendar
       await updateEvent({
         ...rescheduleFormData,
-        eventId: selectedAppointment.id, // Pass the event ID to updateEvent
+        eventId: selectedAppointment.google_event_id, // Pass the event ID to updateEvent
       });
 
-      console.log(`Successfully rescheduled appointment with ID ${selectedAppointment.id}`);
+      console.log(`Successfully rescheduled appointment with ID ${selectedAppointment.id_main}`);
 
       setAppointments((prevAppointments) =>
         prevAppointments.map((appointment) =>
@@ -112,6 +114,15 @@ const Dashboard = () => {
             : appointment
         )
       );
+      setAppointments((prevAppointments) =>
+        prevAppointments.map((appointment) =>
+          appointment.id_main === selectedAppointment.id ? { ...appointment, status: 'upcoming' } : appointment
+        )
+      );
+      setAppointments((prevAppointments) =>
+    prevAppointments.map((appointment) =>
+    appointment.id_main === id ? { ...appointment, status: 'completed' } : appointment
+    ))
 
       setRescheduleClicked(false);
       setRescheduleFormData({
