@@ -138,8 +138,6 @@ interface formData {
         }
     };
 
-
-
     const calculateSlotTime = (baseTime: string, minutesToAdd: number) => {
     const [hours, minutes] = baseTime.split(':').map(Number); // Convert to numbers
 
@@ -428,8 +426,6 @@ interface formData {
         setFormStatus('error');
     }
 };
-
-
 
     return (
         <div className="max-w-3xl mx-auto bg-white p-8 rounded-md shadow-md">
