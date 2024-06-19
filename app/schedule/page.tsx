@@ -336,7 +336,7 @@ interface formData {
         const allFieldNames = Object.keys(formData);
         
         // Calculate the non-empty fields
-        const nonEmptyFieldNames = allFieldNames.filter(fieldName => !emptyFieldNames.includes(`${fieldName} `));
+        const nonEmptyFieldNames = allFieldNames.filter(fieldName => emptyFieldNames.includes(fieldName));
     
         // Update state to mark invalid fields and show error message
         setInvalidFields(emptyFieldNames);
