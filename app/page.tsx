@@ -558,7 +558,7 @@ const confirmMeetingClick = async () => {
                               <TableCell className='flex gap-2'>
                               {appointment.id_main}
                                 <div className="top-0">
-                                  <Badge variant="outline"> {appointment.badge_status === 'Confirmed' ? '✔️' : '⏳'}</Badge>
+                                  <Badge variant="outline"> {appointment.badge_status === 'Confirmed' ? '✔️' : appointment.badge_status === 'Rejected' ? '❌' : '⏳'}</Badge>
                                 </div>
                               </TableCell>
                               <TableCell>{new Date(appointment.meeting_date).toLocaleDateString('en-GB')}</TableCell>
@@ -686,7 +686,7 @@ const confirmMeetingClick = async () => {
                     <div className=" align-bottom rounded-lg text-left overflow-hidden  transform transition-all sm:my-8 sm:align-middle sm:w-full">
                       <div className=" pt-2 px-2 ">
                         <div className="flex justify-center ">
-                          <div className="mt-2 items-center gap-6">  
+                          <div className="mt-2 items-center gap-6 space-y-4">  
                             <button className="bg-blue-500 text-white rounded px-4 py-2" onClick={handleRescheduleClick}>
                                 Reschedule
                               </button>
