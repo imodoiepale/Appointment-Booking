@@ -516,6 +516,20 @@ const confirmMeetingClick = async () => {
     }
   }
 
+  const checkAppointmentStatus = (appointment) => {
+    const { status, meeting_start_time, meeting_date } = appointment;
+    const currentDate = new Date();
+    const meetingStartDateTime = new Date(`${meeting_date}T${meeting_start_time}`);
+  
+    if (status === 'upcoming' && currentDate > meetingStartDateTime) {
+      return {
+        ...appointment,
+        status: 'pending',
+      };
+    }
+  
+    return appointment;
+  };
 
 
   return (
@@ -581,7 +595,9 @@ const confirmMeetingClick = async () => {
                               <TableCell className="text-blue-800">{appointment.meeting_end_time}</TableCell>
                               <TableCell>{appointment.meeting_type}</TableCell>
                               <TableCell>{appointment.meeting_agenda}</TableCell>
-                              <TableCell>{appointment.status}</TableCell>
+                              <TableCell className={getStatusColor(checkAppointmentStatus(appointment).status)}>
+                                {checkAppointmentStatus(appointment).status}
+                              </TableCell>
                             </TableRow>
                             {index < array.length - 1 && appointment.meeting_day !== array[index + 1].meeting_day && (
                               <TableRow className="bg-blue-200">
