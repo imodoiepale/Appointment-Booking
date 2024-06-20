@@ -456,34 +456,21 @@ const confirmMeetingClick = async () => {
     const { name, value } = e.target;
   };
 
+  const checkAppointmentStatus = (appointment) => {
+    const { status, meeting_start_time, meeting_date } = appointment;
+    const currentDate = new Date();
+    const meetingStartDateTime = new Date(`${meeting_date}T${meeting_start_time}`);
+  
+    if (status === 'upcoming' && currentDate > meetingStartDateTime) {
+      return {
+        ...appointment,
+        status: 'pending',
+      };
+    }
+  
+    return appointment;
+  };
 
-  const appointmentDetails = selectedAppointment
-    ? [
-      { label: 'Booking Date', value: selectedAppointment.booking_date },
-      { label: 'Booking Day', value: selectedAppointment.booking_day },
-      { label: 'Status', value: selectedAppointment.status },
-      { label: 'Meeting ID', value: selectedAppointment.id_main, fillEmpty: true },
-      { label: '', value: '', fillEmpty: true, isGrey: true }, // Empty space
-      { label: 'Meeting Date', value: selectedAppointment.meeting_date },
-      { label: 'Meeting Day', value: selectedAppointment.meeting_day },
-      { label: 'Client Name', value: selectedAppointment.client_name },
-      { label: 'Client Company', value: selectedAppointment.client_company },
-      { label: 'Client Mobile', value: selectedAppointment.client_mobile },
-      { label: 'Meeting Venue Area', value: selectedAppointment.meeting_venue_area },
-      { label: '', value: '', fillEmpty: true, isGrey: true }, // Empty space
-      { label: 'Meeting Start Time', value: selectedAppointment.meeting_start_time },
-      { label: 'Meeting End Time', value: selectedAppointment.meeting_end_time },
-      { label: 'Meeting Type', value: selectedAppointment.meeting_type },
-      { label: 'Agenda', value: selectedAppointment.meeting_agenda },
-      { label: '', value: '', fillEmpty: true, isGrey: true }, // Empty space
-      { label: 'BCL Attendee', value: selectedAppointment.bcl_attendee },
-      { label: 'BCL Attendee Mobile', value: selectedAppointment.bcl_attendee_mobile },
-      { label: 'Meeting Duration', value: `${selectedAppointment.meeting_duration} Minutes` },
-      { label: 'Venue Distance', value: selectedAppointment.venue_distance },
-      { label: 'Slot Start Time', value: selectedAppointment.meeting_slot_start_time },
-      { label: 'Meeting Slot End Time', value: selectedAppointment.meeting_slot_end_time },
-    ].map(item => ({ label: item.label.replace('', ''), value: item.value, fillEmpty: item.fillEmpty, isGrey: item.isGrey }))
-  : [];
 
   function getStatusColor(status: string) {
     switch (status) {
@@ -516,20 +503,37 @@ const confirmMeetingClick = async () => {
     }
   }
 
-  const checkAppointmentStatus = (appointment) => {
-    const { status, meeting_start_time, meeting_date } = appointment;
-    const currentDate = new Date();
-    const meetingStartDateTime = new Date(`${meeting_date}T${meeting_start_time}`);
-  
-    if (status === 'upcoming' && currentDate > meetingStartDateTime) {
-      return {
-        ...appointment,
-        status: 'pending',
-      };
-    }
-  
-    return appointment;
-  };
+
+
+  const appointmentDetails = selectedAppointment
+    ? [
+      { label: 'Booking Date', value: selectedAppointment.booking_date },
+      { label: 'Booking Day', value: selectedAppointment.booking_day },
+      { label: 'Status', value: checkAppointmentStatus(selectedAppointment).status},
+      { label: 'Meeting ID', value: selectedAppointment.id_main, fillEmpty: true },
+      { label: '', value: '', fillEmpty: true, isGrey: true }, // Empty space
+      { label: 'Meeting Date', value: selectedAppointment.meeting_date },
+      { label: 'Meeting Day', value: selectedAppointment.meeting_day },
+      { label: 'Client Name', value: selectedAppointment.client_name },
+      { label: 'Client Company', value: selectedAppointment.client_company },
+      { label: 'Client Mobile', value: selectedAppointment.client_mobile },
+      { label: 'Meeting Venue Area', value: selectedAppointment.meeting_venue_area },
+      { label: '', value: '', fillEmpty: true, isGrey: true }, // Empty space
+      { label: 'Meeting Start Time', value: selectedAppointment.meeting_start_time },
+      { label: 'Meeting End Time', value: selectedAppointment.meeting_end_time },
+      { label: 'Meeting Type', value: selectedAppointment.meeting_type },
+      { label: 'Agenda', value: selectedAppointment.meeting_agenda },
+      { label: '', value: '', fillEmpty: true, isGrey: true }, // Empty space
+      { label: 'BCL Attendee', value: selectedAppointment.bcl_attendee },
+      { label: 'BCL Attendee Mobile', value: selectedAppointment.bcl_attendee_mobile },
+      { label: 'Meeting Duration', value: `${selectedAppointment.meeting_duration} Minutes` },
+      { label: 'Venue Distance', value: selectedAppointment.venue_distance },
+      { label: 'Slot Start Time', value: selectedAppointment.meeting_slot_start_time },
+      { label: 'Meeting Slot End Time', value: selectedAppointment.meeting_slot_end_time },
+    ].map(item => ({ label: item.label.replace('', ''), value: item.value, fillEmpty: item.fillEmpty, isGrey: item.isGrey }))
+  : [];
+
+
 
 
   return (
@@ -551,7 +555,7 @@ const confirmMeetingClick = async () => {
             <Tab>Completed</Tab>
           </TabList>
           {[appointments.filter(appointment => appointment.status === 'upcoming' || appointment.status === 'rescheduled'),
-            appointments.filter(appointment => appointment.status === 'rescheduled'),
+            appointments.filter(appointment => checkAppointmentStatus(appointment).status === 'pending'),
             appointments.filter(appointment => appointment.status === 'canceled'),
             appointments.filter(appointment => appointment.status === 'completed')].map((filteredAppointments, index) => (
               <TabPanel key={index}>
@@ -614,7 +618,7 @@ const confirmMeetingClick = async () => {
                     <div key={appointment.id_main} className="bg-white space-y-3 p-4 rounded-lg shadow border">
                       <div className='flex justify-between' onClick={() => handleAppointmentClick(appointment)}>
                         <div className="text-md text-gray-900 uppercase font-bold">{appointment.client_name} </div>
-                        <span className={`text-xs font-bold uppercase tracking-wider ${getStatusColor(appointment.status)}`}>{appointment.status}</span>
+                        <span className={`text-xs font-bold uppercase tracking-wider ${getStatusColor(checkAppointmentStatus(appointment).status)}`}>{checkAppointmentStatus(appointment).status}</span>
                       </div>
                       <div className="text-sm font-medium text-gray-700 italic">{appointment.client_company}</div>
                       <div className="flex items-center space-x-2 text-sm">
