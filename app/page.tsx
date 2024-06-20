@@ -4,10 +4,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import fetch from 'node-fetch';
 import { updateEvent } from './schedule/reshedule';
 import { ChangeEvent } from 'react';
 import { Badge } from "@/components/ui/badge"
-
+import * as PusherPushNotifications from "@pusher/push-notifications-web";
 
 import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
 import 'react-tabs/style/react-tabs.css';
@@ -361,7 +362,7 @@ const handleCancel = async () => {
       );
       setAppointments((prevAppointments) =>
     prevAppointments.map((appointment) =>
-    appointment.id_main === id ? { ...appointment, status: 'completed' } : appointment
+    appointment.id_main === id_main ? { ...appointment, status: 'completed' } : appointment
     )
     );  
     }
@@ -534,11 +535,26 @@ const confirmMeetingClick = async () => {
   : [];
 
 
+  const beamsClient = new PusherPushNotifications.Client({
+    instanceId: '99223496-fec8-46d8-85b1-bd730fbbf802',
+  });
 
+  beamsClient
+  .start()
+  .then((beamsClient) => beamsClient.getDeviceId())
+  .then((deviceId) => console.log("Successfully registered with Beams. Device ID:", deviceId))
+  .then(() => beamsClient.addDeviceInterest("hello"))
+  .then(() => beamsClient.getDeviceInterests())
+  .then((interests) => console.log("Current interests:", interests))
+  .catch(console.error);
+
+
+
+
+  
 
   return (
     <div className="p-2">
-
       <div className="fixed right-0 top-20 m-6">
         <div className="animate-bounce bg-white shadow-xl rounded-lg p-6 w-16 h-16 md:w-24 md:h-24 flex items-center justify-center flex-col">
           <p className="text-2xl md:text-4xl">{totalAppointmentsToday}</p>

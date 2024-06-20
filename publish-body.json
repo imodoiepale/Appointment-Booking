@@ -1,0 +1,10 @@
+{
+    "interests": ["hello"],
+    "web": {
+      "notification": {
+        "title": "MEETING REMINDER",
+        "body": "Hello, world!",
+        "deep_link": "https://www.pusher.com"
+      }
+    }
+    }
