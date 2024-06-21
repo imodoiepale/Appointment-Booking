@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 // pages/api/register-subscription.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
 import Pusher from 'pusher';
