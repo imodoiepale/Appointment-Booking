@@ -6,6 +6,7 @@ import { ClerkProvider } from '@clerk/nextjs'
 import Header from '../components/Header'
 import { ThemeProvider } from "@/components/theme-provider"
 import Sidebar from '@/components/Sidebar'
+import { NotificationProvider } from '@/context/NotificationContext'
 
 // Using Inter for a clean, modern look like in the reference design
 const inter = Inter({
@@ -45,15 +46,17 @@ export default function RootLayout({
             enableSystem={false}
             disableTransitionOnChange
           >
-            <div className="flex min-h-screen">
-              <Sidebar />
-              <div className="flex-1">
-                <Header />
-                <main className="p-6">
-                  {children}
-                </main>
+            <NotificationProvider>
+              <div className="flex min-h-screen">
+                <Sidebar />
+                <div className="flex-1">
+                  <Header />
+                  <main className="p-6">
+                    {children}
+                  </main>
+                </div>
               </div>
-            </div>
+            </NotificationProvider>
           </ThemeProvider>
         </body>
       </html>
