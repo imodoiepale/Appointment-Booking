@@ -461,7 +461,12 @@ const BookingScheduler = () => {
             setFormStatus('success');
             toast({ title: "Success!", description: "Meeting scheduled successfully." });
 
-            // Reset form after a short delay
+            // Redirect to calendar page after a short delay
+            setTimeout(() => {
+                window.location.href = '/calendar';
+            }, 1500);
+
+            // Reset form (this will happen if user navigates back)
             setTimeout(() => {
                 setFormData(initialFormData);
                 // Re-initialize booking date/day
@@ -818,13 +823,26 @@ const BookingScheduler = () => {
                                     <div className="space-y-4 animate-fadeIn">
                                         <h3 className="text-lg font-semibold text-gray-700 mb-3">Scheduling Details</h3>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            {renderSelectField('meetingStartTime', 'Meeting Start Time *', {
-                                                placeholder: 'Select Start Time',
-                                                items: generateTimeOptions(),
-                                                icon: Clock,
-                                                isInvalid: invalidFields.includes('meetingStartTime'),
-                                                onValueChange: handleMeetingStartTimeChange
-                                            })}
+                                            {/* Modified Meeting Start Time with single flexible input */}
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="meetingStartTime" className={invalidFields.includes('meetingStartTime') ? 'text-red-600' : 'text-gray-700'}>Meeting Start Time *</Label>
+                                                <div className="relative">
+                                                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                                                    <Input
+                                                        id="meetingStartTime"
+                                                        name="meetingStartTime"
+                                                        type="time"
+                                                        value={formData.meetingStartTime}
+                                                        onChange={(e) => handleMeetingStartTimeChange(e.target.value)}
+                                                        className={`w-full pl-9 ${invalidFields.includes('meetingStartTime') ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'}`}
+                                                        placeholder="Enter time (HH:MM)"
+                                                    />
+                                                </div>
+                                                <div className="text-xs text-gray-500 mt-1">
+                                                    Enter in 24-hour format (e.g., 09:00, 14:30)
+                                                </div>
+                                                {invalidFields.includes('meetingStartTime') && <p className="text-xs text-red-500 mt-1">This field is required.</p>}
+                                            </div>
                                             {renderSelectField('meetingDuration', 'Meeting Duration *', {
                                                 placeholder: 'Select Duration',
                                                 items: [

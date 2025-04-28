@@ -40,7 +40,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/hooks/use-toast"; // Corrected import path
 
 // Icons
-import { Calendar, Clock, Mic, MicOff, UserPlus, Building, MapPin, CheckCircle, XCircle, RefreshCw, MessageSquare, Table2, LayoutGrid, Link as LinkIcon, Phone } from 'lucide-react'; // Added Phone icon
+import { Calendar, Clock, Mic, MicOff, UserPlus, Building, MapPin, CheckCircle, XCircle, RefreshCw, MessageSquare, Table2, LayoutGrid, Link as LinkIcon, Phone, Video } from 'lucide-react'; // Added Phone icon
 
 const supabaseUrl = 'https://zyszsqgdlrpnunkegipk.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5c3pzcWdkbHJwbnVua2VnaXBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDgzMjc4OTQsImV4cCI6MjAyMzkwMzg5NH0.fK_zR8wR6Lg8HeK7KBTTnyF0zoyYBqjkeWeTKqi32ws';
@@ -665,7 +665,8 @@ const Dashboard = () => {
             {/* Adjusted padding and font size */}
             <TableHead className="w-[40px] px-2 py-2 text-xs font-semibold text-gray-600">#</TableHead>
             <TableHead className="w-[80px] px-2 py-2 text-xs font-semibold text-gray-600">ID</TableHead>
-            <TableHead className="w-[120px] px-2 py-2 text-xs font-semibold text-gray-600">Status</TableHead>
+            <TableHead className="w-[120px] px-2 py-2 text-xs font-semibold text-gray-600">Meeting Status</TableHead>
+            <TableHead className="w-[120px] px-2 py-2 text-xs font-semibold text-gray-600"> Confirmation Status</TableHead>
             <TableHead className="px-3 py-2 text-xs font-semibold text-gray-600">Client</TableHead>
             <TableHead className="px-3 py-2 text-xs font-semibold text-gray-600">Company</TableHead>
             <TableHead className="w-[100px] px-2 py-2 text-xs font-semibold text-gray-600">Date</TableHead>
@@ -696,13 +697,21 @@ const Dashboard = () => {
                   <TableCell className="px-2 py-1.5 text-xs font-medium text-gray-500">{index + 1}</TableCell>
                   <TableCell className="px-2 py-1.5 text-xs font-medium text-gray-800">{appointment.id_main}</TableCell>
                   <TableCell className="px-2 py-1.5">
-                    <div className="flex flex-col space-y-1">
-                      <Badge variant="outline" className={`text-[10px] px-1.5 py-0.5 ${getStatusColor(displayAppointment.status)}`}>
-                        {getStatusIcon(displayAppointment.status)}
-                        {displayAppointment.status.charAt(0).toUpperCase() + displayAppointment.status.slice(1)}
+                    <div className="flex items-center">
+                      <Badge variant="outline" className={`text-[10px] ${getStatusColor(displayAppointment.status)}`}>
+                        <span className="flex items-center">
+                          {getStatusIcon(displayAppointment.status)}
+                          <span className="ml-1">{displayAppointment.status.charAt(0).toUpperCase() + displayAppointment.status.slice(1)}</span>
+                        </span>
                       </Badge>
-                      <Badge variant="outline" className={`text-[10px] px-1.5 py-0.5 ${getBadgeStatusColor(appointment.badge_status)}`}>
-                        {appointment.badge_status}
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-2 py-1.5">
+                    <div className="flex items-center">
+                      <Badge variant="outline" className={`text-[10px]${getBadgeStatusColor(appointment.badge_status)}`}>
+                        <span className="flex items-center">
+                          {appointment.badge_status}
+                        </span>
                       </Badge>
                     </div>
                   </TableCell>
@@ -710,11 +719,40 @@ const Dashboard = () => {
                   <TableCell className="px-3 py-1.5 text-xs text-gray-600">{appointment.client_company}</TableCell>
                   <TableCell className="px-2 py-1.5 text-xs text-gray-600">{new Date(appointment.meeting_date).toLocaleDateString('en-GB')}</TableCell>
                   <TableCell className="px-2 py-1.5 text-xs text-gray-600">{appointment.meeting_day}</TableCell>
-                  <TableCell className="px-3 py-1.5 text-xs text-gray-600">{appointment.meeting_venue_area}</TableCell>
-                  <TableCell className="px-2 py-1.5 text-xs text-gray-700">{formatTime(appointment.meeting_start_time)} - {formatTime(appointment.meeting_end_time)}</TableCell>
-                  <TableCell className="px-3 py-1.5 text-xs text-gray-600">{appointment.meeting_type}</TableCell>
-                  <TableCell className="px-3 py-1.5 text-xs text-gray-600 truncate max-w-[150px]" title={appointment.meeting_agenda}>
-                    {appointment.meeting_agenda}
+                  <TableCell className="px-3 py-1.5 text-xs text-gray-600">
+                    <div className="flex items-center">
+                      <span className="truncate max-w-[100px]" title={appointment.meeting_venue_area}>
+                        {appointment.meeting_venue_area}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-2 py-1.5 text-xs text-gray-700">
+                    <div className="flex items-center whitespace-nowrap">
+                      <Clock className="h-3 w-3 mr-1 text-blue-500" />
+                      {formatTime(appointment.meeting_start_time)} - {formatTime(appointment.meeting_end_time)}
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-3 py-1.5 text-xs text-gray-600">
+                    <div className="flex items-center">
+                      {appointment.meeting_type === 'virtual' ? (
+                        <span className="flex items-center">
+                          <Video className="h-3 w-3 mr-1 text-blue-500" />
+                          Virtual
+                        </span>
+                      ) : (
+                        <span className="flex items-center">
+                          <MapPin className="h-3 w-3 mr-1 text-gray-400" />
+                          In Person
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-3 py-1.5 text-xs text-gray-600">
+                    <div className="flex items-center">
+                      <span className="truncate max-w-[150px]" title={appointment.meeting_agenda}>
+                        {appointment.meeting_agenda}
+                      </span>
+                    </div>
                   </TableCell>
                 </TableRow>
               );
