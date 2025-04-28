@@ -2,7 +2,7 @@
 "use client"
 
 import { useState } from 'react';
-import { Bell, Search, User, ChevronDown, Calendar } from 'lucide-react';
+import { Search, User, ChevronDown } from 'lucide-react';
 import { useUser } from '@clerk/nextjs';
 import {
   DropdownMenu,
@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
+import { NotificationBell } from './NotificationBell';
 
 const Header = () => {
   const { user } = useUser();
@@ -33,10 +34,7 @@ const Header = () => {
         </div>
 
         <div className="flex items-center">
-          <button className="relative p-2 mr-2 rounded-full hover:bg-gray-100">
-            <Bell size={20} className="text-gray-600" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-          </button>
+          <NotificationBell />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
