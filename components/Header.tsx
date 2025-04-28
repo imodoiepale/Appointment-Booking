@@ -1,39 +1,71 @@
-// @ts-ignore
-//@ts-nocheck
-import { SignInButton, SignedOut, UserButton } from "@clerk/nextjs"
-import Image from "next/image"
-import Link from "next/link"
-import { ThemeToggler } from "./ui/ThemeToggler"
+// @ts-nocheck
+"use client"
 
+import { useState } from 'react';
+import { Bell, Search, User, ChevronDown, Calendar } from 'lucide-react';
+import { useUser } from '@clerk/nextjs';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
 
 const Header = () => {
-  return (
-    <header className="flex justify-between my-10 items-center">
-      
-      <Link href={"/"} className="flex pl-2">
-        <div className="px-5 flex items-center">
-          <Image
-            src="/logo.png"
-            alt="logo"
-            className=""
-            height={50}
-            width={50}
-          />
-      <p className="font-bold text-sm lg:text-xl ">Booksmart Consultancy Ltd</p>
-        </div>
-      </Link>
+  const { user } = useUser();
+  const [searchQuery, setSearchQuery] = useState('');
 
-      <div className="px-5 flex items-center gap-3">
-        <div className="hidden sm:block">
-          <ThemeToggler />
+  return (
+    <header className="bg-white border-b px-6 py-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center md:w-72">
+          <div className="relative flex-1 md:mr-4">
+            <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 rounded-md border border-gray-200 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+            />
+          </div>
         </div>
-        <UserButton afterSignOutUrl="/" />
-        <SignedOut>
-          <SignInButton afterSignInUrl="/dashboard" mode="modal" className="font-bold">Sign In</SignInButton>
-        </SignedOut>
+
+        <div className="flex items-center">
+          <button className="relative p-2 mr-2 rounded-full hover:bg-gray-100">
+            <Bell size={20} className="text-gray-600" />
+            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+          </button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center space-x-2 ml-4">
+                <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
+                  {user?.imageUrl ? (
+                    <img src={user.imageUrl} alt={user?.fullName || 'User'} className="w-full h-full object-cover" />
+                  ) : (
+                    <User size={16} />
+                  )}
+                </div>
+                <div className="hidden md:block text-left">
+                  <p className="text-sm font-medium text-gray-700">{user?.fullName || 'User Name'}</p>
+                  <p className="text-xs text-gray-500">{user?.primaryEmailAddress?.emailAddress || 'email@example.com'}</p>
+                </div>
+                <ChevronDown size={16} className="text-gray-500" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem>Profile</DropdownMenuItem>
+              <DropdownMenuItem>Settings</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem>Logout</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
     </header>
-  )
-}
+  );
+};
 
-export default Header
+export default Header;
