@@ -5,7 +5,7 @@ let beamsClient: any = null;
 let dbPromise: Promise<IDBDatabase> | null = null;
 
 // Your Pusher Beams instance ID (replace with your actual instance ID)
-const BEAMS_INSTANCE_ID = "your-pusher-beams-instance-id";
+const BEAMS_INSTANCE_ID = "625fdd5a-50f6-4c5a-b085-31b81e7bc6ef";
 
 // Notification assets
 const NOTIFICATION_ICONS = {
@@ -22,10 +22,11 @@ const NOTIFICATION_SOUNDS = {
 function initDatabase(): Promise<IDBDatabase> {
   if (!dbPromise) {
     dbPromise = new Promise((resolve, reject) => {
-      const request = indexedDB.open('meeting-notifications-db', 1);
+      const request = indexedDB.open('meeting-notifications-db', 2); // Increase version number
       
       request.onupgradeneeded = (event) => {
         const db = request.result;
+        // Always check if the object store exists before creating
         if (!db.objectStoreNames.contains('notifications')) {
           db.createObjectStore('notifications', { keyPath: 'id' });
           console.log('Created notifications object store');
@@ -34,6 +35,14 @@ function initDatabase(): Promise<IDBDatabase> {
       
       request.onsuccess = () => {
         console.log('Successfully opened IndexedDB');
+        // Ensure the store exists even for existing databases
+        const db = request.result;
+        if (!db.objectStoreNames.contains('notifications')) {
+          // Close current connection and reopen with new version to create store
+          db.close();
+          dbPromise = null; // Reset promise to force reinitialization
+          return initDatabase().then(resolve).catch(reject);
+        }
         resolve(request.result);
       };
       
@@ -366,4 +375,3 @@ async function deleteNotification(id: string) {
     throw error;
   }
 }
-   

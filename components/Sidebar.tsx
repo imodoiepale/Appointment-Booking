@@ -27,7 +27,8 @@ const Sidebar = () => {
     const navigation = [
         // { name: 'Dashboard', href: '/', icon: LayoutDashboard },
         { name: 'Appointments', href: '/', icon: Calendar},
-        { name: 'Schedule Meeting', href: '/schedule', icon: LayoutDashboard },
+        { name: 'Calendar View', href: '/calendar', icon: Calendar },
+        { name: 'Schedule Meeting', href: '/schedule', icon: PlusCircle },
         // { name: 'Settings', href: '/settings', icon: Settings },
         // { name: 'Help', href: '/help', icon: HelpCircle },
     ];
@@ -86,7 +87,7 @@ const Sidebar = () => {
                     {/* New Appointment Button */}
                     <div className="px-4 py-4 border-t">
                         <Link
-                            href="/appointments/new"
+                            href="/schedule"
                             className="flex items-center justify-center w-full px-4 py-2 text-sm font-medium text-white bg-teal-500 rounded-md hover:bg-teal-600 transition-colors"
                         >
                             <PlusCircle size={18} className="mr-2" />
@@ -95,13 +96,13 @@ const Sidebar = () => {
                     </div>
 
                     {/* User Profile */}
-                    <div className="flex items-center p-4 border-t">
+                    {/* <div className="flex items-center p-4 border-t">
                         <UserButton afterSignOutUrl="/" />
                         <div className="ml-3">
                             <p className="text-sm font-medium text-gray-800">Jim Lindsay</p>
                             <p className="text-xs text-gray-500">lindsay@gmail.com</p>
                         </div>
-                    </div>
+                    </div> */}
                 </div>
             </div>
 
