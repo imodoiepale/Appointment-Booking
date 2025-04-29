@@ -2,7 +2,7 @@
 // @ts-nocheck
 "use client"
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { addEvent } from './send'; // Assuming this path is correct
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
@@ -93,6 +93,7 @@ const BookingScheduler = () => {
 
     // --- Effects ---
     useEffect(() => {
+        // Initialize form with current date
         const currentDate = new Date();
         setFormData((prev) => ({
             ...prev,
@@ -100,7 +101,7 @@ const BookingScheduler = () => {
             bookingDay: currentDate.toLocaleDateString('en-US', { weekday: 'long' }),
         }));
         fetchCompanies();
-    }, []);
+    }, [fetchCompanies]); // Added fetchCompanies as a dependency
 
     useEffect(() => {
         // Reset validation errors when data changes
@@ -111,10 +112,10 @@ const BookingScheduler = () => {
         // Or simply base it on the active step number until the final confirmation
         setProgress(activeStep * (100 / (steps.length - 1))); // Progress based on step number
 
-    }, [formData, activeStep]); // Removed invalidFields dependency to avoid loop
+    }, [formData, activeStep, invalidFields.length]); // Removed steps.length as it's a constant
 
     // --- Data Fetching ---
-    const fetchCompanies = async () => {
+    const fetchCompanies = useCallback(async () => {
         setLoadingCompanies(true);
         try {
             const { data, error } = await supabase.from('companies').select('name').order('name');
@@ -127,7 +128,7 @@ const BookingScheduler = () => {
         } finally {
             setLoadingCompanies(false);
         }
-    };
+    }, [toast]);
 
     const fetchClientDetails = async (clientCompanyName: string) => {
         // Avoid fetching if 'Other' or empty is selected
@@ -997,7 +998,7 @@ const BookingScheduler = () => {
 const ConfirmationItem = ({ label, value }: { label: string, value: string | undefined | null }) => (
     <div className="text-sm border-b border-gray-100 pb-2">
         <p className="text-gray-500">{label}:</p>
-        <p className="font-medium text-gray-800 break-words">{value || '-'}</p>
+        <p className="font-medium text-gray-800 break-words">{value ? String(value) : '-'}</p>
     </div>
 );
 
