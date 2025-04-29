@@ -31,18 +31,32 @@ const nextConfig = {
         ignoreDuringBuilds: true,
     },
     
-    // Set specific configurations to handle React error #130
-    output: 'standalone',
+    // Minimize what we do during build to avoid errors
+    poweredByHeader: false,
+    reactStrictMode: false,
+
+    // Tell Next.js not to attempt static generation at all
+    // This is the most straightforward way to avoid the React error #130
+    target: 'server',
     
-    // This provides a specific export map that excludes error pages
-    exportPathMap: async function() {
+    // Set specific paths to completely skip 404, 500, and error pages
+    async rewrites() {
         return {
-            // Include only the necessary pages and exclude error pages
-            '/': { page: '/' },
-            // Add other important pages here
-            '/sign-in': { page: '/sign-in' },
-            '/sign-up': { page: '/sign-up' },
-            '/calendar': { page: '/calendar' }
+            beforeFiles: [
+                // Skip error pages completely
+                {
+                    source: '/404',
+                    destination: '/'
+                },
+                {
+                    source: '/500',
+                    destination: '/'
+                },
+                {
+                    source: '/_error',
+                    destination: '/'
+                }
+            ]
         };
     },
     
@@ -59,17 +73,6 @@ const nextConfig = {
         }
         
         return config;
-    },
-    
-    // Disable specific features known to cause issues
-    swcMinify: true,
-    reactStrictMode: false,
-    
-    // Skip specific static optimization for error pages
-    experimental: {
-        // These settings help prevent issues with the error pages
-        optimizeCss: false,
-        esmExternals: 'loose'
     }
 }
 
