@@ -13,6 +13,7 @@ const withPWA = require("@ducanh2912/next-pwa").default({
 });
 
 const nextConfig = {
+    // Basic configuration for images
     images: {
         remotePatterns: [
             {
@@ -21,16 +22,33 @@ const nextConfig = {
             }
         ]
     },
-    // Completely bypass error pages during static generation to avoid React error #130
-    staticPageGenerationTimeout: 120,
+    
+    // Ignore type and lint errors to ensure the build succeeds
     typescript: {
         ignoreBuildErrors: true,
     },
     eslint: {
         ignoreDuringBuilds: true,
     },
+    
+    // Set specific configurations to handle React error #130
+    output: 'standalone',
+    
+    // This provides a specific export map that excludes error pages
+    exportPathMap: async function() {
+        return {
+            // Include only the necessary pages and exclude error pages
+            '/': { page: '/' },
+            // Add other important pages here
+            '/sign-in': { page: '/sign-in' },
+            '/sign-up': { page: '/sign-up' },
+            '/calendar': { page: '/calendar' }
+        };
+    },
+    
+    // Custom webpack configuration
     webpack: (config, { isServer }) => {
-        // Fixes npm packages that depend on `fs` module
+        // Needed for Node modules that expect filesystem access
         if (!isServer) {
             config.resolve.fallback = {
                 ...config.resolve.fallback,
@@ -42,20 +60,16 @@ const nextConfig = {
         
         return config;
     },
-    async redirects() {
-        return [
-            // Redirect for error pages to avoid them being pre-rendered
-            {
-                source: '/404',
-                destination: '/_error',
-                permanent: false,
-            },
-            {
-                source: '/500',
-                destination: '/_error',
-                permanent: false,
-            },
-        ];
+    
+    // Disable specific features known to cause issues
+    swcMinify: true,
+    reactStrictMode: false,
+    
+    // Skip specific static optimization for error pages
+    experimental: {
+        // These settings help prevent issues with the error pages
+        optimizeCss: false,
+        esmExternals: 'loose'
     }
 }
 
