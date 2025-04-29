@@ -1,33 +1,50 @@
 /* eslint-disable react/no-unescaped-entities */
-// @ts-nocheck
-// Static error page with no SSR
-import React from 'react';
-import Link from 'next/link';
-import { GetStaticProps } from 'next';
-
-function Custom404() {
+// Ultra-simple 404 page without any dependencies
+// This is a static error page to avoid any React error #130 during build
+export default function Custom404() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center text-center px-4">
-      <h1 className="text-6xl font-bold mb-4">404</h1>
-      <h2 className="text-2xl font-medium mb-4">Page Not Found</h2>
-      <p className="text-gray-600 mb-8">
+    <div style={{
+      display: 'flex',
+      height: '100vh',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      textAlign: 'center',
+      padding: '0 16px'
+    }}>
+      <h1 style={{
+        fontSize: '3.75rem',
+        fontWeight: 'bold',
+        marginBottom: '1rem'
+      }}>
+        404
+      </h1>
+      <h2 style={{
+        fontSize: '1.5rem',
+        fontWeight: '500',
+        marginBottom: '1rem'
+      }}>
+        Page Not Found
+      </h2>
+      <p style={{
+        color: '#666',
+        marginBottom: '2rem'
+      }}>
         We couldn't find the page you were looking for.
       </p>
-      <Link href="/" className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+      <a
+        href="/"
+        style={{
+          backgroundColor: '#3b82f6',
+          color: 'white',
+          padding: '0.5rem 1rem',
+          borderRadius: '0.25rem',
+          fontWeight: 'bold',
+          textDecoration: 'none'
+        }}
+      >
         Go Home
-      </Link>
+      </a>
     </div>
   );
 }
-
-// This ensures the page is built as a static HTML page
-export const getStaticProps: GetStaticProps = async () => {
-  return {
-    props: {}
-  };
-};
-
-// This disables automatic static optimization
-Custom404.noSSR = true;
-
-export default Custom404;
