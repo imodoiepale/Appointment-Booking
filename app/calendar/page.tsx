@@ -2,16 +2,17 @@
 "use client"; // Ensures this component runs on the client side
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { createClient } from '@supabase/supabase-js';
+// Remove direct Supabase import as we'll use the client
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, add, isSameDay, isBefore, parseISO, getHours, getMinutes, isWithinInterval, format as formatDate } from 'date-fns';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, Trash2, Info, Loader2, Check, Video, MapPin, Building, User, Phone, Mail, PlusCircle, ExternalLink, MoreHorizontal } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, Trash2, Info, Loader2, Check, Video, MapPin, Building, User, Phone, Mail, PlusCircle, ExternalLink, MoreHorizontal, MessageSquare, UserPlus, CheckCircle, XCircle, LinkIcon, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
-import { useToast } from '@/hooks/use-toast'; // Assuming this hook exists and works
+import { useToast } from '@/hooks/use-toast';
+import { Toast } from '@/components/ui/toast'; // Import Toast component if needed
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,16 +31,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils"; // Utility for conditional class names
+import supabase from '@/utils/supabaseClient'; // Import from utils
 
-// Initialize Supabase client
-// Ensure these are environment variables in a real application
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://zyszsqgdlrpnunkegipk.supabase.co';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5c3pzcWdkbHJwbnVua2VnaXBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDgzMjc4OTQsImV4cCI6MjAyMzkwMzg5NH0.fK_zR8wR6Lg8HeK7KBTTnyF0zoyYBqjkeWeTKqi32ws';
-const supabase = createClient(supabaseUrl, supabaseKey);
+import { checkAppointmentStatus, getBadgeStatusColor } from '@/utils/appointmentUtils'; // Added utils
 
 // Type definitions
 interface Meeting {
-  meeting_id: number;
+  id_main: number; // Changed from meeting_id to id_main to match database
   meeting_date: string; // Keep as YYYY-MM-DD string from Supabase
   meeting_start_time: string; // HH:mm format
   meeting_end_time: string; // HH:mm format
@@ -50,8 +48,12 @@ interface Meeting {
   client_mobile?: string;
   meeting_type: 'virtual' | 'physical'; // Use specific types
   meeting_venue_area: string;
+  meeting_venue?: string;
   meeting_agenda: string;
   bcl_attendee: string;
+  bcl_attendee_mobile?: string;
+  status?: string;
+  badge_status?: string;
 }
 
 // Helper: Check if two meetings overlap
@@ -74,10 +76,10 @@ const meetingsOverlap = (meeting1: Meeting, meeting2: Meeting) => {
 };
 
 const CalendarView = () => {
-  const { toast } = useToast();
+  const { toast } = useToast(); // Initialize toast
   const [currentDate, setCurrentDate] = useState<Date>(new Date()); // Date controlling the calendar month view
   const [selectedDate, setSelectedDate] = useState<Date>(new Date()); // Specific date selected for viewing details
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [allMeetings, setAllMeetings] = useState<Meeting[]>([]); // Changed from meetings to allMeetings
   const [meetingsForSelectedDate, setMeetingsForSelectedDate] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
@@ -129,34 +131,6 @@ const CalendarView = () => {
     }
   };
 
-  // Fetch meetings from Supabase
-  const fetchMeetings = useCallback(async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('meetings')
-        .select('*')
-        .order('meeting_date', { ascending: true })
-        .order('meeting_start_time', { ascending: true }); // Add secondary sort by time
-
-      if (error) throw error;
-
-      // Basic validation or transformation if needed
-      const validMeetings = (data || []).filter(m => m.meeting_date && m.meeting_start_time && m.meeting_end_time);
-
-      setMeetings(validMeetings);
-    } catch (error: any) {
-      console.error('Error fetching meetings:', error.message);
-      toast({
-        title: "Error fetching meetings",
-        description: error.message,
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]); // Include toast in dependencies
-
   // Filter meetings for the selected date
   const filterAndSortMeetingsForSelectedDate = useCallback((allMeetings: Meeting[], date: Date) => {
     const dateString = format(date, 'yyyy-MM-dd');
@@ -167,10 +141,38 @@ const CalendarView = () => {
         const startTimeA = a.meeting_start_time.localeCompare(b.meeting_start_time);
         if (startTimeA !== 0) return startTimeA;
         // If start times are the same, sort by end time (shorter meetings first?) or ID
-        return a.meeting_id - b.meeting_id;
+        return a.id_main - b.id_main;
       });
     setMeetingsForSelectedDate(filtered);
   }, []);
+
+  // Fetch meetings from Supabase
+  const fetchMeetings = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('meetings')
+        .select('*')
+        .order('meeting_date', { ascending: true })
+        .order('meeting_start_time', { ascending: true });
+      
+      if (error) throw error;
+      
+      if (data) {
+        setAllMeetings(data as Meeting[]);
+        filterAndSortMeetingsForSelectedDate(data as Meeting[], selectedDate);
+      }
+    } catch (error: any) {
+      console.error('Error fetching meetings:', error);
+      toast({
+        title: "Error fetching meetings",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast, selectedDate, filterAndSortMeetingsForSelectedDate]); // Now filterAndSortMeetingsForSelectedDate is defined before use
 
   // Handle date selection from Calendar or buttons
   const handleDateSelect = useCallback((newDate: Date | undefined) => {
@@ -195,40 +197,40 @@ const CalendarView = () => {
     setCurrentDate(today); // Also reset calendar month view to today
   };
 
-
-  // Delete a meeting
+  // Delete meeting function
   const deleteMeeting = async () => {
     if (!deletingMeeting) return;
-
+    
     setIsDeleting(true);
     try {
       const { error } = await supabase
         .from('meetings')
         .delete()
-        .eq('meeting_id', deletingMeeting.meeting_id);
-
+        .eq('id_main', deletingMeeting.id_main); // Changed from meeting_id to id_main
+      
       if (error) throw error;
-
+      
+      // Update UI after successful deletion
+      setAllMeetings(prev => prev.filter(m => m.id_main !== deletingMeeting.id_main)); // Changed from meeting_id to id_main
+      setMeetingsForSelectedDate(prev => prev.filter(m => m.id_main !== deletingMeeting.id_main)); // Changed from meeting_id to id_main
+      
+      // Close dialogs and show success message
+      setSelectedMeeting(null);
+      setDeletingMeeting(null);
+      
       toast({
-        title: "Meeting deleted",
-        description: `Successfully deleted meeting with ${deletingMeeting.client_name}`,
+        title: "Meeting Deleted",
+        description: `Meeting with ${deletingMeeting.client_name} has been deleted.`,
       });
-
-      // Close dialogs and potentially refresh
-      setSelectedMeeting(null); // Close details dialog if open
-      // The real-time subscription should handle the refresh, but call fetchMeetings as a fallback
-      await fetchMeetings();
-
     } catch (error: any) {
-      console.error('Error deleting meeting:', error.message);
+      console.error('Error deleting meeting:', error);
       toast({
-        title: "Error deleting meeting",
+        title: "Error Deleting Meeting",
         description: error.message,
         variant: "destructive"
       });
     } finally {
       setIsDeleting(false);
-      setDeletingMeeting(null); // Clear the meeting marked for deletion
     }
   };
 
@@ -242,7 +244,7 @@ const CalendarView = () => {
       const durationMinutes = endTimeInMinutes - startTimeInMinutes;
       return Math.max(1, Math.ceil(durationMinutes / 30)); // Ensure at least 1 slot
     } catch (e) {
-      console.error("Error calculating duration for meeting:", meeting.meeting_id, e);
+      console.error("Error calculating duration for meeting:", meeting.id_main, e);
       return 1; // Default to 1 slot on error
     }
   };
@@ -279,18 +281,18 @@ const CalendarView = () => {
   const upcomingMeetings = React.useMemo(() => {
     const today = format(new Date(), 'yyyy-MM-dd');
     const nextWeek = format(add(new Date(), { days: 7 }), 'yyyy-MM-dd');
-    return meetings
+    return allMeetings
       .filter(m => m.meeting_date >= today && m.meeting_date <= nextWeek)
       .sort((a, b) => {
         const dateCompare = a.meeting_date.localeCompare(b.meeting_date);
         if (dateCompare !== 0) return dateCompare;
         return a.meeting_start_time.localeCompare(b.meeting_start_time);
       });
-  }, [meetings]);
+  }, [allMeetings]);
 
   // Sort all meetings by date (most recent first) for the Table view
   const sortedMeetingsForTable = React.useMemo(() => {
-    return [...meetings].sort((a, b) => {
+    return [...allMeetings].sort((a, b) => {
       try {
         const dateA = parseISO(`${a.meeting_date}T${a.meeting_start_time}`);
         const dateB = parseISO(`${b.meeting_date}T${b.meeting_start_time}`);
@@ -301,7 +303,7 @@ const CalendarView = () => {
         return 0;
       }
     });
-  }, [meetings]);
+  }, [allMeetings]);
 
 
   // Initial fetch and real-time subscription setup
@@ -329,18 +331,18 @@ const CalendarView = () => {
 
   // Filter meetings whenever the selected date or the full meeting list changes
   useEffect(() => {
-    if (meetings.length > 0) {
-      filterAndSortMeetingsForSelectedDate(meetings, selectedDate);
+    if (allMeetings.length > 0) {
+      filterAndSortMeetingsForSelectedDate(allMeetings, selectedDate);
     } else {
       setMeetingsForSelectedDate([]); // Clear if no meetings
     }
-  }, [selectedDate, meetings, filterAndSortMeetingsForSelectedDate]);
+  }, [selectedDate, allMeetings, filterAndSortMeetingsForSelectedDate]);
 
   // Custom Day Content for Shadcn Calendar to show meeting indicators
   const DayContent = ({ date: dayDate, displayMonth }: { date: Date, displayMonth: Date }) => {
     const dateString = format(dayDate, 'yyyy-MM-dd');
     // Check if this day has any meetings
-    const hasMeetings = meetings.some(meeting => meeting.meeting_date === dateString);
+    const hasMeetings = allMeetings.some(meeting => meeting.meeting_date === dateString);
     // Check if the day is outside the currently displayed month
     const isOutsideMonth = dayDate.getMonth() !== displayMonth.getMonth();
 
@@ -393,7 +395,7 @@ const CalendarView = () => {
                 <div className="space-y-2">
                   {upcomingMeetings.slice(0, 10).map(meeting => ( // Show max 10 upcoming
                     <div
-                      key={meeting.meeting_id}
+                      key={meeting.id_main}
                       onClick={() => {
                         handleDateSelect(parseISO(meeting.meeting_date)); // Navigate to meeting date
                         // Optionally open details directly: setSelectedMeeting(meeting);
@@ -481,13 +483,13 @@ const CalendarView = () => {
                   <div className="h-[60vh] md:h-[70vh] overflow-y-auto relative">
                     {loading ? (
                       <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-50">
-                        <Loader2 className="h-8 w-8 animate-spin text-blue-500 mr-2" />
+                        <Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto mb-2" />
                         <span className="text-blue-600 font-medium">Loading schedule...</span>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-[50px_1fr] sm:grid-cols-[60px_1fr]"> {/* Adjusted for mobile */}
+                      <div className="grid grid-cols-[55px_1fr] sm:grid-cols-[60px_1fr]"> 
                         {/* Time Labels Column (Sticky) */}
-                        <div className="border-r bg-gray-50/70 sticky top-0 z-20 h-full"> {/* Added h-full */}
+                        <div className="border-r bg-gray-50/70 sticky top-0 z-20 h-full"> 
                           {timeSlots.map((slot, index) => (
                             <div
                               key={slot}
@@ -542,11 +544,11 @@ const CalendarView = () => {
                             // --- Overlap Calculation ---
                             // Find meetings that visually overlap with this one
                             const overlappingMeetings = meetingsForSelectedDate.filter(m =>
-                              m.meeting_id !== meeting.meeting_id && meetingsOverlap(m, meeting)
+                              m.id_main !== meeting.id_main && meetingsOverlap(m, meeting)
                             );
-                            const overlapGroup: Meeting[] = [meeting, ...overlappingMeetings].sort((a, b) => a.meeting_start_time.localeCompare(b.meeting_start_time) || a.meeting_id - b.meeting_id);
+                            const overlapGroup: Meeting[] = [meeting, ...overlappingMeetings].sort((a, b) => a.meeting_start_time.localeCompare(b.meeting_start_time) || a.id_main - b.id_main);
                             const totalInGroup = overlapGroup.length;
-                            const positionIndex = overlapGroup.findIndex(m => m.meeting_id === meeting.meeting_id); // 0-based index within the overlap group
+                            const positionIndex = overlapGroup.findIndex(m => m.id_main === meeting.id_main); // 0-based index within the overlap group
 
                             const widthPercentage = totalInGroup > 1 ? (100 / totalInGroup) - 1 : 98; // Leave small gap (1% each side approx)
                             const leftPercentage = totalInGroup > 1 ? positionIndex * (100 / totalInGroup) + 1 : 1; // Start slightly indented
@@ -557,7 +559,7 @@ const CalendarView = () => {
 
                             return (
                               <div
-                                key={meeting.meeting_id}
+                                key={meeting.id_main}
                                 className={cn(
                                   `absolute rounded-md overflow-hidden border-l-4 shadow-sm cursor-pointer transition-all duration-150 ease-in-out z-10`, // Base styles, z-10 for meetings
                                   bgColor, textColor
@@ -567,37 +569,36 @@ const CalendarView = () => {
                                   height: `${heightInRem}rem`,
                                   left: `${leftPercentage}%`,
                                   width: `${widthPercentage}%`,
-                                  // minHeight needed? Maybe not if durationSlots >= 1
                                 }}
                                 onClick={() => setSelectedMeeting(meeting)}
                               >
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <div className="flex flex-col h-full p-2">
-                                      <p className="font-semibold text-sm truncate">{meeting.client_name}</p>
-                                      <p className="text-xs opacity-80 truncate">{meeting.client_company}</p>
+                                    <div className="flex flex-col h-full p-0.5 xs:p-1 sm:p-2">
+                                      <p className="font-semibold text-[10px] xs:text-xs sm:text-sm truncate leading-tight">{meeting.client_name}</p>
+                                      <p className="text-[8px] xs:text-[10px] sm:text-xs opacity-80 truncate leading-tight">{meeting.client_company}</p>
                                       {durationSlots > 1 && ( // Only show time if more than 1 slot high
-                                        <p className="text-xs mt-1 font-medium opacity-90">
+                                        <p className="text-[8px] xs:text-[10px] sm:text-xs mt-0.5 sm:mt-1 font-medium opacity-90 leading-tight">
                                           {formatTime(meeting.meeting_start_time)} - {formatTime(meeting.meeting_end_time)}
                                         </p>
                                       )}
                                       {durationSlots > 2 && ( // Show location/type if tall enough
-                                        <div className="text-xs mt-auto pt-1 opacity-80 truncate flex items-center gap-1">
-                                          {isVirtual ? <Video className="h-3 w-3 flex-shrink-0" /> : <MapPin className="h-3 w-3 flex-shrink-0" />}
-                                          <span className="truncate">{isVirtual ? 'Virtual Meeting' : meeting.meeting_venue}</span>
+                                        <div className="text-[8px] xs:text-[10px] sm:text-xs mt-auto pt-0.5 sm:pt-1 opacity-80 truncate flex items-center gap-0.5 sm:gap-1">
+                                          {isVirtual ? <Video className="h-2 w-2 xs:h-2.5 xs:w-2.5 sm:h-3 sm:w-3 flex-shrink-0" /> : <MapPin className="h-2 w-2 xs:h-2.5 xs:w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />}
+                                          <span className="truncate">{isVirtual ? 'Virtual Meeting' : meeting.meeting_venue || meeting.meeting_venue_area}</span>
                                           
                                           {/* Add Join Button for virtual meetings */}
                                           {isVirtual && meeting.meeting_venue && meeting.meeting_venue.startsWith('http') && (
                                             <Button 
                                               variant="ghost" 
                                               size="icon" 
-                                              className="h-5 w-5 ml-auto p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-100"
+                                              className="h-4 w-4 xs:h-5 xs:w-5 ml-auto p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-100"
                                               onClick={(e) => {
                                                 e.stopPropagation(); // Prevent opening the details dialog
-                                                window.open(meeting.meeting_venue, '_blank');
+                                                window.open(meeting.meeting_venue, '_blank', 'noopener,noreferrer');
                                               }}
                                             >
-                                              <ExternalLink className="h-3.5 w-3.5" />
+                                              <ExternalLink className="h-2.5 w-2.5 xs:h-3 xs:w-3 sm:h-3.5 sm:w-3.5" />
                                               <span className="sr-only">Join Meeting</span>
                                             </Button>
                                           )}
@@ -667,7 +668,7 @@ const CalendarView = () => {
                           </TableRow>
                         ) : (
                           meetingsForSelectedDate.map((meeting, index) => (
-                            <TableRow key={meeting.meeting_id} className="cursor-pointer hover:bg-gray-50 h-10" onClick={() => setSelectedMeeting(meeting)}>
+                            <TableRow key={meeting.id_main} className="cursor-pointer hover:bg-gray-50 h-10" onClick={() => setSelectedMeeting(meeting)}>
                               <TableCell className="font-medium text-center text-gray-500 py-1">{index + 1}</TableCell>
                               <TableCell className="font-medium py-1 hidden md:table-cell">{formatDateSafe(meeting.meeting_date, 'dd/MM/yyyy')}</TableCell>
                               <TableCell className="py-1">
@@ -690,7 +691,7 @@ const CalendarView = () => {
                                     <MapPin className="h-3.5 w-3.5 text-teal-600 shrink-0" />
                                   }
                                   <span className="truncate max-w-[150px]">
-                                    {meeting.meeting_type === 'virtual' ? 'Virtual Meeting' : meeting.meeting_venue}
+                                    {meeting.meeting_type === 'virtual' ? 'Virtual Meeting' : meeting.meeting_venue || meeting.meeting_venue_area}
                                   </span>
                                 </div>
                               </TableCell>
@@ -750,108 +751,335 @@ const CalendarView = () => {
         {/* Meeting Details Dialog */}
         {selectedMeeting && (
           <Dialog open={!!selectedMeeting} onOpenChange={(open) => !open && setSelectedMeeting(null)}>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>Meeting Details</DialogTitle>
-                <DialogDescription>
+            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+              <DialogHeader className="pb-2 border-b">
+                <DialogTitle className="text-lg font-semibold flex items-center gap-2">
+                  {selectedMeeting.meeting_type === 'virtual' ? 
+                    <Video className="h-5 w-5 text-blue-600" /> : 
+                    <MapPin className="h-5 w-5 text-teal-600" />
+                  }
+                  Meeting Details
+                </DialogTitle>
+                <DialogDescription className="text-sm">
                   {selectedMeeting.meeting_type === 'virtual' ? 'Virtual Meeting' : 'In-Person Meeting'} with {selectedMeeting.client_name}
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4">
-                {/* Client Info */}
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500">Client</h4>
-                  <p className="text-lg font-medium">{selectedMeeting.client_name}</p>
-                  <p className="text-sm text-gray-600">{selectedMeeting.client_company}</p>
+
+              {/* Two-column layout for details, similar to dashboard */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
+                {/* Column 1 */}
+                <div className="space-y-3 sm:space-y-4">
+                  {/* Client Info Card */}
+                  <Card className="border-gray-200 shadow-sm">
+                    <CardHeader className="pb-1 pt-2 px-3 sm:pb-2 sm:pt-3 sm:px-4">
+                      <CardTitle className="text-sm sm:text-base font-semibold text-gray-700 flex items-center">
+                        <User className="h-3.5 w-3.5 mr-1.5 sm:h-4 sm:w-4 sm:mr-2 text-blue-600" />
+                        Client Information
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-3 pb-2 sm:px-4 sm:pb-3">
+                      <div className="grid grid-cols-1 gap-y-2 sm:gap-y-2.5">
+                        <div className="space-y-0.5">
+                          <h4 className="text-xs font-medium text-gray-500">Name</h4>
+                          <p className="text-sm font-medium">{selectedMeeting.client_name}</p>
+                        </div>
+                        <div className="space-y-0.5">
+                          <h4 className="text-xs font-medium text-gray-500">Company</h4>
+                          <p className="text-sm">{selectedMeeting.client_company || 'N/A'}</p>
+                        </div>
+                        {selectedMeeting.client_email && (
+                          <div className="space-y-0.5">
+                            <h4 className="text-xs font-medium text-gray-500">Email</h4>
+                            <p className="text-sm flex items-center">
+                              <Mail className="h-3.5 w-3.5 mr-1.5 text-gray-400" />
+                              <a href={`mailto:${selectedMeeting.client_email}`} className="text-blue-600 hover:underline">
+                                {selectedMeeting.client_email}
+                              </a>
+                            </p>
+                          </div>
+                        )}
+                        {selectedMeeting.client_mobile && (
+                          <div className="space-y-0.5">
+                            <h4 className="text-xs font-medium text-gray-500">Mobile</h4>
+                            <p className="text-sm flex items-center">
+                              <Phone className="h-3.5 w-3.5 mr-1.5 text-gray-400" />
+                              <a href={`tel:${selectedMeeting.client_mobile}`} className="text-blue-600 hover:underline">
+                                {selectedMeeting.client_mobile}
+                              </a>
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Meeting Details Card */}
+                  <Card className="border-gray-200 shadow-sm">
+                    <CardHeader className="pb-1 pt-2 px-3 sm:pb-2 sm:pt-3 sm:px-4">
+                      <CardTitle className="text-sm sm:text-base font-semibold text-gray-700 flex items-center">
+                        <CalendarIcon className="h-3.5 w-3.5 mr-1.5 sm:h-4 sm:w-4 sm:mr-2 text-green-600" />
+                        Meeting Details
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-3 pb-2 sm:px-4 sm:pb-3">
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-2 sm:gap-x-4 sm:gap-y-2.5">
+                        <div className="space-y-0.5">
+                          <h4 className="text-xs font-medium text-gray-500">Date</h4>
+                          <p className="text-sm">{formatDateSafe(selectedMeeting.meeting_date, 'EEE, dd MMM yyyy')}</p>
+                        </div>
+                        <div className="space-y-0.5">
+                          <h4 className="text-xs font-medium text-gray-500">Day</h4>
+                          <p className="text-sm">{formatDateSafe(selectedMeeting.meeting_date, 'EEEE')}</p>
+                        </div>
+                        <div className="space-y-0.5">
+                          <h4 className="text-xs font-medium text-gray-500">Start</h4>
+                          <p className="text-sm flex items-center">
+                            <Clock className="h-3.5 w-3.5 mr-1.5 text-gray-400" />
+                            {formatTime(selectedMeeting.meeting_start_time)}
+                          </p>
+                        </div>
+                        <div className="space-y-0.5">
+                          <h4 className="text-xs font-medium text-gray-500">End</h4>
+                          <p className="text-sm">{formatTime(selectedMeeting.meeting_end_time)}</p>
+                        </div>
+                        <div className="space-y-0.5">
+                          <h4 className="text-xs font-medium text-gray-500">Duration</h4>
+                          <p className="text-sm">{selectedMeeting.meeting_duration || '?'} min</p>
+                        </div>
+                        <div className="space-y-0.5">
+                          <h4 className="text-xs font-medium text-gray-500">Status</h4>
+                          <div className="flex items-center">
+                            <Badge className={`text-xs ${getBadgeStatusColor(selectedMeeting.status || 'pending')}`}>
+                              {selectedMeeting.status ? selectedMeeting.status.charAt(0).toUpperCase() + selectedMeeting.status.slice(1) : 'Pending'}
+                            </Badge>
+                          </div>
+                        </div>
+                        {/* Span venue across columns for better fit */}
+                        <div className="col-span-2">
+                          <h4 className="text-xs font-medium text-gray-500">Type</h4>
+                          <p className="text-sm">{selectedMeeting.meeting_type === 'virtual' ? 'Virtual Meeting' : 'In-Person Meeting'}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
 
-                {/* Time & Date */}
-                <div className="flex gap-4">
-                  <div className="flex-1">
-                    <h4 className="text-sm font-medium text-gray-500">Date</h4>
-                    <p className="font-medium">{formatDateSafe(selectedMeeting.meeting_date, 'EEEE, dd MMMM yyyy')}</p>
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="text-sm font-medium text-gray-500">Time</h4>
-                    <p className="font-medium">
-                      {formatTime(selectedMeeting.meeting_start_time)} - {formatTime(selectedMeeting.meeting_end_time)}
-                    </p>
-                  </div>
-                </div>
+                {/* Column 2 */}
+                <div className="space-y-3 sm:space-y-4">
+                  {/* Agenda Card */}
+                  <Card className="border-gray-200 shadow-sm">
+                    <CardHeader className="pb-1 pt-2 px-3 sm:pb-2 sm:pt-3 sm:px-4">
+                      <CardTitle className="text-sm sm:text-base font-semibold text-gray-700 flex items-center">
+                        <MessageSquare className="h-3.5 w-3.5 mr-1.5 sm:h-4 sm:w-4 sm:mr-2 text-purple-600" />
+                        Agenda
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-3 pb-2 sm:px-4 sm:pb-3">
+                      <div className="bg-gray-50 p-2 rounded-md border border-gray-200 text-xs sm:text-sm text-gray-700 max-h-24 overflow-y-auto">
+                        <p>{selectedMeeting.meeting_agenda || 'No agenda provided.'}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
 
-                {/* Venue */}
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500">
-                    {selectedMeeting.meeting_type === 'virtual' ? 'Meeting Link' : 'Venue'}
-                  </h4>
-                  <div className="flex items-center mt-1">
-                    {selectedMeeting.meeting_type === 'virtual' ? 
-                      <Video className="h-4 w-4 mr-2 text-blue-600" /> : 
-                      <MapPin className="h-4 w-4 mr-2 text-teal-600" />
-                    }
-                    <p className="font-medium text-sm">{selectedMeeting.meeting_venue}</p>
-                    
-                    {/* Join Meeting Button for virtual meetings */}
-                    {selectedMeeting.meeting_type === 'virtual' && selectedMeeting.meeting_venue && selectedMeeting.meeting_venue.startsWith('http') && (
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="ml-auto text-blue-700 hover:text-blue-800 hover:bg-blue-50"
-                        onClick={() => window.open(selectedMeeting.meeting_venue, '_blank')}
-                      >
-                        <ExternalLink className="h-3.5 w-3.5 mr-1" />
-                        Join Meeting
-                      </Button>
-                    )}
-                  </div>
+                  {/* BCL Attendee Card */}
+                  {selectedMeeting.bcl_attendee && (
+                    <Card className="border-gray-200 shadow-sm">
+                      <CardHeader className="pb-1 pt-2 px-3 sm:pb-2 sm:pt-3 sm:px-4">
+                        <CardTitle className="text-sm sm:text-base font-semibold text-gray-700 flex items-center">
+                          <UserPlus className="h-3.5 w-3.5 mr-1.5 sm:h-4 sm:w-4 sm:mr-2 text-orange-600" />
+                          BCL Attendee
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2 px-3 pb-2 sm:space-y-2.5 sm:px-4 sm:pb-3">
+                        <div className="space-y-0.5">
+                          <h4 className="text-xs font-medium text-gray-500">Name</h4>
+                          <p className="text-sm">{selectedMeeting.bcl_attendee}</p>
+                        </div>
+                        {selectedMeeting.bcl_attendee_mobile && (
+                          <div className="space-y-0.5">
+                            <h4 className="text-xs font-medium text-gray-500">Mobile</h4>
+                            <p className="text-sm flex items-center">
+                              <Phone className="h-3.5 w-3.5 mr-1.5 text-gray-400" />
+                              <a href={`tel:${selectedMeeting.bcl_attendee_mobile}`} className="text-blue-600 hover:underline">
+                                {selectedMeeting.bcl_attendee_mobile}
+                              </a>
+                            </p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Meeting Link Card */}
+                  {selectedMeeting.meeting_type === 'virtual' && selectedMeeting.meeting_venue && (
+                    <Card className="border-gray-200 shadow-sm">
+                      <CardHeader className="pb-1 pt-2 px-3 sm:pb-2 sm:pt-3 sm:px-4">
+                        <CardTitle className="text-sm sm:text-base font-semibold text-gray-700 flex items-center">
+                          <LinkIcon className="h-3.5 w-3.5 mr-1.5 sm:h-4 sm:w-4 sm:mr-2 text-cyan-600" />
+                          Meeting Link
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="px-3 pb-2 sm:px-4 sm:pb-3">
+                        <div className="flex items-center flex-wrap gap-2">
+                          {selectedMeeting.meeting_venue.startsWith('http') ? (
+                            <>
+                              <a 
+                                href={selectedMeeting.meeting_venue} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-sm text-blue-600 hover:underline break-all" // Changed from truncate to break-all
+                                onClick={(e) => {
+                                  // This allows the link to be clicked directly
+                                  e.stopPropagation();
+                                }}
+                              >
+                                {selectedMeeting.meeting_venue}
+                              </a>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="bg-blue-50 text-blue-700 hover:text-blue-800 hover:bg-blue-100 border-blue-200"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  window.open(selectedMeeting.meeting_venue, '_blank', 'noopener,noreferrer');
+                                }}
+                              >
+                                <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                                Join Meeting
+                              </Button>
+                            </>
+                          ) : (
+                            <p className="text-sm text-gray-600 truncate flex-1">
+                              {selectedMeeting.meeting_venue || 'No meeting link provided'}
+                            </p>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
               </div>
-              <DialogFooter className="sm:justify-between border-t pt-4 mt-5 flex-wrap gap-2">
-                {/* Close Button */}
-                <DialogClose asChild>
-                  <Button variant="outline">Close</Button>
-                </DialogClose>
 
-                {/* Delete Button with Confirmation */}
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    {/* Stop propagation is important here too */}
-                    <Button variant="destructive" className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                      <Trash2 className="h-4 w-4" />
-                      Delete Meeting
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent onClick={(e) => e.stopPropagation()}> {/* Prevent closing dialog when clicking inside alert */}
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Are you sure you want to permanently delete the meeting with <strong className="text-gray-800">{selectedMeeting?.client_name}</strong>
-                        scheduled for <strong className="text-gray-800">{selectedMeeting?.meeting_date && formatDateSafe(selectedMeeting.meeting_date)}</strong> at <strong className="text-gray-800">{selectedMeeting?.meeting_start_time && formatTime(selectedMeeting.meeting_start_time)}</strong>?
-                        <br />This action cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        className="bg-red-600 hover:bg-red-700 text-white"
+              {/* Footer Actions */}
+              <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:justify-between items-center mt-4 pt-3 sm:mt-5 sm:pt-4 border-t">
+                {/* Action buttons */}
+                <div className="flex flex-wrap gap-2 justify-center sm:justify-start w-full sm:w-auto">
+                  {selectedMeeting.status !== 'canceled' && selectedMeeting.status !== 'completed' && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => {
-                          setDeletingMeeting(selectedMeeting); // Mark which meeting to delete
-                          deleteMeeting(); // Call the async delete function
+                          // Reschedule logic would go here
+                          // setRescheduleDialogOpen(true);
                         }}
-                        disabled={isDeleting}
+                        className="border-blue-300 text-blue-700 hover:bg-blue-50 px-3 py-1.5 text-xs sm:text-sm"
                       >
-                        {isDeleting ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Deleting...
-                          </>
-                        ) : (
-                          'Yes, Delete Meeting'
-                        )}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                        <RefreshCw className="h-3.5 w-3.5 mr-1 sm:mr-1.5" />
+                        Reschedule
+                      </Button>
+                      
+                      {selectedMeeting.status !== 'confirmed' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            // Confirm meeting logic would go here
+                          }}
+                          className="border-green-300 text-green-700 hover:bg-green-50 px-3 py-1.5 text-xs sm:text-sm"
+                        >
+                          <CheckCircle className="h-3.5 w-3.5 mr-1 sm:mr-1.5" />
+                          Confirm
+                        </Button>
+                      )}
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          // Cancel meeting logic would go here
+                        }}
+                        className="border-red-300 text-red-700 hover:bg-red-50 px-3 py-1.5 text-xs sm:text-sm"
+                      >
+                        <XCircle className="h-3.5 w-3.5 mr-1 sm:mr-1.5" />
+                        Cancel Mtg
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          // Mark as completed logic would go here
+                        }}
+                        className="border-purple-300 text-purple-700 hover:bg-purple-50 px-3 py-1.5 text-xs sm:text-sm"
+                      >
+                        <CheckCircle className="h-3.5 w-3.5 mr-1 sm:mr-1.5" />
+                        Mark Done
+                      </Button>
+                    </>
+                  )}
+                  
+                  {(selectedMeeting.status === 'completed' || selectedMeeting.status === 'canceled') && (
+                    <span className="text-xs sm:text-sm text-gray-500 italic px-3 py-1.5">
+                      This meeting is {selectedMeeting.status}.
+                    </span>
+                  )}
+                  
+                  {/* Delete Meeting Button with AlertDialog */}
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-red-300 bg-red-50 text-red-700 hover:bg-red-100 px-3 py-1.5 text-xs sm:text-sm"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-1 sm:mr-1.5" />
+                        Delete
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Meeting</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to delete this meeting with <span className="font-semibold">{selectedMeeting.client_name}</span> on {format(new Date(selectedMeeting.meeting_date), 'MMMM d, yyyy')} at {selectedMeeting.meeting_start_time}?
+                          <br />
+                          <br />
+                          This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => {
+                            setDeletingMeeting(selectedMeeting);
+                            deleteMeeting();
+                          }}
+                          className="bg-red-600 hover:bg-red-700 text-white"
+                          disabled={isDeleting}
+                        >
+                          {isDeleting ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Deleting...
+                            </>
+                          ) : (
+                            "Delete Meeting"
+                          )}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+                
+                {/* Close button */}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setSelectedMeeting(null)}
+                  className="w-full sm:w-auto mt-2 sm:mt-0 px-3 py-1.5 text-xs sm:text-sm"
+                >
+                  Close
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>

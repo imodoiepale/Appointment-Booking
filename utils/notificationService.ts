@@ -264,12 +264,7 @@ export async function checkDueNotifications() {
           tag: notification.id,
           requireInteraction: notification.requireInteraction,
           silent: notification.silent,
-          actions: [
-            {
-              action: 'view',
-              title: 'View Meeting'
-            }
-          ]
+          // actions property removed as it's not supported for non-ServiceWorker notifications
         };
         
         const notificationInstance = new Notification(notification.title, notificationOptions);
@@ -305,20 +300,26 @@ export async function checkDueNotifications() {
 // Helper function to play notification sound
 function playNotificationSound(soundUrl: string = NOTIFICATION_SOUNDS.DEFAULT) {
   try {
-    // Create audio element and play sound
     const audio = new Audio(soundUrl);
     audio.volume = 1.0; // Full volume
+
+    // Add error handling for audio loading issues
+    audio.onerror = (e) => {
+      console.error(`Error loading audio source: ${soundUrl}`, e);
+    };
     
-    // Start playing and handle any errors
+    // Start playing and handle any playback errors
     const playPromise = audio.play();
     
     if (playPromise !== undefined) {
       playPromise.catch(error => {
-        console.warn('Error playing notification sound:', error);
+        // Log specific playback errors (e.g., user interaction required)
+        console.warn(`Error playing notification sound (${soundUrl}):`, error.name, error.message);
       });
     }
   } catch (error) {
-    console.warn('Error creating audio element:', error);
+    // Catch errors during the creation of the Audio object itself
+    console.error(`Error creating audio element for ${soundUrl}:`, error);
   }
 }
 

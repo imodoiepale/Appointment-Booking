@@ -21,7 +21,7 @@ let dbPromise = null;
 function initDatabase() {
   if (!dbPromise) {
     dbPromise = new Promise((resolve, reject) => {
-      const request = indexedDB.open('meeting-notifications-db', 1);
+      const request = indexedDB.open('meeting-notifications-db', 2);
       
       request.onupgradeneeded = (event) => {
         const db = request.result;

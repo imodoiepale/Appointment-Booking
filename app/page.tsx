@@ -878,7 +878,7 @@ const Dashboard = () => {
         {/* Main content Tabs (Responsive) */}
         <Tabs defaultValue="upcoming" value={activeTab} onValueChange={setActiveTab} className="bg-white p-2 sm:p-4 rounded-lg shadow border border-gray-200">
           {/* Responsive Tab Triggers */}
-          <TabsList className="grid grid-cols-2 sm:grid-cols-4 mb-4 sm:mb-6 bg-gray-100 p-1 rounded-md">
+          <TabsList className="grid grid-cols-2 sm:grid-cols-4 mb-4 sm:mb-6 bg-gray-100 p-1 rounded-md flex-wrap">
             {["upcoming", "pending", "canceled", "completed"].map((tabValue) => (
               <TabsTrigger
                 key={tabValue}
@@ -1179,7 +1179,7 @@ const Dashboard = () => {
             </div>
 
             {/* Footer Buttons (Responsive Size) */}
-            <DialogFooter className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t flex flex-row gap-2"> {/* Force row layout */}
+            <DialogFooter className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t flex flex-col sm:flex-row gap-2"> {/* Force row layout */}
               <Button
                 variant="outline"
                 size="sm" // Consistent sm size
