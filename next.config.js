@@ -21,8 +21,21 @@ const nextConfig = {
             }
         ]
     },
+    // Completely disable SSR for error pages
+    exportPathMap: async function (
+        defaultPathMap,
+        { dev, dir, outDir, distDir, buildId }
+    ) {
+        return {
+            ...defaultPathMap,
+            // Override 404 and 500 pages to be completely static without SSR
+            '/404': { page: '/404' },
+            '/500': { page: '/500' },
+        };
+    },
     // Prevent React error #130 during build
-    output: 'standalone',
+    output: 'export', // Change to export for static HTML generation
+    distDir: 'out',
     // Disable static optimization for problematic pages
     unstable_excludeDefaultMomentLocales: true,
     poweredByHeader: false,
