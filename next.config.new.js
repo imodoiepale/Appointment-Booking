@@ -21,33 +21,19 @@ const nextConfig = {
             }
         ]
     },
-    // Prevent React error #130 during build
-    output: 'standalone',
-    // Disable static optimization for problematic pages
-    unstable_excludeDefaultMomentLocales: true,
-    poweredByHeader: false,
-    reactStrictMode: false,
-    swcMinify: true,
+    // Add this section to handle page-level configurations
+    reactStrictMode: false, // This can help prevent some React errors
     typescript: {
+        // Dangerously allow production builds to successfully complete even if
+        // your project has type errors.
         ignoreBuildErrors: true,
     },
     eslint: {
+        // Warning: This allows production builds to successfully complete even if
+        // your project has ESLint errors.
         ignoreDuringBuilds: true,
     },
-    // Add custom configuration to disable static generation for error pages
-    webpack: (config, { isServer, dev }) => {
-        // Fixes npm packages that depend on `fs` module
-        if (!isServer) {
-            config.resolve.fallback = {
-                ...config.resolve.fallback,
-                fs: false,
-                net: false,
-                tls: false
-            };
-        }
-        
-        return config;
-    },
+    // Add special handling for error pages
     experimental: {
         // This helps prevent SSR issues with certain components
         esmExternals: 'loose'
