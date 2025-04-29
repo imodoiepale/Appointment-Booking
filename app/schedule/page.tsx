@@ -624,7 +624,7 @@ const BookingScheduler = () => {
 
     // --- Main Return ---
     return (
-        <div className="min-h-screen bg-gray-100 p-2 md:p-2 lg:p-2">
+        <div className="min-h-screen bg-gray-100 ">
             <Toaster />
 
             {/* Voice control indicator */}
@@ -651,7 +651,7 @@ const BookingScheduler = () => {
             </div> */}
 
             <div className="mx-auto max-w-6xl">
-                <Card className="bg-white shadow-lg border border-gray-200 overflow-hidden">
+                <Card className="bg-white shadow-lg border border-gray-200 p-4 md:p-4 lg:p-4 overflow-hidden">
                     <CardHeader className="bg-gray-50 border-b border-gray-200 p-4 sm:p-6">
                         <CardTitle className="text-xl sm:text-2xl font-bold text-center text-gray-800">
                             Schedule New Meeting
