@@ -1,6 +1,7 @@
 // Notification service using Pusher Beams for PWA notifications
 import * as PusherPushNotifications from "@pusher/push-notifications-web";
 
+// Initialize variables only in browser context
 let beamsClient: any = null;
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -18,8 +19,16 @@ const NOTIFICATION_SOUNDS = {
   DEFAULT: '/sounds/notification.mp3',
 };
 
+// Check if we're in a browser environment
+const isBrowser = typeof window !== 'undefined';
+
 // Initialize the IndexedDB database
 function initDatabase(): Promise<IDBDatabase> {
+  // Return a rejected promise if not in browser
+  if (!isBrowser) {
+    return Promise.reject(new Error('IndexedDB is not available in this environment'));
+  }
+
   if (!dbPromise) {
     dbPromise = new Promise((resolve, reject) => {
       const request = indexedDB.open('meeting-notifications-db', 2); // Increase version number
@@ -58,7 +67,7 @@ function initDatabase(): Promise<IDBDatabase> {
 
 export async function initPushNotifications() {
   // Check if we're in a browser environment
-  if (typeof window === 'undefined') {
+  if (!isBrowser) {
     return false;
   }
 
@@ -104,6 +113,11 @@ export async function initPushNotifications() {
 
 // Function to schedule a meeting notification
 export async function scheduleMeetingNotification(meeting: any, minutesBefore: number = 0) {
+  // Check if we're in a browser environment
+  if (!isBrowser) {
+    return false;
+  }
+
   try {
     // Ensure database is initialized first
     await initDatabase();
@@ -183,6 +197,11 @@ function getNotificationBody(minutesBefore: number, meeting: any): string {
 
 // Store notification in IndexedDB for later triggering
 async function storeScheduledNotification(notification: any) {
+  // Check if we're in a browser environment
+  if (!isBrowser) {
+    return false;
+  }
+
   try {
     const db = await initDatabase();
     
@@ -218,6 +237,11 @@ async function storeScheduledNotification(notification: any) {
 
 // Schedule all notifications for a meeting
 export async function scheduleAllMeetingNotifications(meeting: any) {
+  // Check if we're in a browser environment
+  if (!isBrowser) {
+    return false;
+  }
+
   try {
     // Ensure database is initialized first
     await initDatabase();
@@ -240,6 +264,11 @@ export async function scheduleAllMeetingNotifications(meeting: any) {
 
 // Function to check and trigger due notifications (for client side)
 export async function checkDueNotifications() {
+  // Check if we're in a browser environment
+  if (!isBrowser) {
+    return false;
+  }
+
   try {
     // Ensure database is initialized first
     await initDatabase();
@@ -299,6 +328,11 @@ export async function checkDueNotifications() {
 
 // Helper function to play notification sound
 function playNotificationSound(soundUrl: string = NOTIFICATION_SOUNDS.DEFAULT) {
+  // Check if we're in a browser environment
+  if (!isBrowser) {
+    return;
+  }
+
   try {
     const audio = new Audio(soundUrl);
     audio.volume = 1.0; // Full volume
@@ -325,6 +359,11 @@ function playNotificationSound(soundUrl: string = NOTIFICATION_SOUNDS.DEFAULT) {
 
 // Get notifications that are due to be displayed
 async function getDueNotifications(currentTime: number): Promise<any[]> {
+  // Check if we're in a browser environment
+  if (!isBrowser) {
+    return [];
+  }
+
   try {
     const db = await initDatabase();
     
@@ -353,6 +392,11 @@ async function getDueNotifications(currentTime: number): Promise<any[]> {
 
 // Delete a notification from storage
 async function deleteNotification(id: string) {
+  // Check if we're in a browser environment
+  if (!isBrowser) {
+    return false;
+  }
+
   try {
     const db = await initDatabase();
     
