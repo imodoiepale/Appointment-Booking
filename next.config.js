@@ -23,7 +23,10 @@ const nextConfig = {
         ]
     },
     
-    // Ignore type and lint errors to ensure the build succeeds
+    // Use output: 'standalone' for better Vercel compatibility
+    output: 'standalone',
+    
+    // Ignore build errors to ensure successful deployment
     typescript: {
         ignoreBuildErrors: true,
     },
@@ -31,36 +34,7 @@ const nextConfig = {
         ignoreDuringBuilds: true,
     },
     
-    // Minimize what we do during build to avoid errors
-    poweredByHeader: false,
-    reactStrictMode: false,
-
-    // Tell Next.js not to attempt static generation at all
-    // This is the most straightforward way to avoid the React error #130
-    target: 'server',
-    
-    // Set specific paths to completely skip 404, 500, and error pages
-    async rewrites() {
-        return {
-            beforeFiles: [
-                // Skip error pages completely
-                {
-                    source: '/404',
-                    destination: '/'
-                },
-                {
-                    source: '/500',
-                    destination: '/'
-                },
-                {
-                    source: '/_error',
-                    destination: '/'
-                }
-            ]
-        };
-    },
-    
-    // Custom webpack configuration
+    // Custom webpack configuration for better compatibility
     webpack: (config, { isServer }) => {
         // Needed for Node modules that expect filesystem access
         if (!isServer) {
@@ -73,6 +47,29 @@ const nextConfig = {
         }
         
         return config;
+    },
+    
+    // Disable React StrictMode to avoid potential double-rendering issues
+    reactStrictMode: false,
+    
+    // Optimize for production builds
+    swcMinify: true,
+    
+    // Add custom rewrites to handle error pages properly
+    async rewrites() {
+        return {
+            // Redirect error pages to a proper client-side handling
+            afterFiles: [
+                {
+                    source: '/404',
+                    destination: '/'
+                },
+                {
+                    source: '/500',
+                    destination: '/'
+                }
+            ]
+        };
     }
 }
 
