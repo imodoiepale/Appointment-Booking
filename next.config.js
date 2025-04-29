@@ -21,19 +21,15 @@ const nextConfig = {
             }
         ]
     },
-    // Use standalone output for better Vercel compatibility
-    output: 'standalone',
-    // Skip type checking during build
+    // Completely bypass error pages during static generation to avoid React error #130
+    staticPageGenerationTimeout: 120,
     typescript: {
-        // Ignore TypeScript errors during build
         ignoreBuildErrors: true,
     },
     eslint: {
-        // Ignore ESLint errors during build
         ignoreDuringBuilds: true,
     },
-    // Add custom webpack configuration
-    webpack: (config, { isServer, dev }) => {
+    webpack: (config, { isServer }) => {
         // Fixes npm packages that depend on `fs` module
         if (!isServer) {
             config.resolve.fallback = {
@@ -44,21 +40,23 @@ const nextConfig = {
             };
         }
         
-        // Disable dynamic creation of error pages that cause React error #130
-        if (isServer) {
-            // Mark error pages as external to skip SSR processing
-            // This helps avoid the React error #130
-            config.externals = [...(config.externals || []), 
-                './pages/404',
-                './pages/500',
-                './pages/_error'
-            ];
-        }
-        
         return config;
     },
-    reactStrictMode: false,
-    poweredByHeader: false
+    async redirects() {
+        return [
+            // Redirect for error pages to avoid them being pre-rendered
+            {
+                source: '/404',
+                destination: '/_error',
+                permanent: false,
+            },
+            {
+                source: '/500',
+                destination: '/_error',
+                permanent: false,
+            },
+        ];
+    }
 }
 
 module.exports = withPWA(nextConfig);

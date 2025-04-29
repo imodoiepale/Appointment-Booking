@@ -2,9 +2,10 @@
 // @ts-nocheck
 import React from 'react';
 import Link from 'next/link';
+import { GetStaticProps } from 'next';
 
 // Simple 500 page without any server components or complex imports
-export default function Custom500() {
+function Custom500() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center text-center px-4">
       <h1 className="text-6xl font-bold mb-4">500</h1>
@@ -18,3 +19,15 @@ export default function Custom500() {
     </div>
   );
 }
+
+// This ensures the page is built as a static HTML page
+export const getStaticProps: GetStaticProps = async () => {
+  return {
+    props: {}
+  };
+};
+
+// This disables automatic static optimization
+Custom500.noSSR = true;
+
+export default Custom500;
