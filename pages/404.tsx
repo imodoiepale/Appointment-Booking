@@ -1,11 +1,11 @@
 /* eslint-disable react/no-unescaped-entities */
 // @ts-nocheck
-'use client';
+// Static error page with no SSR
 import React from 'react';
 import Link from 'next/link';
+import { GetStaticProps } from 'next';
 
-// Simple 404 page without any server components or complex imports
-export default function Custom404() {
+function Custom404() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center text-center px-4">
       <h1 className="text-6xl font-bold mb-4">404</h1>
@@ -19,3 +19,15 @@ export default function Custom404() {
     </div>
   );
 }
+
+// This ensures the page is built as a static HTML page
+export const getStaticProps: GetStaticProps = async () => {
+  return {
+    props: {}
+  };
+};
+
+// This disables automatic static optimization
+Custom404.noSSR = true;
+
+export default Custom404;
