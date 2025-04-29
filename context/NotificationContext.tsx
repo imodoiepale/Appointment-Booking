@@ -12,6 +12,24 @@ import {
 // Define notification types
 export type NotificationType = 'info' | 'success' | 'warning' | 'error';
 
+// Define meeting type
+export interface Meeting {
+  id_main: number;
+  client_name: string;
+  meeting_date: string;
+  meeting_start_time: string;
+  meeting_venue_area: string;
+  status: string;
+  badge_status?: string;
+}
+
+// Define payload type for Supabase real-time changes
+interface SupabasePayload {
+  eventType: 'INSERT' | 'UPDATE' | 'DELETE';
+  new: Meeting;
+  old: Meeting;
+}
+
 export interface Notification {
   id: string;
   title: string;
@@ -35,23 +53,49 @@ interface NotificationContextType {
   requestNotificationPermission: () => Promise<boolean>;
 }
 
-const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
+// Default implementation for SSR
+const defaultContextValue: NotificationContextType = {
+  notifications: [],
+  unreadCount: 0,
+  addNotification: () => {},
+  markAsRead: () => {},
+  markAllAsRead: () => {},
+  clearNotifications: () => {},
+  removeNotification: () => {},
+  requestNotificationPermission: async () => false,
+};
 
-// Supabase client setup
-const supabaseUrl = 'https://zyszsqgdlrpnunkegipk.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5c3pzcWdkbHJwbnVua2VnaXBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDgzMjc4OTQsImV4cCI6MjAyMzkwMzg5NH0.fK_zR8wR6Lg8HeK7KBTTnyF0zoyYBqjkeWeTKqi32ws';
-const supabase = createClient(supabaseUrl, supabaseKey);
+// Create context with default value to avoid undefined checks
+const NotificationContext = createContext<NotificationContextType>(defaultContextValue);
+
+// Supabase client setup - only create when in browser environment
+const createSupabaseClient = () => {
+  if (typeof window === 'undefined') return null;
+  
+  const supabaseUrl = 'https://zyszsqgdlrpnunkegipk.supabase.co';
+  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5c3pzcWdkbHJwbnVua2VnaXBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDgzMjc4OTQsImV4cCI6MjAyMzkwMzg5NH0.fK_zR8wR6Lg8HeK7KBTTnyF0zoyYBqjkeWeTKqi32ws';
+  return createClient(supabaseUrl, supabaseKey);
+};
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [pushNotificationsEnabled, setPushNotificationsEnabled] = useState<boolean>(false);
   const { toast } = useToast();
+  const [supabase, setSupabase] = useState<any>(null);
+  
+  // Initialize Supabase client on mount (client-side only)
+  useEffect(() => {
+    const client = createSupabaseClient();
+    if (client) setSupabase(client);
+  }, []);
 
   // Calculate unread count
   const unreadCount = notifications.filter(notif => !notif.read).length;
 
   // Function to request notification permission
   const requestNotificationPermission = async () => {
+    if (typeof window === 'undefined') return false;
+    
     try {
       const initialized = await initPushNotifications();
       setPushNotificationsEnabled(initialized);
@@ -109,9 +153,12 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   // Initialize push notifications and check permissions on mount
   useEffect(() => {
+    // Skip for server-side rendering
+    if (typeof window === 'undefined') return;
+    
     const initNotifications = async () => {
-      // Check if we're in a browser environment and if notifications are supported
-      if (typeof window !== 'undefined' && 'Notification' in window) {
+      // Check if notifications are supported
+      if ('Notification' in window) {
         // Check if permission is already granted
         if (Notification.permission === 'granted') {
           setPushNotificationsEnabled(true);
@@ -133,15 +180,18 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     };
     
     initNotifications();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Set up real-time listener for meeting changes and schedule push notifications
   useEffect(() => {
+    // Skip for server-side rendering
+    if (typeof window === 'undefined' || !supabase) return;
+    
     const meetingsSubscription = supabase
       .channel('meetings-channel')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'meetings' }, 
-        payload => {
+        (payload: SupabasePayload) => {
           const { eventType, new: newRecord, old: oldRecord } = payload;
           
           // Handle different types of changes
@@ -218,6 +268,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     // Add meeting reminder notifications based on today's meetings and schedule push notifications
     const checkUpcomingMeetings = async () => {
+      if (!supabase) return;
+      
       const today = new Date().toISOString().split('T')[0];
       
       try {
@@ -230,7 +282,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         if (error) throw error;
         
         if (data && data.length > 0) {
-          data.forEach(meeting => {
+          data.forEach((meeting: Meeting) => {
             const meetingTime = new Date(`${meeting.meeting_date}T${meeting.meeting_start_time}`);
             const now = new Date();
             const minutesUntilMeeting = Math.floor((meetingTime.getTime() - now.getTime()) / (1000 * 60));
@@ -267,33 +319,36 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     
     // Clean up subscriptions on unmount
     return () => {
-      supabase.removeChannel(meetingsSubscription);
+      if (supabase) {
+        supabase.removeChannel(meetingsSubscription);
+      }
       clearInterval(reminderInterval);
     };
-  }, [addNotification, pushNotificationsEnabled]);
+  }, [addNotification, pushNotificationsEnabled, supabase]);
+
+  // Create the context value
+  const contextValue: NotificationContextType = {
+    notifications,
+    unreadCount,
+    addNotification,
+    markAsRead,
+    markAllAsRead,
+    clearNotifications,
+    removeNotification,
+    requestNotificationPermission,
+  };
 
   return (
-    <NotificationContext.Provider
-      value={{
-        notifications,
-        unreadCount,
-        addNotification,
-        markAsRead,
-        markAllAsRead,
-        clearNotifications,
-        removeNotification,
-        requestNotificationPermission,
-      }}
-    >
+    <NotificationContext.Provider value={contextValue}>
       {children}
     </NotificationContext.Provider>
   );
 };
 
-export const useNotifications = () => {
+// Custom hook that always uses the context hook unconditionally
+export const useNotifications = (): NotificationContextType => {
   const context = useContext(NotificationContext);
-  if (context === undefined) {
-    throw new Error('useNotifications must be used within a NotificationProvider');
-  }
+  
+  // Return the context (which will be the default value during SSR)
   return context;
 };
