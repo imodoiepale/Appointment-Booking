@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "vercel-build": "next build",
+    "vercel-build": "NEXT_PUBLIC_VERCEL_ENV=true node scripts/vercel-build.js",
     "start": "next start",
     "lint": "next lint"
   },
