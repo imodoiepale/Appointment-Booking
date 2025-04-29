@@ -52,24 +52,24 @@ const nextConfig = {
     // Disable React StrictMode to avoid potential double-rendering issues
     reactStrictMode: false,
     
-    // Optimize for production builds
-    swcMinify: true,
-    
     // Add custom rewrites to handle error pages properly
+    // This is important for preventing the React error #130 during build
     async rewrites() {
-        return {
-            // Redirect error pages to a proper client-side handling
-            afterFiles: [
-                {
-                    source: '/404',
-                    destination: '/'
-                },
-                {
-                    source: '/500',
-                    destination: '/'
-                }
-            ]
-        };
+        return [
+            // Redirect error pages to home to avoid SSR errors
+            {
+                source: '/404',
+                destination: '/'
+            },
+            {
+                source: '/500',
+                destination: '/'
+            },
+            {
+                source: '/_error',
+                destination: '/'
+            }
+        ];
     }
 }
 
