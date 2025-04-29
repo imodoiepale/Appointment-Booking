@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { Search, User, ChevronDown } from 'lucide-react';
 import { useUser } from '@clerk/nextjs';
+import Image from 'next/image';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,7 +42,13 @@ const Header = () => {
               <button className="flex items-center space-x-2 ml-4">
                 <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
                   {user?.imageUrl ? (
-                    <img src={user.imageUrl} alt={user?.fullName || 'User'} className="w-full h-full object-cover" />
+                    <Image 
+                      src={user.imageUrl} 
+                      alt={user?.fullName || 'User'} 
+                      width={32} 
+                      height={32}
+                      className="w-full h-full object-cover" 
+                    />
                   ) : (
                     <User size={16} />
                   )}
