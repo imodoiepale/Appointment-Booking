@@ -2,38 +2,10 @@
 // @ts-nocheck
 "use client"
 
-import React, { Suspense, useState } from 'react';
-import dynamic from 'next/dynamic';
+import React, { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
-
-// Create a loading component for the Suspense fallback
-const LoadingScheduler = () => (
-  <div className="w-full max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md mt-10">
-    <div className="h-8 w-40 bg-gray-200 rounded mb-4 animate-pulse"></div>
-    <div className="h-4 w-full bg-gray-200 rounded mb-2 animate-pulse"></div>
-    <div className="h-4 w-3/4 bg-gray-200 rounded mb-4 animate-pulse"></div>
-    <div className="h-64 w-full bg-gray-200 rounded mb-4 animate-pulse"></div>
-    <div className="h-10 w-32 bg-gray-200 rounded animate-pulse"></div>
-  </div>
-);
-
-// Dynamically import the scheduler component with SSR disabled
-const BookingSchedulerComponent = dynamic(
-  () => import('./scheduler-component'),
-  { 
-    ssr: false,
-    loading: () => <LoadingScheduler />
-  }
-);
-
-// This is the main page component
-export default function SchedulePage() {
-  return (
-    <Suspense fallback={<LoadingScheduler />}>
-      <BookingSchedulerComponent />
-    </Suspense>
-  );
-}
+import { addEvent } from './send'; // Assuming this path is correct
+import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 
 // ShadCN UI components
 import { Button } from "@/components/ui/button";
@@ -64,7 +36,6 @@ const steps = [
 
 const BookingScheduler = () => {
     const { toast } = useToast();
-    const [isClient, setIsClient] = useState(false);
     const [isListening, setIsListening] = useState(false);
     const [activeStep, setActiveStep] = useState(0);
     const [progress, setProgress] = useState(0);
@@ -75,12 +46,6 @@ const BookingScheduler = () => {
     const [showOtherAgendaInput, setShowOtherAgendaInput] = useState(false); // State for other agenda
     const [formStatus, setFormStatus] = useState('idle'); // idle, submitting, success, error
     const [invalidFields, setInvalidFields] = useState<string[]>([]); // Explicitly typed
-    
-    const fieldsToValidate: { [key: number]: string[] } = {
-        0: ['meetingDate', 'meetingType', 'meetingVenueArea'],
-        1: ['clientName', 'companyType', 'clientMobile', 'bclAttendee'], // Base client fields
-        2: ['meetingStartTime', 'meetingDuration', 'meetingAgenda', 'venueDistance'],
-    };
 
     const initialFormData = {
         bookingDate: '',
@@ -108,76 +73,43 @@ const BookingScheduler = () => {
     };
 
     const [formData, setFormData] = useState(initialFormData);
-    
-    const commands = [
-        // Basic Info Step
-        { command: ['set meeting type *', 'meeting type *'], callback: (type) => handleSelectChange('meetingType', type.toLowerCase() === 'in person' ? 'inPerson' : 'virtual') },
-        { command: ['set meeting date *', 'meeting date *'], callback: (dateStr) => { 
-            try { 
-                const d = new Date(dateStr); 
-                if (!isNaN(d.getTime())) handleMeetingDateChange(d); 
-            } catch (e) { 
-                console.error(e); 
-                toast({ variant: "destructive", title: "Invalid Date", description: `Could not parse date: ${dateStr}` }); 
-            } 
-        }},
-        { command: ['set venue *', 'venue *', 'meeting venue *'], callback: (venue) => handleSelectChange('meetingVenueArea', venue) },
-        
-        // Client Details Step
-        { command: ['set client name *', 'client name *'], callback: (name) => handleChange({ target: { name: 'clientName', value: name } }) },
-        { command: ['set company type *', 'company type *'], callback: (type) => handleSelectChange('companyType', type.toLowerCase() === 'new' ? 'new' : 'existing') },
-        { command: ['set company *', 'company *', 'client company *'], callback: (company) => handleSelectChange('clientCompany', company) },
-        { command: ['set client mobile *', 'client phone *', 'mobile *'], callback: (mobile) => handleChange({ target: { name: 'clientMobile', value: mobile } }) },
-        { command: ['set client email *', 'email *'], callback: (email) => handleChange({ target: { name: 'clientEmail', value: email } }) },
-        { command: ['set attendee *', 'bcl attendee *'], callback: (attendee) => handleSelectChange('bclAttendee', attendee) },
-        
-        // Scheduling Step
-        { command: ['set start time *', 'start time *'], callback: (time) => handleMeetingStartTimeChange(time) },
-        { command: ['set duration *', 'duration *'], callback: (duration) => { const val = duration.match(/\d+/)?.[0]; if (val) handleDurationChange(val); }},
-        { command: ['set agenda *', 'agenda *'], callback: (agenda) => handleSelectChange('meetingAgenda', agenda) },
-        
-        // Navigation & Submission
-        { command: ['next', 'next step', 'continue', 'next page'], callback: nextStep },
-        { command: ['back', 'previous', 'previous step', 'go back'], callback: prevStep },
-        { command: ['submit', 'submit form', 'schedule', 'schedule meeting', 'book appointment'], callback: () => handleSubmit() }
-    ];
-    
-    const speechRecognition = useSpeechRecognitionSafe({
-        commands: [
-            {
-                command: '*',
-                callback: (transcript) => {
-                    // Transcription handling logic
-                }
-            }
-        ]
-    });
 
-    const transcript = isClient ? speechRecognition.transcript : '';
-    const listening = isClient ? speechRecognition.listening : false;
-    const browserSupportsSpeechRecognition = isClient ? speechRecognition.browserSupportsSpeechRecognition : false;
-    
-    // Use useMemo to create stable function references
-    const startSpeechRecognition = useMemo(
-        () => isClient ? speechRecognition.startListening : () => {},
-        [isClient, speechRecognition.startListening]
-    );
-    
-    const stopSpeechRecognition = useMemo(
-        () => isClient ? speechRecognition.stopListening : () => {},
-        [isClient, speechRecognition.stopListening]
-    );
-    
-    const resetTranscript = useMemo(
-        () => isClient ? speechRecognition.resetTranscript : () => {},
-        [isClient, speechRecognition.resetTranscript]
-    );
 
+    const toggleListening = () => {
+        if (!browserSupportsSpeechRecognition) {
+            toast({ variant: "destructive", title: "Browser Not Supported", description: "Speech recognition is not available in this browser." });
+            return;
+        }
+        if (listening) {
+            SpeechRecognition.stopListening();
+            setIsListening(false);
+        } else {
+            resetTranscript();
+            SpeechRecognition.startListening({ continuous: true });
+            setIsListening(true);
+            toast({ title: "Voice Control Active", description: "Listening for commands..." });
+        }
+    };
+        // --- Data Fetching ---
+    const fetchCompanies = useCallback(async () => {
+        setLoadingCompanies(true);
+        try {
+            const { data, error } = await supabase.from('acc_portal_company_duplicate').select('company_name').order('company_name');
+            if (error) throw error;
+            const companyNames = data?.map((c) => c.company_name) ?? [];
+            setCompanyOptions(companyNames); // Just the names
+        } catch (error: any) {
+            console.error('Error fetching companies:', error.message);
+            toast({ variant: "destructive", title: "Error", description: "Could not load company list." });
+        } finally {
+            setLoadingCompanies(false);
+        }
+    }, [toast]);
+
+
+    // --- Effects ---
     useEffect(() => {
-        setIsClient(true);
-    }, []);
-
-    useEffect(() => {
+        // Initialize form with current date
         const currentDate = new Date();
         setFormData((prev) => ({
             ...prev,
@@ -185,36 +117,52 @@ const BookingScheduler = () => {
             bookingDay: currentDate.toLocaleDateString('en-US', { weekday: 'long' }),
         }));
         fetchCompanies();
-    }, [fetchCompanies]);
+    }, [fetchCompanies]); // Added fetchCompanies as a dependency
 
     useEffect(() => {
+        // Reset validation errors when data changes
         if (invalidFields.length > 0) {
             setInvalidFields([]);
         }
-        setProgress(activeStep * (100 / (steps.length - 1)));
-    }, [formData, activeStep, invalidFields.length]);
+        // Recalculate progress based on the *current* step's potential completion
+        // Or simply base it on the active step number until the final confirmation
+        setProgress(activeStep * (100 / (steps.length - 1))); // Progress based on step number
 
-    const toggleListening = useCallback(() => {
-        if (!isClient || !browserSupportsSpeechRecognition) {
-            toast({ 
-                title: "Speech Recognition Not Available", 
-                description: "Your browser doesn't support speech recognition or it's not available yet.",
-                variant: "destructive"
-            });
+    }, [formData, activeStep, invalidFields.length]); // Removed steps.length as it's a constant
+
+
+
+    const fetchClientDetails = async (clientCompanyName: string) => {
+        // Avoid fetching if 'Other' or empty is selected
+        if (!clientCompanyName || clientCompanyName === 'Other') {
+            setFormData((prev) => ({ ...prev, clientMobile: '', clientEmail: '' }));
             return;
         }
-        
-        if (listening) {
-            stopSpeechRecognition();
-            setIsListening(false);
-        } else {
-            resetTranscript();
-            startSpeechRecognition({ continuous: true });
-            setIsListening(true);
-            toast({ title: "Voice Control Active", description: "Listening for commands..." });
-        }
-    }, [browserSupportsSpeechRecognition, isClient, listening, resetTranscript, startSpeechRecognition, stopSpeechRecognition, toast]);
+        try {
+            const { data, error } = await supabase
+                .from('acc_portal_company_duplicate')
+                .select('phone_number, email')
+                .eq('company_name', clientCompanyName)
+                .single();
 
+            if (error && error.code !== 'PGRST116') { // PGRST116: Row not found, which is okay
+                throw error;
+            }
+
+            setFormData((prev) => ({
+                ...prev,
+                clientMobile: data?.phone_number || '',
+                clientEmail: data?.email || '',
+            }));
+        } catch (error: any) {
+            console.error('Error fetching client details:', error.message);
+            // Optionally notify user, but maybe not critical if details aren't found
+            toast({ variant: "default", title: "Info", description: `Could not auto-fill details for ${clientCompanyName}. Please enter manually.` });
+            setFormData((prev) => ({ ...prev, clientMobile: '', clientEmail: '' })); // Clear fields if fetch fails
+        }
+    };
+
+    // --- Form Handling ---
     const handleMeetingDateChange = (date: Date | null) => {
         if (date && !isNaN(date.getTime())) {
             setFormData({
@@ -231,6 +179,7 @@ const BookingScheduler = () => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
 
+        // Reset dependent fields or fetch data if needed
         if (name === 'companyType') {
             setFormData((prev) => ({
                 ...prev,
@@ -246,22 +195,26 @@ const BookingScheduler = () => {
     const handleSelectChange = (name: string, value: string) => {
         setFormData((prev) => ({ ...prev, [name]: value }));
 
+        // Specific logic for selects
         if (name === 'clientCompany') {
             setShowOtherClientCompanyInput(value === 'Other');
             if (value !== 'Other') {
                 fetchClientDetails(value);
+                // Clear the 'other' field if a real company is selected
                 setFormData((prev) => ({ ...prev, otherClientCompany: '' }));
             }
         }
         if (name === 'meetingVenueArea') {
             setShowOtherMeetingVenueInput(value === 'Other');
             if (value !== 'Other') {
-                setFormData((prev) => ({ ...prev, otherMeetingVenueArea: '' }));
+                // Clear the 'other' field if a predefined venue is selected
+                // Assuming you might add an 'otherMeetingVenueArea' field later if needed
             }
         }
         if (name === 'meetingAgenda') {
             setShowOtherAgendaInput(value === 'Other');
             if (value !== 'Other') {
+                // Clear the 'other' field if a predefined agenda is selected
                 setFormData((prev) => ({ ...prev, otherMeetingAgenda: '' }));
             }
         }
@@ -269,7 +222,7 @@ const BookingScheduler = () => {
             setShowOtherClientCompanyInput(value === 'new');
             setFormData((prev) => ({
                 ...prev,
-                clientCompany: '', 
+                clientCompany: '', // Reset company selection when type changes
                 otherClientCompany: '',
                 clientMobile: '',
                 clientEmail: '',
@@ -301,12 +254,13 @@ const BookingScheduler = () => {
         const travelTime = parseInt(formData.venueDistance);
 
         const newEndTime = calculateEndTime(startTime, duration);
-        const newSlotEndTime = calculateSlotTime(newEndTime, travelTime); 
+        const newSlotEndTime = calculateSlotTime(newEndTime, travelTime); // Slot end depends on meeting end
 
         setFormData(prev => ({
             ...prev,
             meetingDuration: value,
             meetingEndTime: newEndTime,
+            // Slot start time doesn't change with duration
             meetingSlotEndTime: newSlotEndTime,
         }));
     };
@@ -314,7 +268,7 @@ const BookingScheduler = () => {
     const handleTravelTimeChange = (value: string) => {
         const travelTime = parseInt(value);
         const startTime = formData.meetingStartTime;
-        const endTime = formData.meetingEndTime; 
+        const endTime = formData.meetingEndTime; // Use existing end time
 
         const newSlotStartTime = calculateSlotTime(startTime, -travelTime);
         const newSlotEndTime = calculateSlotTime(endTime, travelTime);
@@ -327,6 +281,8 @@ const BookingScheduler = () => {
         }));
     };
 
+
+    // --- Time Calculations ---
     const calculateSlotTime = (baseTime: string, minutesToAdd: number): string => {
         if (!baseTime || isNaN(minutesToAdd)) return '';
         try {
@@ -334,11 +290,11 @@ const BookingScheduler = () => {
             if (isNaN(hours) || isNaN(minutes)) return '';
 
             const baseDate = new Date();
-            baseDate.setHours(hours, minutes, 0, 0); 
+            baseDate.setHours(hours, minutes, 0, 0); // Set seconds and ms to 0
 
             const slotDate = new Date(baseDate.getTime() + minutesToAdd * 60000);
 
-            return slotDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); 
+            return slotDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); // Use en-GB for HH:MM
         } catch (e) {
             console.error("Error calculating slot time:", e);
             return '';
@@ -352,7 +308,7 @@ const BookingScheduler = () => {
             if (isNaN(startHour) || isNaN(startMinute)) return '';
 
             let totalMinutes = startHour * 60 + startMinute + durationMinutes;
-            const endHour = Math.floor(totalMinutes / 60) % 24; 
+            const endHour = Math.floor(totalMinutes / 60) % 24; // Use modulo 24 for hours
             const endMinute = totalMinutes % 60;
 
             return `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
@@ -362,19 +318,33 @@ const BookingScheduler = () => {
         }
     };
 
+    // --- Validation & Submission ---
     const validateStep = (stepIndex: number): boolean => {
+        const fieldsToValidate: { [key: number]: string[] } = {
+            0: ['meetingDate', 'meetingType', 'meetingVenueArea'],
+            1: ['clientName', 'companyType', 'clientMobile', 'bclAttendee'], // Base client fields
+            2: ['meetingStartTime', 'meetingDuration', 'meetingAgenda', 'venueDistance'],
+        };
+
         let requiredFields = fieldsToValidate[stepIndex] || [];
 
+        // Add conditional fields for step 1
         if (stepIndex === 1) {
             if (formData.companyType === 'existing') {
                 requiredFields.push('clientCompany');
             } else if (formData.companyType === 'new') {
-                requiredFields.push('otherClientCompany'); 
+                requiredFields.push('otherClientCompany'); // Validate the input for new company name
             }
         }
+        // Add conditional field for step 2 (Agenda)
         if (stepIndex === 2 && formData.meetingAgenda === 'Other') {
             requiredFields.push('otherMeetingAgenda');
         }
+        // Add conditional field for step 0 (Venue) - if you add an 'other' input
+        // if (stepIndex === 0 && formData.meetingVenueArea === 'Other') {
+        //     requiredFields.push('otherMeetingVenueArea');
+        // }
+
 
         const currentInvalidFields = requiredFields.filter(field => {
             const value = formData[field as keyof typeof formData];
@@ -388,16 +358,19 @@ const BookingScheduler = () => {
     const handleSubmit = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
 
+        // Validate all steps before final submission
         let allValid = true;
         const finalInvalidFields: string[] = [];
-        for (let i = 0; i < steps.length - 1; i++) { 
+        for (let i = 0; i < steps.length - 1; i++) { // Validate steps 0, 1, 2
             if (!validateStep(i)) {
                 allValid = false;
+                // Collect invalid fields from all steps
                 const stepInvalid = (fieldsToValidate[i] || []).filter(field => {
+                    // Add conditional checks again here if needed
                     if (i === 1) {
                         if (formData.companyType === 'existing' && field === 'clientCompany' && (!formData.clientCompany || formData.clientCompany === 'Other')) return true;
                         if (formData.companyType === 'new' && field === 'otherClientCompany' && !formData.otherClientCompany) return true;
-                        if (field !== 'clientCompany' && field !== 'otherClientCompany' && !formData[field as keyof typeof formData]) return true; 
+                        if (field !== 'clientCompany' && field !== 'otherClientCompany' && !formData[field as keyof typeof formData]) return true; // check other base fields
                     } else if (i === 2 && field === 'meetingAgenda' && formData.meetingAgenda === 'Other' && !formData.otherMeetingAgenda) {
                         return true;
                     } else if (!formData[field as keyof typeof formData]) {
@@ -410,8 +383,9 @@ const BookingScheduler = () => {
         }
 
         if (!allValid) {
-            const uniqueInvalidFields = [...new Set(finalInvalidFields)]; 
+            const uniqueInvalidFields = [...new Set(finalInvalidFields)]; // Remove duplicates
             setInvalidFields(uniqueInvalidFields);
+            // Find the first step with an error and navigate to it
             const firstErrorStep = steps.findIndex((_, index) =>
                 uniqueInvalidFields.some(field => (fieldsToValidate[index] || []).includes(field) ||
                     (index === 1 && formData.companyType === 'existing' && field === 'clientCompany') ||
@@ -431,23 +405,32 @@ const BookingScheduler = () => {
             return;
         }
 
-        setFormStatus('submitting');
-        setProgress(100); 
 
+        setFormStatus('submitting');
+        setProgress(100); // Show full progress on submit attempt
+
+        // Prepare final data (handle 'Other' cases)
         const finalClientCompany = formData.companyType === 'new' ? formData.otherClientCompany : formData.clientCompany;
         const finalAgenda = formData.meetingAgenda === 'Other' ? formData.otherMeetingAgenda : formData.meetingAgenda;
+        // const finalVenue = formData.meetingVenueArea === 'Other' ? formData.otherMeetingVenueArea : formData.meetingVenueArea; // If you add other venue input
 
         const dataToSubmit = {
             ...formData,
             clientCompany: finalClientCompany,
             meetingAgenda: finalAgenda,
+            // meetingVenueArea: finalVenue, // Uncomment if using other venue
+            // Remove temporary 'other' fields if they exist in formData object
             otherClientCompany: undefined,
             otherMeetingAgenda: undefined,
+            // otherMeetingVenueArea: undefined,
         };
 
+
         try {
+            // Call addEvent first (assuming it needs the final data)
             const { eventId, hangoutLink } = await addEvent(dataToSubmit);
 
+            // Insert final data into Supabase
             const { error } = await supabase.from('meetings').insert([
                 {
                     booking_date: dataToSubmit.bookingDate,
@@ -455,23 +438,24 @@ const BookingScheduler = () => {
                     meeting_date: dataToSubmit.meetingDate,
                     meeting_day: dataToSubmit.meetingDay,
                     meeting_type: dataToSubmit.meetingType,
-                    meeting_venue_area: dataToSubmit.meetingVenueArea, 
+                    meeting_venue_area: dataToSubmit.meetingVenueArea, // Use the potentially updated venue
                     client_name: dataToSubmit.clientName,
-                    client_company: dataToSubmit.clientCompany, 
+                    client_company: dataToSubmit.clientCompany, // Use the final company name
                     client_mobile: dataToSubmit.clientMobile,
+                    // client_email: dataToSubmit.clientEmail, // Add if email is in your DB schema
                     bcl_attendee: dataToSubmit.bclAttendee,
                     bcl_attendee_mobile: dataToSubmit.bclAttendeeMobile,
-                    meeting_agenda: dataToSubmit.meetingAgenda, 
-                    meeting_duration: parseInt(dataToSubmit.meetingDuration), 
-                    venue_distance: parseInt(dataToSubmit.venueDistance), 
+                    meeting_agenda: dataToSubmit.meetingAgenda, // Use the final agenda
+                    meeting_duration: parseInt(dataToSubmit.meetingDuration), // Ensure integer
+                    venue_distance: parseInt(dataToSubmit.venueDistance), // Ensure integer
                     meeting_start_time: dataToSubmit.meetingStartTime,
                     meeting_end_time: dataToSubmit.meetingEndTime,
                     meeting_slot_start_time: dataToSubmit.meetingSlotStartTime,
                     meeting_slot_end_time: dataToSubmit.meetingSlotEndTime,
-                    badge_status: 'Open', 
-                    status: 'upcoming', 
-                    google_event_id: eventId, 
-                    google_meet_link: hangoutLink || null, 
+                    badge_status: 'Open', // Default status
+                    status: 'upcoming', // Default status
+                    google_event_id: eventId, // Save Google Event ID
+                    google_meet_link: hangoutLink || null, // Save Google Meet link (or null)
                 },
             ]);
 
@@ -480,19 +464,22 @@ const BookingScheduler = () => {
             setFormStatus('success');
             toast({ title: "Success!", description: "Meeting scheduled successfully." });
 
+            // Redirect to calendar page after a short delay
             setTimeout(() => {
                 window.location.href = '/calendar';
             }, 1500);
 
+            // Reset form (this will happen if user navigates back)
             setTimeout(() => {
                 setFormData(initialFormData);
+                // Re-initialize booking date/day
                 const currentDate = new Date();
                 setFormData((prev) => ({
-                    ...initialFormData, 
+                    ...initialFormData, // Reset all fields first
                     bookingDate: currentDate.toISOString().split('T')[0],
                     bookingDay: currentDate.toLocaleDateString('en-US', { weekday: 'long' }),
-                    bclAttendeeMobile: '+254700298298', 
-                    venueDistance: '10', 
+                    bclAttendeeMobile: '+254700298298', // Keep default BCL mobile
+                    venueDistance: '10', // Reset travel time default
                 }));
                 setActiveStep(0);
                 setProgress(0);
@@ -507,10 +494,11 @@ const BookingScheduler = () => {
             console.error('Error scheduling meeting:', error.message);
             toast({ variant: "destructive", title: "Scheduling Failed", description: error.message || "An unexpected error occurred." });
             setFormStatus('error');
-            setProgress(activeStep * (100 / (steps.length - 1))); 
+            setProgress(activeStep * (100 / (steps.length - 1))); // Reset progress to current step
         }
     };
 
+    // --- Navigation ---
     const nextStep = () => {
         if (validateStep(activeStep)) {
             if (activeStep < steps.length - 1) {
@@ -528,16 +516,18 @@ const BookingScheduler = () => {
     const prevStep = () => {
         if (activeStep > 0) {
             setActiveStep(activeStep - 1);
+            // Clear validation errors when going back
             setInvalidFields([]);
         }
     };
 
+    // --- Render Helpers ---
     const generateTimeOptions = () => {
         const options = [];
-        for (let i = 7; i <= 21; i++) { 
+        for (let i = 7; i <= 21; i++) { // 7 AM to 9 PM
             const hour = i.toString().padStart(2, '0');
             options.push({ value: `${hour}:00`, label: `${hour}:00` });
-            if (i < 21) { 
+            if (i < 21) { // Don't add 9:30 PM if loop ends at 9 PM
                 options.push({ value: `${hour}:30`, label: `${hour}:30` });
             }
         }
@@ -546,7 +536,7 @@ const BookingScheduler = () => {
 
     const renderInputField = (id: string, label: string, options: { placeholder?: string, type?: string, icon?: React.ElementType, readOnly?: boolean, isInvalid?: boolean, children?: React.ReactNode, className?: string } = {}) => {
         const { placeholder, type = 'text', icon: Icon, readOnly = false, isInvalid = false, children, className } = options;
-        const Tag = type === 'textarea' ? Textarea : Input; 
+        const Tag = type === 'textarea' ? Textarea : Input; // Use Textarea if type is 'textarea'
         return (
             <div className="space-y-1.5">
                 <Label htmlFor={id} className={isInvalid ? 'text-red-600' : 'text-gray-700'}>{label}</Label>
@@ -561,7 +551,7 @@ const BookingScheduler = () => {
                         placeholder={placeholder || `Enter ${label.toLowerCase()}`}
                         readOnly={readOnly}
                         className={`${Icon ? 'pl-9' : ''} ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''} ${isInvalid ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'} ${className}`}
-                        rows={type === 'textarea' ? 3 : undefined} 
+                        rows={type === 'textarea' ? 3 : undefined} // Add rows prop for Textarea
                     />
                     {children}
                 </div>
@@ -586,7 +576,7 @@ const BookingScheduler = () => {
                         <Select
                             value={formData[id as keyof typeof formData] || ''}
                             onValueChange={onValueChange}
-                            name={id} 
+                            name={id} // Add name prop for potential form handling libraries
                         >
                             <SelectTrigger className={`${Icon ? 'pl-9' : ''} ${isInvalid ? 'border-red-500 text-red-600 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'}`}>
                                 <SelectValue placeholder={placeholder} />
@@ -606,54 +596,42 @@ const BookingScheduler = () => {
         );
     };
 
-    const fetchCompanies = useCallback(async () => {
-        setLoadingCompanies(true);
-        try {
-            const { data, error } = await supabase.from('companies').select('name').order('name');
-            if (error) throw error;
-            const companyNames = data?.map((c) => c.name) ?? [];
-            setCompanyOptions(companyNames); 
-        } catch (error: any) {
-            console.error('Error fetching companies:', error.message);
-            toast({ variant: "destructive", title: "Error", description: "Could not load company list." });
-        } finally {
-            setLoadingCompanies(false);
-        }
-    }, [toast]);
 
-    const fetchClientDetails = async (clientCompanyName: string) => {
-        if (!clientCompanyName || clientCompanyName === 'Other') {
-            setFormData((prev) => ({ ...prev, clientMobile: '', clientEmail: '' }));
-            return;
-        }
-        try {
-            const { data, error } = await supabase
-                .from('companies')
-                .select('phone_number, email')
-                .eq('name', clientCompanyName)
-                .single();
+    // --- Voice Recognition Setup ---
+    const commands = [
+        // Basic Info Step
+        { command: ['set meeting type *', 'meeting type *'], callback: (type: string) => handleSelectChange('meetingType', type.toLowerCase() === 'in person' ? 'inPerson' : 'virtual') },
+        { command: ['set meeting date *', 'meeting date *'], callback: (dateStr: string) => { try { const d = new Date(dateStr); if (!isNaN(d.getTime())) handleMeetingDateChange(d); } catch (e) { console.error(e); toast({ variant: "destructive", title: "Invalid Date", description: `Could not parse date: ${dateStr}` }); } } },
+        { command: ['set venue *', 'venue *', 'meeting venue *'], callback: (venue: string) => handleSelectChange('meetingVenueArea', venue) }, // Assuming direct input for venue now
 
-            if (error && error.code !== 'PGRST116') { 
-                throw error;
-            }
+        // Client Details Step
+        { command: ['set client name *', 'client name *'], callback: (name: string) => handleChange({ target: { name: 'clientName', value: name } }) },
+        { command: ['set company type *', 'company type *'], callback: (type: string) => handleSelectChange('companyType', type.toLowerCase() === 'new' ? 'new' : 'existing') },
+        { command: ['set company *', 'company *', 'client company *'], callback: (company: string) => handleSelectChange('clientCompany', company) }, // Needs logic if companyType is 'new'
+        { command: ['set client mobile *', 'client phone *', 'mobile *'], callback: (mobile: string) => handleChange({ target: { name: 'clientMobile', value: mobile } }) },
+        { command: ['set client email *', 'email *'], callback: (email: string) => handleChange({ target: { name: 'clientEmail', value: email } }) },
+        { command: ['set attendee *', 'bcl attendee *'], callback: (attendee: string) => handleSelectChange('bclAttendee', attendee) },
 
-            setFormData((prev) => ({
-                ...prev,
-                clientMobile: data?.phone_number || '',
-                clientEmail: data?.email || '',
-            }));
-        } catch (error: any) {
-            console.error('Error fetching client details:', error.message);
-            toast({ variant: "default", title: "Info", description: `Could not auto-fill details for ${clientCompanyName}. Please enter manually.` });
-            setFormData((prev) => ({ ...prev, clientMobile: '', clientEmail: '' })); 
-        }
-    };
+        // Scheduling Step
+        { command: ['set start time *', 'start time *'], callback: (time: string) => handleMeetingStartTimeChange(time) }, // Expects HH:MM format
+        { command: ['set duration *', 'duration *'], callback: (duration: string) => { const val = duration.match(/\d+/)?.[0]; if (val) handleDurationChange(val); } }, // Extracts number
+        { command: ['set agenda *', 'agenda *'], callback: (agenda: string) => handleSelectChange('meetingAgenda', agenda) }, // Needs logic for 'Other'
 
+        // Navigation & Submission
+        { command: ['next', 'next step', 'continue', 'next page'], callback: nextStep },
+        { command: ['back', 'previous', 'previous step', 'go back'], callback: prevStep },
+        { command: ['submit', 'submit form', 'schedule', 'schedule meeting', 'book appointment'], callback: () => handleSubmit() }
+    ];
+
+    const { transcript, listening, resetTranscript, browserSupportsSpeechRecognition } = useSpeechRecognition({ commands });
+
+    // --- Main Return ---
     return (
         <div className="min-h-screen bg-gray-100 ">
             <Toaster />
 
-            <div className="fixed top-4 right-4 z-50">
+            {/* Voice control indicator */}
+            {/* <div className="fixed top-4 right-4 z-50">
                 <TooltipProvider delayDuration={100}>
                     <Tooltip>
                         <TooltipTrigger asChild>
@@ -673,7 +651,7 @@ const BookingScheduler = () => {
                         </TooltipContent>
                     </Tooltip>
                 </TooltipProvider>
-            </div>
+            </div> */}
 
             <div className="mx-auto max-w-6xl">
                 <Card className="bg-white shadow-lg border border-gray-200 p-4 md:p-4 lg:p-4 overflow-hidden">
@@ -686,14 +664,17 @@ const BookingScheduler = () => {
                         </CardDescription>
                     </CardHeader>
 
+                    {/* Progress & Step Indicator Section */}
                     <div className="px-4 sm:px-6 pt-4 pb-2 border-b border-gray-200">
+                        {/* Step indicators */}
                         <div className="flex items-center justify-between mb-4">
                             {steps.map((step, index) => (
                                 <React.Fragment key={step.id}>
                                     <div
                                         className={`flex flex-col items-center cursor-pointer transition-colors duration-300 ${activeStep >= step.id ? 'text-blue-600' : 'text-gray-400 hover:text-gray-500'}`}
                                         onClick={() => {
-                                            if (activeStep > step.id || validateStep(step.id - 1)) { 
+                                            // Allow navigation only to completed or current steps
+                                            if (activeStep > step.id || validateStep(step.id - 1)) { // Check if previous step is valid
                                                 setActiveStep(step.id);
                                             } else if (activeStep === step.id) {
                                                 // Already on this step
@@ -703,24 +684,41 @@ const BookingScheduler = () => {
                                         }}
                                     >
                                         <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 mb-1 relative transition-all duration-300 ${activeStep === step.id ? 'bg-blue-600 border-blue-600 text-white scale-110' :
-                                                activeStep > step.id ? 'bg-blue-100 border-blue-600 text-blue-600' :
-                                                    'bg-white border-gray-300 text-gray-400'
+                                            activeStep > step.id ? 'bg-blue-100 border-blue-600 text-blue-600' :
+                                                'bg-white border-gray-300 text-gray-400'
                                             }`}>
                                             {activeStep > step.id ? <Check className="h-5 w-5" /> : <step.icon className="h-4 w-4" />}
                                         </div>
                                         <span className="text-xs font-medium text-center hidden sm:block">{step.name}</span>
                                     </div>
+                                    {/* Connector Line */}
                                     {index < steps.length - 1 && (
                                         <div className={`flex-1 h-0.5 mx-2 transition-colors duration-300 ${activeStep > index ? 'bg-blue-600' : 'bg-gray-300'}`}></div>
                                     )}
                                 </React.Fragment>
                             ))}
                         </div>
+                        {/* Progress bar */}
+                        {/* <Progress value={progress} className="h-1.5 mb-2" /> */}
                     </div>
+
+
+                    {/* Voice transcript display */}
+                    {/* {isListening && (
+                        <div className="mx-4 sm:mx-6 mt-4 bg-blue-50 border border-blue-200 text-gray-700 p-3 rounded-lg shadow-sm">
+                            <div className="flex items-center space-x-2 mb-1">
+                                <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></div>
+                                <p className="text-xs font-medium text-blue-600">Listening...</p>
+                            </div>
+                            <p className="text-sm italic ml-4">"{transcript || 'Say a command...'}"</p>
+                        </div>
+                    )} */}
 
                     <CardContent className="p-1 sm:p-6">
                         <form onSubmit={handleSubmit} noValidate>
-                            <div className="min-h-[300px]"> 
+                            {/* Step Content */}
+                            <div className="min-h-[300px]"> {/* Ensure minimum height for content area */}
+                                {/* Step 1: Basic Info */}
                                 {activeStep === 0 && (
                                     <div className="space-y-4 animate-fadeIn">
                                         <h3 className="text-lg font-semibold text-gray-700 mb-3">Basic Information</h3>
@@ -752,7 +750,7 @@ const BookingScheduler = () => {
                                             })}
                                             {renderSelectField('meetingVenueArea', 'Meeting Venue *', {
                                                 placeholder: 'Select or Enter Venue',
-                                                items: [ 
+                                                items: [ // Add predefined venues + Other
                                                     { value: 'BCL BR', label: 'BCL Boardroom' },
                                                     { value: 'Client Office', label: 'Client Office' },
                                                     { value: 'Virtual', label: 'Virtual / Online' },
@@ -762,15 +760,17 @@ const BookingScheduler = () => {
                                                 isInvalid: invalidFields.includes('meetingVenueArea'),
                                                 onValueChange: (value) => handleSelectChange('meetingVenueArea', value)
                                             })}
+                                            {/* Conditional Input for Other Venue */}
                                             {showOtherMeetingVenueInput && renderInputField('otherMeetingVenueArea', 'Specify Venue *', {
                                                 placeholder: 'E.g., Cafe Name, Specific Address',
                                                 icon: MapPin,
-                                                isInvalid: invalidFields.includes('otherMeetingVenueArea') 
+                                                isInvalid: invalidFields.includes('otherMeetingVenueArea') // Assuming you add validation for this
                                             })}
                                         </div>
                                     </div>
                                 )}
 
+                                {/* Step 2: Client Details */}
                                 {activeStep === 1 && (
                                     <div className="space-y-4 animate-fadeIn">
                                         <h3 className="text-lg font-semibold text-gray-700 mb-3">Client Information</h3>
@@ -785,7 +785,7 @@ const BookingScheduler = () => {
 
                                             {formData.companyType === 'existing' && renderSelectField('clientCompany', 'Client Company *', {
                                                 placeholder: 'Select Existing Company',
-                                                items: companyOptions.map(c => ({ value: c, label: c })), 
+                                                items: companyOptions.map(c => ({ value: c, label: c })), // Add 'Other' if needed
                                                 icon: Building,
                                                 isInvalid: invalidFields.includes('clientCompany'),
                                                 loading: loadingCompanies,
@@ -800,7 +800,8 @@ const BookingScheduler = () => {
                                             })}
 
                                             {renderInputField('clientMobile', 'Client Mobile *', { icon: Phone, isInvalid: invalidFields.includes('clientMobile'), type: 'tel' })}
-                                            {renderInputField('clientEmail', 'Client Email', { icon: Mail, type: 'email' })} 
+                                            {renderInputField('clientEmail', 'Client Email', { icon: Mail, type: 'email' })} {/* Optional? */}
+
                                             {renderSelectField('bclAttendee', 'BCL Attendee *', {
                                                 placeholder: 'Select BCL Attendee',
                                                 items: [
@@ -820,10 +821,12 @@ const BookingScheduler = () => {
                                     </div>
                                 )}
 
+                                {/* Step 3: Scheduling */}
                                 {activeStep === 2 && (
                                     <div className="space-y-4 animate-fadeIn">
                                         <h3 className="text-lg font-semibold text-gray-700 mb-3">Scheduling Details</h3>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            {/* Modified Meeting Start Time with single flexible input */}
                                             <div className="space-y-1.5">
                                                 <Label htmlFor="meetingStartTime" className={invalidFields.includes('meetingStartTime') ? 'text-red-600' : 'text-gray-700'}>Meeting Start Time *</Label>
                                                 <div className="relative">
@@ -862,11 +865,12 @@ const BookingScheduler = () => {
                                                     { value: '90', label: '1.5 hours' }, { value: '120', label: '2 hours' }
                                                 ],
                                                 isInvalid: invalidFields.includes('venueDistance'),
-                                                onValueChange: handleTravelTimeChange 
+                                                onValueChange: handleTravelTimeChange // Use dedicated handler
                                             })}
                                             {renderInputField('meetingSlotStartTime', 'Calendar Slot Start', { readOnly: true, icon: Calendar })}
                                             {renderInputField('meetingSlotEndTime', 'Calendar Slot End', { readOnly: true, icon: Calendar })}
 
+                                            {/* Agenda Selection */}
                                             <div className="sm:col-span-2 space-y-1.5">
                                                 {renderSelectField('meetingAgenda', 'Meeting Agenda *', {
                                                     placeholder: 'Select or Describe Agenda',
@@ -886,11 +890,12 @@ const BookingScheduler = () => {
                                                 })}
                                             </div>
 
+                                            {/* Conditional Input for Other Agenda */}
                                             {showOtherAgendaInput && (
                                                 <div className="sm:col-span-2 space-y-1.5">
                                                     {renderInputField('otherMeetingAgenda', 'Specify Agenda *', {
                                                         placeholder: 'Briefly describe the meeting purpose...',
-                                                        type: 'textarea', 
+                                                        type: 'textarea', // Use textarea for more space
                                                         isInvalid: invalidFields.includes('otherMeetingAgenda')
                                                     })}
                                                 </div>
@@ -899,11 +904,13 @@ const BookingScheduler = () => {
                                     </div>
                                 )}
 
+                                {/* Step 4: Confirmation */}
                                 {activeStep === 3 && (
                                     <div className="space-y-5 animate-fadeIn">
                                         <h3 className="text-lg font-semibold text-gray-700 mb-3">Confirm Meeting Details</h3>
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {/* Simplified Confirmation Display */}
                                             <ConfirmationItem label="Client" value={formData.clientName} />
                                             <ConfirmationItem label="Company" value={formData.companyType === 'new' ? formData.otherClientCompany : formData.clientCompany} />
                                             <ConfirmationItem label="Client Mobile" value={formData.clientMobile} />
@@ -919,6 +926,7 @@ const BookingScheduler = () => {
                                             <ConfirmationItem label="Calendar Slot" value={`${formData.meetingSlotStartTime || '--:--'} - ${formData.meetingSlotEndTime || '--:--'}`} />
                                         </div>
 
+                                        {/* Status Messages */}
                                         {formStatus === 'success' && (
                                             <div className="mt-4 bg-green-50 border border-green-300 text-green-700 px-4 py-3 rounded-md flex items-center" role="alert">
                                                 <Check className="h-5 w-5 mr-2 text-green-600" />
@@ -961,8 +969,8 @@ const BookingScheduler = () => {
                             </Button>
                         ) : (
                             <Button
-                                type="button" 
-                                onClick={handleSubmit} 
+                                type="button" // Changed from submit to prevent default form submission
+                                onClick={handleSubmit} // Trigger validation and submission logic
                                 disabled={formStatus === 'submitting' || formStatus === 'success'}
                                 className={`flex items-center ${formStatus === 'submitting' ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'}`}
                             >
@@ -988,9 +996,24 @@ const BookingScheduler = () => {
     );
 };
 
+// Helper component for confirmation items
 const ConfirmationItem = ({ label, value }: { label: string, value: string | undefined | null }) => (
     <div className="text-sm border-b border-gray-100 pb-2">
         <p className="text-gray-500">{label}:</p>
         <p className="font-medium text-gray-800 break-words">{value ? String(value) : '-'}</p>
     </div>
 );
+
+// Add this CSS for the fade-in animation (e.g., in your global CSS file or a style tag)
+/*
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fadeIn {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+*/
+
+
+export default BookingScheduler;

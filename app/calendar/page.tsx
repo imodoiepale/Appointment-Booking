@@ -85,7 +85,7 @@ const CalendarView = () => {
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [deletingMeeting, setDeletingMeeting] = useState<Meeting | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>("table"); // Default view
+  const [activeTab, setActiveTab] = useState<string>("timeline"); // Default view
 
   // Time slots for the day view (7 AM to 9 PM, 30-minute intervals)
   const timeSlots = React.useMemo(() => Array.from({ length: (21 - 7) * 2 }, (_, i) => {
