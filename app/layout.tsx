@@ -2,10 +2,12 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter, Poppins } from 'next/font/google'
 import './globals.css'
-// import { ClerkProvider } from '@clerk/nextjs'
-// import { ThemeProvider } from '@/components/theme-provider'
-// import { NotificationProvider } from '@/context/NotificationContext'
-// import { Toaster } from '@/components/ui/toaster'
+import { ClerkProvider } from '@clerk/nextjs'
+import Header from '../components/Header'
+import { ThemeProvider } from "@/components/theme-provider"
+import Sidebar from '@/components/Sidebar'
+import { NotificationProvider } from '@/context/NotificationContext'
+import { Toaster } from "@/components/ui/toaster"
 
 // Using Inter for a clean, modern look like in the reference design
 const inter = Inter({
@@ -30,18 +32,15 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
-// TEMPORARY: MINIMAL LAYOUT FOR DEBUGGING SSR ERROR
-// Comment out all providers except main content to isolate the error source
-
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body>
-        {/* <ClerkProvider>
+    <ClerkProvider>
+      <html lang="en" suppressHydrationWarning>
+        <body className={`${inter.variable} font-sans antialiased bg-gray-100`}>
           <ThemeProvider
             attribute="class"
             defaultTheme="light"
@@ -50,20 +49,19 @@ export default function RootLayout({
           >
             <NotificationProvider>
               <div className="flex min-h-screen">
-                {/* <Sidebar /> */}
-                {/* <div className="flex-1">
-                  {/* <Header /> */}
-                  {/* <main className="p-6">
+                <Sidebar />
+                <div className="flex-1">
+                  <Header />
+                  <main className="p-6">
                     {children}
                   </main>
                 </div> 
               </div>
-              {/* <Toaster /> */}
-            {/* </NotificationProvider>
+              <Toaster />
+            </NotificationProvider>
           </ThemeProvider>
-        </ClerkProvider> */}
-        <main>{children}</main>
-      </body>
-    </html>
+        </body>
+      </html>
+    </ClerkProvider>
   )
 }
