@@ -19,6 +19,10 @@ const nextConfig = {
             {
                 protocol: "https",
                 hostname: "bcltraining.com"
+            },
+            {
+                protocol: "https",
+                hostname: "img.clerk.com" // Add Clerk image domain
             }
         ]
     },
