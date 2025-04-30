@@ -1,8 +1,7 @@
 "use server"
 
-import { auth } from '@clerk/nextjs';
 import { google } from 'googleapis';
-import clerk from '@clerk/clerk-sdk-node';
+import { auth, clerkClient } from '@clerk/nextjs/server';
 import { createClient } from '@supabase/supabase-js';
 
 
@@ -27,14 +26,16 @@ interface FormData {
   meetingType: string;
 }
 export async function cancelEvent(selectedAppointment: FormData): Promise<string | undefined> {
-   const { userId } = auth();
+   const { userId } = await auth();
 
   if (userId === null) {
     console.error('User is not authenticated.');
     return undefined;
   }
 
-  const [oauthAccessToken] = await clerk.users.getUserOauthAccessToken(userId, 'oauth_google');
+  const client = await clerkClient();
+  const oauthAccessTokensResponse = await client.users.getUserOauthAccessToken(userId, 'oauth_google');
+  const oauthAccessToken = oauthAccessTokensResponse.data[0];
 
   if (!oauthAccessToken || !oauthAccessToken.token) {
     throw new Error('User oauthAccessToken is null, undefined, or missing the token property.');

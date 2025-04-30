@@ -1,10 +1,8 @@
 "use server"
 
-import { auth } from '@clerk/nextjs';
 import { google } from 'googleapis';
-import clerk from '@clerk/clerk-sdk-node';
+import { auth, clerkClient } from '@clerk/nextjs/server';
 import { createClient } from '@supabase/supabase-js';
-
 
 interface FormData {
   eventId: number;
@@ -14,7 +12,6 @@ interface FormData {
   // Add other properties as needed
 }
 
-
 const supabaseUrl = 'https://zyszsqgdlrpnunkegipk.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5c3pzcWdkbHJwbnVua2VnaXBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDgzMjc4OTQsImV4cCI6MjAyMzkwMzg5NH0.fK_zR8wR6Lg8HeK7KBTTnyF0zoyYBqjkeWeTKqi32ws';
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -22,14 +19,16 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const SCOPES = ['https://www.googleapis.com/auth/calendar'];
 
 export async function updateEvent(formData: FormData): Promise<string | undefined> {
-   const { userId } = auth();
+  const { userId } = await auth();
 
   if (userId === null) {
     console.error('User is not authenticated.');
     return undefined;
   }
 
-  const [oauthAccessToken] = await clerk.users.getUserOauthAccessToken(userId, 'oauth_google');
+  const client = await clerkClient();
+  const oauthAccessTokensResponse = await client.users.getUserOauthAccessToken(userId, 'oauth_google');
+  const oauthAccessToken = oauthAccessTokensResponse.data[0];
 
   if (!oauthAccessToken || !oauthAccessToken.token) {
     throw new Error('User oauthAccessToken is null, undefined, or missing the token property.');
