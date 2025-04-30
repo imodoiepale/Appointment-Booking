@@ -1,9 +1,8 @@
 "use server"
 
 
-import { auth } from '@clerk/nextjs';
 import { google } from 'googleapis';
-import clerk from '@clerk/clerk-sdk-node';
+import { auth, clerkClient } from '@clerk/nextjs/server';
 
 interface FormData {
   meetingAgenda: string;
@@ -22,14 +21,16 @@ interface FormData {
 const SCOPES = ['https://www.googleapis.com/auth/calendar'];
 
 export async function addEvent(formData: FormData): Promise<{ eventId: string, hangoutLink: string | null | undefined }> {
-  const { userId } = auth();
+  const { userId } = await auth();
 
   if (userId === null) {
     console.error('User is not authenticated.');
     return { eventId: '', hangoutLink: undefined };
   }
 
-  const [oauthAccessToken] = await clerk.users.getUserOauthAccessToken(userId, 'oauth_google');
+  const client = await clerkClient();
+  const oauthAccessTokensResponse = await client.users.getUserOauthAccessToken(userId, 'oauth_google');
+  const oauthAccessToken = oauthAccessTokensResponse.data[0];
 
   if (!oauthAccessToken || !oauthAccessToken.token) {
     throw new Error('User oauthAccessToken is null, undefined, or missing the token property.');

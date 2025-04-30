@@ -2,7 +2,6 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
 
 export default function Error({
   error,
@@ -26,14 +25,18 @@ export default function Error({
         </p>
       </div>
       <div className="flex space-x-4">
-        <Button onClick={reset} variant="secondary">
+        <button 
+          onClick={reset} 
+          className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 py-2"
+        >
           Try again
-        </Button>
-        <Button asChild>
-          <Link href="/">
-            Go Home
-          </Link>
-        </Button>
+        </button>
+        <Link 
+          href="/" 
+          className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
+        >
+          Go Home
+        </Link>
       </div>
     </div>
   );

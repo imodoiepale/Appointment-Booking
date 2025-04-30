@@ -1,5 +1,4 @@
 // Notification service using Pusher Beams for PWA notifications
-import * as PusherPushNotifications from "@pusher/push-notifications-web";
 
 // Initialize variables only in browser context
 let beamsClient: any = null;
@@ -68,6 +67,7 @@ function initDatabase(): Promise<IDBDatabase> {
 export async function initPushNotifications() {
   // Check if we're in a browser environment
   if (!isBrowser) {
+    console.log('Not in browser, skipping push notification init.');
     return false;
   }
 
@@ -88,6 +88,9 @@ export async function initPushNotifications() {
       return false;
     }
 
+    // Dynamically import the Pusher library only when needed client-side
+    const PusherPushNotifications = await import("@pusher/push-notifications-web");
+
     // Initialize Pusher Beams client
     if (!beamsClient) {
       beamsClient = new PusherPushNotifications.Client({
@@ -100,6 +103,8 @@ export async function initPushNotifications() {
       url: "/api/pusher/beams-auth" // Your authentication endpoint
     });
 
+    // Check if beamsClient needs starting or is already started
+    // Assuming start() is idempotent or handles multiple calls safely
     await beamsClient.start();
     await beamsClient.setUserId(`user-${Math.random().toString(36).substring(2, 15)}`, beamsTokenProvider);
     

@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { NotificationBell } from './NotificationBell';
 
-const Header = () => {
+export default function Header() {
   const { user } = useUser();
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -71,6 +71,4 @@ const Header = () => {
       </div>
     </header>
   );
-};
-
-export default Header;
+}

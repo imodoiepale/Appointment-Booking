@@ -1,8 +1,6 @@
 /* eslint-disable react/no-unescaped-entities */
-'use client';
 
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
 
 export default function NotFound() {
   return (
@@ -14,11 +12,11 @@ export default function NotFound() {
           We couldn't find the page you were looking for.
         </p>
       </div>
-      <Button asChild>
-        <Link href="/">
+      <div className="mt-4">
+        <Link href="/" className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2">
           Go Home
         </Link>
-      </Button>
+      </div>
     </div>
   );
 }
