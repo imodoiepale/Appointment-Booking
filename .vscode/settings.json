@@ -1,14 +1,22 @@
 {
-    "cSpell.words": [
-        "gapi",
-        "Iiwicm",
-        "Ijoy",
-        "Imlhd",
-        "Nlcn",
-        "supabase",
-        "Vfcm",
-        "XVCJ",
-        "Zjanhxc",
-        "ZSIs"
-    ]
+  "[typescript]": {
+    "editor.defaultFormatter": "denoland.vscode-deno"
+  },
+  "cSpell.words": [
+    "gapi",
+    "Iiwicm",
+    "Ijoy",
+    "Imlhd",
+    "Nlcn",
+    "supabase",
+    "Vfcm",
+    "XVCJ",
+    "Zjanhxc",
+    "ZSIs"
+  ],
+  "deno.enablePaths": [
+    "supabase/functions"
+  ],
+  "deno.lint": true,
+  "deno.unstable": true
 }

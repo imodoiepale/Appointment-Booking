@@ -7,7 +7,9 @@
     "build": "next build",
     "vercel-build": "NEXT_PUBLIC_VERCEL_ENV=true node scripts/vercel-build.js",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "supabase": "supabase",
+    "deploy-function": "supabase functions deploy scheduler"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.18.0",
@@ -51,11 +53,12 @@
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.6.0",
     "file-saver": "^2.0.5",
+    "firebase": "^12.8.0",
     "googleapis": "^129.0.0",
     "input-otp": "^1.4.2",
     "intl": "^1.2.5",
     "lucide-react": "^0.294.0",
-    "next": "^16.1.4",
+    "next": "^16.1.0",
     "next-themes": "^0.2.1",
     "node-cron": "^3.0.3",
     "node-fetch": "^3.3.2",

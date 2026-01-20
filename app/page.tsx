@@ -250,7 +250,7 @@ const Dashboard = () => {
       setLoading(true);
       try {
         const { data, error } = await supabase
-          .from('meetings')
+          .from('bcl_meetings_meetings')
           .select('*');
 
         if (error) throw error;
@@ -388,7 +388,7 @@ const Dashboard = () => {
       };
 
       const { data, error } = await supabase
-        .from('meetings')
+        .from('bcl_meetings_meetings')
         .update(updates)
         .eq('id_main', selectedAppointment.id_main)
         .select()
