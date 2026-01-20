@@ -12,7 +12,7 @@
     "deploy-function": "supabase functions deploy scheduler"
   },
   "dependencies": {
-    "@clerk/nextjs": "^6.18.0",
+    "@clerk/nextjs": "^5.0.0",
     "@ducanh2912/next-pwa": "^10.2.6",
     "@hookform/resolvers": "^5.0.1",
     "@pusher/push-notifications-web": "^1.1.0",
@@ -58,7 +58,7 @@
     "input-otp": "^1.4.2",
     "intl": "^1.2.5",
     "lucide-react": "^0.294.0",
-    "next": "^16.1.0",
+    "next": "^15.0.0",
     "next-themes": "^0.2.1",
     "node-cron": "^3.0.3",
     "node-fetch": "^3.3.2",
