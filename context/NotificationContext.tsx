@@ -3,10 +3,10 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  initPushNotifications, 
-  scheduleAllMeetingNotifications, 
-  checkDueNotifications 
+import {
+  initPushNotifications,
+  scheduleAllMeetingNotifications,
+  checkDueNotifications
 } from '@/utils/notificationService';
 
 // Define notification types
@@ -57,11 +57,11 @@ interface NotificationContextType {
 const defaultContextValue: NotificationContextType = {
   notifications: [],
   unreadCount: 0,
-  addNotification: () => {},
-  markAsRead: () => {},
-  markAllAsRead: () => {},
-  clearNotifications: () => {},
-  removeNotification: () => {},
+  addNotification: () => { },
+  markAsRead: () => { },
+  markAllAsRead: () => { },
+  clearNotifications: () => { },
+  removeNotification: () => { },
   requestNotificationPermission: async () => false,
 };
 
@@ -71,7 +71,7 @@ const NotificationContext = createContext<NotificationContextType>(defaultContex
 // Supabase client setup - only create when in browser environment
 const createSupabaseClient = () => {
   if (typeof window === 'undefined') return null;
-  
+
   const supabaseUrl = 'https://zyszsqgdlrpnunkegipk.supabase.co';
   const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5c3pzcWdkbHJwbnVua2VnaXBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDgzMjc4OTQsImV4cCI6MjAyMzkwMzg5NH0.fK_zR8wR6Lg8HeK7KBTTnyF0zoyYBqjkeWeTKqi32ws';
   return createClient(supabaseUrl, supabaseKey);
@@ -82,7 +82,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [pushNotificationsEnabled, setPushNotificationsEnabled] = useState<boolean>(false);
   const { toast } = useToast();
   const [supabase, setSupabase] = useState<any>(null);
-  
+
   // Initialize Supabase client on mount (client-side only)
   useEffect(() => {
     const client = createSupabaseClient();
@@ -95,7 +95,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // Function to request notification permission
   const requestNotificationPermission = async () => {
     if (typeof window === 'undefined') return false;
-    
+
     try {
       const initialized = await initPushNotifications();
       setPushNotificationsEnabled(initialized);
@@ -114,9 +114,9 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       timestamp: new Date(),
       read: false,
     };
-    
+
     setNotifications(prev => [newNotification, ...prev]);
-    
+
     // Show a toast for new notifications
     toast({
       title: notification.title,
@@ -155,30 +155,30 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   useEffect(() => {
     // Skip for server-side rendering
     if (typeof window === 'undefined') return;
-    
+
     const initNotifications = async () => {
       // Check if notifications are supported
       if ('Notification' in window) {
         // Check if permission is already granted
         if (Notification.permission === 'granted') {
           setPushNotificationsEnabled(true);
-          
+
           // Set up a regular check for due notifications
           const checkInterval = setInterval(() => {
-            checkDueNotifications().catch(err => 
+            checkDueNotifications().catch(err =>
               console.error('Error checking due notifications:', err)
             );
           }, 60000); // Check every minute
-          
+
           return () => clearInterval(checkInterval);
-        } 
+        }
         // Auto-request permission if not denied
         else if (Notification.permission !== 'denied') {
           await requestNotificationPermission();
         }
       }
     };
-    
+
     initNotifications();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -186,14 +186,14 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   useEffect(() => {
     // Skip for server-side rendering
     if (typeof window === 'undefined' || !supabase) return;
-    
+
     const meetingsSubscription = supabase
       .channel('meetings-channel')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'meetings' }, 
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'bcl_meetings_meetings' },
         (payload: SupabasePayload) => {
           const { eventType, new: newRecord, old: oldRecord } = payload;
-          
+
           // Handle different types of changes
           if (eventType === 'INSERT') {
             addNotification({
@@ -203,14 +203,14 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
               meetingId: newRecord.id_main,
               link: '/schedule' // Link to schedule page
             });
-            
+
             // Schedule push notifications for this new meeting
             if (pushNotificationsEnabled) {
-              scheduleAllMeetingNotifications(newRecord).catch(err => 
+              scheduleAllMeetingNotifications(newRecord).catch(err =>
                 console.error('Error scheduling meeting notifications:', err)
               );
             }
-          } 
+          }
           else if (eventType === 'UPDATE') {
             // Status changed to canceled
             if (newRecord.status === 'canceled' && oldRecord.status !== 'canceled') {
@@ -233,9 +233,9 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
               });
             }
             // Meeting rescheduled
-            else if (newRecord.status === 'rescheduled' || 
-                    (newRecord.meeting_date !== oldRecord.meeting_date || 
-                     newRecord.meeting_start_time !== oldRecord.meeting_start_time)) {
+            else if (newRecord.status === 'rescheduled' ||
+              (newRecord.meeting_date !== oldRecord.meeting_date ||
+                newRecord.meeting_start_time !== oldRecord.meeting_start_time)) {
               addNotification({
                 title: 'Meeting Rescheduled',
                 message: `Meeting with ${newRecord.client_name} has been rescheduled to ${new Date(newRecord.meeting_date).toLocaleDateString()} at ${newRecord.meeting_start_time}.`,
@@ -243,10 +243,10 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 meetingId: newRecord.id_main,
                 link: '/schedule'
               });
-              
+
               // Re-schedule push notifications for this updated meeting
               if (pushNotificationsEnabled) {
-                scheduleAllMeetingNotifications(newRecord).catch(err => 
+                scheduleAllMeetingNotifications(newRecord).catch(err =>
                   console.error('Error rescheduling meeting notifications:', err)
                 );
               }
@@ -269,24 +269,24 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     // Add meeting reminder notifications based on today's meetings and schedule push notifications
     const checkUpcomingMeetings = async () => {
       if (!supabase) return;
-      
+
       const today = new Date().toISOString().split('T')[0];
-      
+
       try {
         const { data, error } = await supabase
-          .from('meetings')
+          .from('bcl_meetings_meetings')
           .select('*')
           .eq('meeting_date', today)
           .in('status', ['upcoming', 'rescheduled']);
-          
+
         if (error) throw error;
-        
+
         if (data && data.length > 0) {
           data.forEach((meeting: Meeting) => {
             const meetingTime = new Date(`${meeting.meeting_date}T${meeting.meeting_start_time}`);
             const now = new Date();
             const minutesUntilMeeting = Math.floor((meetingTime.getTime() - now.getTime()) / (1000 * 60));
-            
+
             // Only create reminder for meetings happening within the next 60 minutes
             if (minutesUntilMeeting > 0 && minutesUntilMeeting <= 60) {
               addNotification({
@@ -297,10 +297,10 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 link: '/schedule'
               });
             }
-            
+
             // Schedule push notifications for upcoming meetings (if not already scheduled)
             if (pushNotificationsEnabled) {
-              scheduleAllMeetingNotifications(meeting).catch(err => 
+              scheduleAllMeetingNotifications(meeting).catch(err =>
                 console.error('Error scheduling meeting notifications:', err)
               );
             }
@@ -310,13 +310,13 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         console.error('Error checking upcoming meetings:', error);
       }
     };
-    
+
     // Check for upcoming meetings when the component mounts
     checkUpcomingMeetings();
-    
+
     // Set up interval to check for upcoming meetings every 5 minutes
     const reminderInterval = setInterval(checkUpcomingMeetings, 5 * 60 * 1000);
-    
+
     // Clean up subscriptions on unmount
     return () => {
       if (supabase) {
@@ -348,7 +348,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 // Custom hook that always uses the context hook unconditionally
 export const useNotifications = (): NotificationContextType => {
   const context = useContext(NotificationContext);
-  
+
   // Return the context (which will be the default value during SSR)
   return context;
 };
