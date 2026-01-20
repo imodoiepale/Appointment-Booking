@@ -90,7 +90,7 @@ const BookingScheduler = () => {
             toast({ title: "Voice Control Active", description: "Listening for commands..." });
         }
     };
-        // --- Data Fetching ---
+    // --- Data Fetching ---
     const fetchCompanies = useCallback(async () => {
         setLoadingCompanies(true);
         try {
@@ -431,7 +431,7 @@ const BookingScheduler = () => {
             const { eventId, hangoutLink } = await addEvent(dataToSubmit);
 
             // Insert final data into Supabase
-            const { error } = await supabase.from('meetings').insert([
+            const { error } = await supabase.from('bcl_meetings_meetings').insert([
                 {
                     booking_date: dataToSubmit.bookingDate,
                     booking_day: dataToSubmit.bookingDay,

@@ -453,7 +453,7 @@ const Dashboard = () => {
 
       // Update Supabase
       const { error } = await supabase
-        .from('meetings')
+        .from('bcl_meetings_meetings')
         .update({ status: 'canceled', badge_status: 'Rejected' })
         .eq('id_main', selectedAppointment.id_main);
 
@@ -488,7 +488,7 @@ const Dashboard = () => {
 
       // Update Supabase
       const { error } = await supabase
-        .from('meetings')
+        .from('bcl_meetings_meetings')
         .update({ status: 'completed', badge_status: 'Confirmed' }) // Confirm when completing
         .eq('id_main', id);
 
@@ -522,7 +522,7 @@ const Dashboard = () => {
     try {
       // Update Supabase
       const { error } = await supabase
-        .from('meetings')
+        .from('bcl_meetings_meetings')
         .update({ badge_status: 'Confirmed' })
         .eq('id_main', selectedAppointment.id_main);
 
