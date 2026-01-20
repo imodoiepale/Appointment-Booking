@@ -96,7 +96,7 @@ const BookingScheduler = () => {
         try {
             const { data, error } = await supabase.from('acc_portal_company_duplicate').select('company_name').order('company_name');
             if (error) throw error;
-            const companyNames = data?.map((c) => c.company_name) ?? [];
+            const companyNames = data?.map((c) => c.company_name).filter(name => name && name.trim() !== '') ?? [];
             setCompanyOptions(companyNames); // Just the names
         } catch (error: any) {
             console.error('Error fetching companies:', error.message);
