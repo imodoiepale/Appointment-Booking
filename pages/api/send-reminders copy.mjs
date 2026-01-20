@@ -13,7 +13,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function getNextMeeting() {
   const { data: meetings, error } = await supabase
-    .from('meetings')
+    .from('bcl_meetings_meetings')
     .select('*')
     .order('id_main',72)
     .limit(1);

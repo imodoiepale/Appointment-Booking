@@ -29,7 +29,7 @@
 // async function scheduleMeetingNotifications() {
 //   // Fetch upcoming meetings from Supabase
 //   const { data: meetings, error } = await supabase
-//     .from('meetings')
+//     .from('bcl_meetings_meetings')
 //     .select('*')
 //     .eq('status', 'upcoming') // Or any relevant filter
 //     .gt('meeting_start_time', new Date()); // Filter for future meetings

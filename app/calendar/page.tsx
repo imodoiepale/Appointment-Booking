@@ -151,13 +151,13 @@ const CalendarView = () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('meetings')
+        .from('bcl_meetings_meetings')
         .select('*')
         .order('meeting_date', { ascending: true })
         .order('meeting_start_time', { ascending: true });
-      
+
       if (error) throw error;
-      
+
       if (data) {
         setAllMeetings(data as Meeting[]);
         filterAndSortMeetingsForSelectedDate(data as Meeting[], selectedDate);
@@ -200,24 +200,24 @@ const CalendarView = () => {
   // Delete meeting function
   const deleteMeeting = async () => {
     if (!deletingMeeting) return;
-    
+
     setIsDeleting(true);
     try {
       const { error } = await supabase
-        .from('meetings')
+        .from('bcl_meetings_meetings')
         .delete()
         .eq('id_main', deletingMeeting.id_main); // Changed from meeting_id to id_main
-      
+
       if (error) throw error;
-      
+
       // Update UI after successful deletion
       setAllMeetings(prev => prev.filter(m => m.id_main !== deletingMeeting.id_main)); // Changed from meeting_id to id_main
       setMeetingsForSelectedDate(prev => prev.filter(m => m.id_main !== deletingMeeting.id_main)); // Changed from meeting_id to id_main
-      
+
       // Close dialogs and show success message
       setSelectedMeeting(null);
       setDeletingMeeting(null);
-      
+
       toast({
         title: "Meeting Deleted",
         description: `Meeting with ${deletingMeeting.client_name} has been deleted.`,
@@ -254,21 +254,21 @@ const CalendarView = () => {
     try {
       const [hour, minute] = time.split(':').map(Number);
       const timeInMinutes = hour * 60 + minute;
-      
+
       // Find the closest slot index
       return timeSlots.reduce((closest, slot, index) => {
         const [slotHour, slotMinute] = slot.split(':').map(Number);
         const slotInMinutes = slotHour * 60 + slotMinute;
-        
+
         // If the time is before the first slot, return the first slot
         if (index === 0 && timeInMinutes < slotInMinutes) return 0;
-        
+
         // If time matches exactly or is after this slot but before next slot, use this index
-        if (timeInMinutes >= slotInMinutes && 
-            (index === timeSlots.length - 1 || timeInMinutes < (slotHour + (slotMinute === 30 ? 1 : 0)) * 60 + (slotMinute === 30 ? 0 : 30))) {
+        if (timeInMinutes >= slotInMinutes &&
+          (index === timeSlots.length - 1 || timeInMinutes < (slotHour + (slotMinute === 30 ? 1 : 0)) * 60 + (slotMinute === 30 ? 0 : 30))) {
           return index;
         }
-        
+
         return closest;
       }, 0);
     } catch (e) {
@@ -315,7 +315,7 @@ const CalendarView = () => {
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
-        table: 'meetings'
+        table: 'bcl_meetings_meetings'
       }, (payload) => {
         console.log('Change received!', payload);
         fetchMeetings(); // Re-fetch data on any change
@@ -487,9 +487,9 @@ const CalendarView = () => {
                         <span className="text-blue-600 font-medium">Loading schedule...</span>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-[55px_1fr] sm:grid-cols-[60px_1fr]"> 
+                      <div className="grid grid-cols-[55px_1fr] sm:grid-cols-[60px_1fr]">
                         {/* Time Labels Column (Sticky) */}
-                        <div className="border-r bg-gray-50/70 sticky top-0 z-20 h-full"> 
+                        <div className="border-r bg-gray-50/70 sticky top-0 z-20 h-full">
                           {timeSlots.map((slot, index) => (
                             <div
                               key={slot}
@@ -537,7 +537,7 @@ const CalendarView = () => {
                           {meetingsForSelectedDate.map((meeting, meetingIndex) => {
                             // Instead of finding exact match, find closest time slot
                             const startSlotIndex = findClosestTimeSlot(meeting.meeting_start_time);
-                            
+
                             const durationSlots = getMeetingDurationInSlots(meeting);
                             const heightInRem = durationSlots * 4; // 4rem per 30-min slot (16 * 4 = 64px)
 
@@ -586,12 +586,12 @@ const CalendarView = () => {
                                         <div className="text-[8px] xs:text-[10px] sm:text-xs mt-auto pt-0.5 sm:pt-1 opacity-80 truncate flex items-center gap-0.5 sm:gap-1">
                                           {isVirtual ? <Video className="h-2 w-2 xs:h-2.5 xs:w-2.5 sm:h-3 sm:w-3 flex-shrink-0" /> : <MapPin className="h-2 w-2 xs:h-2.5 xs:w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />}
                                           <span className="truncate">{isVirtual ? 'Virtual Meeting' : meeting.meeting_venue || meeting.meeting_venue_area}</span>
-                                          
+
                                           {/* Add Join Button for virtual meetings */}
                                           {isVirtual && meeting.meeting_venue && meeting.meeting_venue.startsWith('http') && (
-                                            <Button 
-                                              variant="ghost" 
-                                              size="icon" 
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
                                               className="h-4 w-4 xs:h-5 xs:w-5 ml-auto p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-100"
                                               onClick={(e) => {
                                                 e.stopPropagation(); // Prevent opening the details dialog
@@ -686,8 +686,8 @@ const CalendarView = () => {
                               <TableCell className="py-1 hidden sm:table-cell">{meeting.client_company}</TableCell>
                               <TableCell className="py-1 hidden lg:table-cell">
                                 <div className="flex items-center gap-1">
-                                  {meeting.meeting_type === 'virtual' ? 
-                                    <Video className="h-3.5 w-3.5 text-blue-600 shrink-0" /> : 
+                                  {meeting.meeting_type === 'virtual' ?
+                                    <Video className="h-3.5 w-3.5 text-blue-600 shrink-0" /> :
                                     <MapPin className="h-3.5 w-3.5 text-teal-600 shrink-0" />
                                   }
                                   <span className="truncate max-w-[150px]">
@@ -698,9 +698,9 @@ const CalendarView = () => {
                               <TableCell className="text-right">
                                 <div className="flex items-center justify-end space-x-1">
                                   {meeting.meeting_type === 'virtual' && meeting.meeting_venue && meeting.meeting_venue.startsWith('http') && (
-                                    <Button 
-                                      variant="ghost" 
-                                      size="icon" 
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
                                       className="h-8 w-8 text-blue-600 hover:bg-blue-50"
                                       onClick={(e) => {
                                         e.stopPropagation(); // Prevent opening the details dialog
@@ -754,8 +754,8 @@ const CalendarView = () => {
             <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
               <DialogHeader className="pb-2 border-b">
                 <DialogTitle className="text-lg font-semibold flex items-center gap-2">
-                  {selectedMeeting.meeting_type === 'virtual' ? 
-                    <Video className="h-5 w-5 text-blue-600" /> : 
+                  {selectedMeeting.meeting_type === 'virtual' ?
+                    <Video className="h-5 w-5 text-blue-600" /> :
                     <MapPin className="h-5 w-5 text-teal-600" />
                   }
                   Meeting Details
@@ -923,9 +923,9 @@ const CalendarView = () => {
                         <div className="flex items-center flex-wrap gap-2">
                           {selectedMeeting.meeting_venue.startsWith('http') ? (
                             <>
-                              <a 
-                                href={selectedMeeting.meeting_venue} 
-                                target="_blank" 
+                              <a
+                                href={selectedMeeting.meeting_venue}
+                                target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-sm text-blue-600 hover:underline break-all" // Changed from truncate to break-all
                                 onClick={(e) => {
@@ -935,9 +935,9 @@ const CalendarView = () => {
                               >
                                 {selectedMeeting.meeting_venue}
                               </a>
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
+                              <Button
+                                variant="outline"
+                                size="sm"
                                 className="bg-blue-50 text-blue-700 hover:text-blue-800 hover:bg-blue-100 border-blue-200"
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -978,7 +978,7 @@ const CalendarView = () => {
                         <RefreshCw className="h-3.5 w-3.5 mr-1 sm:mr-1.5" />
                         Reschedule
                       </Button>
-                      
+
                       {selectedMeeting.status !== 'confirmed' && (
                         <Button
                           variant="outline"
@@ -992,7 +992,7 @@ const CalendarView = () => {
                           Confirm
                         </Button>
                       )}
-                      
+
                       <Button
                         variant="outline"
                         size="sm"
@@ -1004,7 +1004,7 @@ const CalendarView = () => {
                         <XCircle className="h-3.5 w-3.5 mr-1 sm:mr-1.5" />
                         Cancel Mtg
                       </Button>
-                      
+
                       <Button
                         variant="outline"
                         size="sm"
@@ -1018,13 +1018,13 @@ const CalendarView = () => {
                       </Button>
                     </>
                   )}
-                  
+
                   {(selectedMeeting.status === 'completed' || selectedMeeting.status === 'canceled') && (
                     <span className="text-xs sm:text-sm text-gray-500 italic px-3 py-1.5">
                       This meeting is {selectedMeeting.status}.
                     </span>
                   )}
-                  
+
                   {/* Delete Meeting Button with AlertDialog */}
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
@@ -1070,7 +1070,7 @@ const CalendarView = () => {
                     </AlertDialogContent>
                   </AlertDialog>
                 </div>
-                
+
                 {/* Close button */}
                 <Button
                   variant="secondary"

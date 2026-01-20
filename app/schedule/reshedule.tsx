@@ -45,7 +45,7 @@ export async function updateEvent(formData: FormData): Promise<string | undefine
 
   // Fetch the Google event ID from the "events" table in Supabase
   const { data, error } = await supabase
-    .from('meetings')
+    .from('bcl_meetings_meetings')
     .select('google_event_id')
     .eq('id_main', formData.eventId)
 
@@ -61,10 +61,10 @@ export async function updateEvent(formData: FormData): Promise<string | undefine
     eventId: googleEventId,
   });
 
-  const currentEvent = currentEventResponse.data ;
+  const currentEvent = currentEventResponse.data;
 
   // Define the updated event
-  const event= {
+  const event = {
     ...currentEvent,
     description: `Scheduled meeting from ${formData.meetingStartTime} to ${formData.meetingEndTime}`,
     start: {
@@ -79,12 +79,12 @@ export async function updateEvent(formData: FormData): Promise<string | undefine
 
   // Update the event
   try {
-  const response = await calendar.events.update({
-    calendarId: 'primary',
-    eventId: googleEventId, // Use the Google event ID
-    requestBody: event,
-  });
-} catch (error:any) {
-  console.error('Error updating event:', error.message);
-}
+    const response = await calendar.events.update({
+      calendarId: 'primary',
+      eventId: googleEventId, // Use the Google event ID
+      requestBody: event,
+    });
+  } catch (error: any) {
+    console.error('Error updating event:', error.message);
+  }
 }

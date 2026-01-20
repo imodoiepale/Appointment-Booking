@@ -12,7 +12,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const SCOPES = ['https://www.googleapis.com/auth/calendar'];
 
 interface FormData {
-  id:string,
+  id: string,
   meetingAgenda: string;
   clientName: string;
   clientCompany: string;
@@ -26,7 +26,7 @@ interface FormData {
   meetingType: string;
 }
 export async function cancelEvent(selectedAppointment: FormData): Promise<string | undefined> {
-   const { userId } = await auth();
+  const { userId } = await auth();
 
   if (userId === null) {
     console.error('User is not authenticated.');
@@ -54,12 +54,12 @@ export async function cancelEvent(selectedAppointment: FormData): Promise<string
 
   // Fetch the Google event ID from the "events" table in Supabase
   const { data, error } = await supabase
-    .from('meetings')
+    .from('bcl_meetings_meetings')
     .select('id, google_event_id')
     .eq('id_main', selectedAppointment.id);
 
 
-    console.log('Supabase data:', data);
+  console.log('Supabase data:', data);
 
 
   if (error) {
