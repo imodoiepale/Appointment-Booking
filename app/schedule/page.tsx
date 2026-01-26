@@ -461,6 +461,44 @@ const BookingScheduler = () => {
 
             if (error) throw error;
 
+            try {
+                await fetch(
+                    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/booking-confirmation`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+                        },
+                        body: JSON.stringify({
+                            id_main: insertedData?.[0]?.id_main,
+                            client_name: dataToSubmit.clientName,
+                            client_company: dataToSubmit.clientCompany,
+                            client_mobile: dataToSubmit.clientMobile,
+                            client_email: dataToSubmit.clientEmail,
+                            meeting_date: dataToSubmit.meetingDate,
+                            meeting_day: dataToSubmit.meetingDay,
+                            meeting_start_time: dataToSubmit.meetingStartTime,
+                            meeting_end_time: dataToSubmit.meetingEndTime,
+                            meeting_duration: parseInt(dataToSubmit.meetingDuration),
+                            meeting_type: dataToSubmit.meetingType,
+                            meeting_venue_area: dataToSubmit.meetingVenueArea,
+                            meeting_agenda: dataToSubmit.meetingAgenda,
+                            bcl_attendee: dataToSubmit.bclAttendee,
+                            bcl_attendee_mobile: dataToSubmit.bclAttendeeMobile,
+                            venue_distance: parseInt(dataToSubmit.venueDistance),
+                            meeting_slot_start_time: dataToSubmit.meetingSlotStartTime,
+                            meeting_slot_end_time: dataToSubmit.meetingSlotEndTime,
+                            booking_date: dataToSubmit.bookingDate,
+                            booking_day: dataToSubmit.bookingDay
+                        })
+                    }
+                );
+            } catch (confirmError) {
+                console.error('Booking confirmation failed:', confirmError);
+                // Don't throw - booking was successful
+            }
+            
             setFormStatus('success');
             toast({ title: "Success!", description: "Meeting scheduled successfully." });
 
