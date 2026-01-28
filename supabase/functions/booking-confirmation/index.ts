@@ -4,8 +4,7 @@
 // ==========================================
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { format, parseISO } from 'https://esm.sh/date-fns@2.30.0'
-import { utcToZonedTime, formatInTimeZone } from 'https://esm.sh/date-fns-tz@2.0.0'
+import { format, parseISO, addHours } from 'https://esm.sh/date-fns@2.30.0'
 
 // ==========================================
 // TYPES
@@ -182,9 +181,22 @@ class WhatsAppService {
 }
 
 // ==========================================
+// CORS HEADERS
+// ==========================================
+const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+// ==========================================
 // MAIN HANDLER
 // ==========================================
 serve(async (req) => {
+    // Handle CORS preflight requests
+    if (req.method === 'OPTIONS') {
+        return new Response('ok', { headers: corsHeaders })
+    }
+
     try {
         console.log('='.repeat(60));
         console.log('🚀 BOOKING CONFIRMATION HANDLER STARTED');
@@ -217,8 +229,8 @@ serve(async (req) => {
 
         // Get current time in EAT
         const nowUTC = new Date();
-        const nowEAT = utcToZonedTime(nowUTC, TIMEZONE);
-        console.log(`🕐 Current time: ${formatInTimeZone(nowUTC, TIMEZONE, 'yyyy-MM-dd HH:mm:ss zzz')}`);
+        const nowEAT = addHours(nowUTC, 3); // EAT = UTC+3
+        console.log(`🕐 Current time: ${format(nowEAT, 'yyyy-MM-dd HH:mm:ss')} EAT`);
 
         // Format meeting date nicely
         const meetingDateFormatted = booking.meeting_date ? 
@@ -347,7 +359,7 @@ serve(async (req) => {
                 }
             }),
             { 
-                headers: { "Content-Type": "application/json" },
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
                 status: 200
             }
         );
@@ -363,7 +375,7 @@ serve(async (req) => {
                 stack: error.stack
             }),
             { 
-                headers: { "Content-Type": "application/json" },
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
                 status: 500
             }
         );

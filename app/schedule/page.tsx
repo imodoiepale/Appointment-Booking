@@ -141,7 +141,7 @@ const BookingScheduler = () => {
         try {
             const { data, error } = await supabase
                 .from('acc_portal_company_duplicate')
-                .select('phone_number, email')
+                .select('*')
                 .eq('company_name', clientCompanyName)
                 .single();
 
@@ -149,10 +149,14 @@ const BookingScheduler = () => {
                 throw error;
             }
 
+            // Handle different possible column names for phone and email
+            const phone = data?.phone_number || data?.phone || data?.mobile || data?.contact_number || '';
+            const email = data?.email || data?.email_address || '';
+
             setFormData((prev) => ({
                 ...prev,
-                clientMobile: data?.phone_number || '',
-                clientEmail: data?.email || '',
+                clientMobile: phone,
+                clientEmail: email,
             }));
         } catch (error: any) {
             console.error('Error fetching client details:', error.message);
@@ -547,9 +551,9 @@ const BookingScheduler = () => {
             toast({ title: "Success!", description: "Meeting scheduled successfully." });
 
             // Redirect to calendar page after a short delay
-            setTimeout(() => {
-                window.location.href = '/calendar';
-            }, 1500);
+            // setTimeout(() => {
+            //     window.location.href = '/calendar';
+            // }, 1500);
 
             // Reset form (this will happen if user navigates back)
             setTimeout(() => {
