@@ -1,10 +1,11 @@
 // @ts-nocheck
 // ==========================================
-// BOOKING CONFIRMATION NOTIFICATION
+// BOOKING CONFIRMATION NOTIFICATION (FIXED)
 // ==========================================
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { format, parseISO } from 'https://esm.sh/date-fns@2.30.0'
+import { utcToZonedTime, formatInTimeZone } from 'https://esm.sh/date-fns-tz@2.0.0'
 
 // ==========================================
 // TYPES
@@ -37,6 +38,11 @@ interface Settings {
 }
 
 // ==========================================
+// CONSTANTS
+// ==========================================
+const TIMEZONE = 'Africa/Nairobi'; // EAT = UTC+3
+
+// ==========================================
 // WHATSAPP SERVICE
 // ==========================================
 class WhatsAppService {
@@ -50,7 +56,7 @@ class WhatsAppService {
         this.instanceName = settings['whatsapp_instance_name'] || 'BCL REMINDERS';
     }
 
-    async getGroupId(inviteCode: string, retries = 2): Promise<string | null> {
+    async getGroupId(inviteCode: string, retries = 3): Promise<string | null> {
         if (!inviteCode) {
             console.error('No invite code provided');
             return null;
@@ -59,35 +65,41 @@ class WhatsAppService {
         for (let attempt = 0; attempt <= retries; attempt++) {
             try {
                 const url = `${this.baseUrl}/group/inviteInfo/${this.instanceName}?inviteCode=${inviteCode}`;
-                const res = await fetch(url, { headers: { 'apikey': this.apiKey } });
+                const res = await fetch(url, { 
+                    headers: { 'apikey': this.apiKey },
+                    signal: AbortSignal.timeout(10000) // 10s timeout
+                });
                 
                 if (res.ok) {
                     const data = await res.json();
                     if (data?.id) {
-                        console.log('Group ID fetched successfully');
+                        console.log('✅ Group ID fetched successfully:', data.id);
                         return data.id;
                     }
                 }
                 
-                console.error(`Failed to fetch Group ID (attempt ${attempt + 1}): ${res.status}`);
+                console.error(`❌ Failed to fetch Group ID (attempt ${attempt + 1}): ${res.status}`);
             } catch (e) {
-                console.error(`Error fetching Group ID (attempt ${attempt + 1}):`, e);
+                console.error(`❌ Error fetching Group ID (attempt ${attempt + 1}):`, e.message);
             }
             
             if (attempt < retries) {
-                await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+                const delay = Math.min(1000 * Math.pow(2, attempt), 5000);
+                await new Promise(resolve => setTimeout(resolve, delay));
             }
         }
         
-        console.error('All retry attempts failed for fetching Group ID');
+        console.error('❌ All retry attempts failed for fetching Group ID');
         return null;
     }
 
     formatPhoneNumber(phone: string): string | null {
         if (!phone) return null;
         
+        // Remove all non-digit characters
         let cleaned = phone.replace(/\D/g, '');
         
+        // Handle Kenyan numbers
         if (cleaned.startsWith('0')) {
             cleaned = '254' + cleaned.slice(1);
         } else if (cleaned.startsWith('7') || cleaned.startsWith('1')) {
@@ -96,22 +108,27 @@ class WhatsAppService {
             cleaned = '254' + cleaned;
         }
         
+        // Validate: should be 254 + 9 digits = 12 digits total
         if (cleaned.length !== 12 || !cleaned.startsWith('254')) {
-            console.error(`Invalid phone number format: ${phone}`);
+            console.error(`❌ Invalid phone number format: ${phone} -> ${cleaned}`);
             return null;
         }
         
+        console.log(`✅ Formatted phone: ${phone} -> ${cleaned}`);
         return cleaned;
     }
 
-    async sendText(to: string, text: string, isGroup = false, retries = 2) {
-        if (!to) return false;
+    async sendText(to: string, text: string, isGroup = false, retries = 3) {
+        if (!to) {
+            console.error('❌ No recipient provided');
+            return false;
+        }
         
         let number = to;
         if (!isGroup) {
             const formatted = this.formatPhoneNumber(to);
             if (!formatted) {
-                console.error(`Invalid phone number, skipping: ${to}`);
+                console.error(`❌ Invalid phone number, skipping: ${to}`);
                 return false;
             }
             number = formatted;
@@ -126,31 +143,40 @@ class WhatsAppService {
 
         for (let attempt = 0; attempt <= retries; attempt++) {
             try {
+                console.log(`📤 Sending WhatsApp to ${number} (attempt ${attempt + 1}/${retries + 1})...`);
+                
                 const response = await fetch(url, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'apikey': this.apiKey
                     },
-                    body: JSON.stringify(body)
+                    body: JSON.stringify(body),
+                    signal: AbortSignal.timeout(15000) // 15s timeout
                 });
                 
+                const responseText = await response.text();
+                
                 if (response.ok) {
-                    console.log(`WhatsApp sent to ${number}`);
+                    console.log(`✅ WhatsApp sent successfully to ${number}`);
+                    console.log(`Response: ${responseText}`);
                     return true;
                 } else {
-                    console.error(`WhatsApp API error (attempt ${attempt + 1}): ${response.status}`);
+                    console.error(`❌ WhatsApp API error (attempt ${attempt + 1}): ${response.status}`);
+                    console.error(`Response: ${responseText}`);
                 }
             } catch (e) {
-                console.error(`Failed to send WhatsApp to ${number} (attempt ${attempt + 1}):`, e);
+                console.error(`❌ Failed to send WhatsApp to ${number} (attempt ${attempt + 1}):`, e.message);
             }
             
             if (attempt < retries) {
-                await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+                const delay = Math.min(1000 * Math.pow(2, attempt), 5000);
+                console.log(`⏳ Waiting ${delay}ms before retry...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
             }
         }
         
-        console.error(`All retry attempts failed for ${number}`);
+        console.error(`❌ All ${retries + 1} retry attempts failed for ${number}`);
         return false;
     }
 }
@@ -160,6 +186,10 @@ class WhatsAppService {
 // ==========================================
 serve(async (req) => {
     try {
+        console.log('='.repeat(60));
+        console.log('🚀 BOOKING CONFIRMATION HANDLER STARTED');
+        console.log('='.repeat(60));
+        
         const supabase = createClient(
             Deno.env.get('SUPABASE_URL') ?? '',
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -167,20 +197,35 @@ serve(async (req) => {
 
         // Parse request body
         const booking: BookingData = await req.json();
+        console.log('📋 Booking data received:', JSON.stringify(booking, null, 2));
 
         // Load settings
-        const { data: settingRows } = await supabase.from('bcl_meetings_system_settings').select('*');
+        const { data: settingRows, error: settingsError } = await supabase
+            .from('bcl_meetings_system_settings')
+            .select('*');
+        
+        if (settingsError) {
+            console.error('❌ Error loading settings:', settingsError);
+            throw new Error('Failed to load settings');
+        }
+        
         const settings: Settings = {};
         settingRows?.forEach(r => settings[r.key] = r.value);
+        console.log('⚙️ Settings loaded:', Object.keys(settings).length, 'keys');
 
         const wa = new WhatsAppService(settings);
+
+        // Get current time in EAT
+        const nowUTC = new Date();
+        const nowEAT = utcToZonedTime(nowUTC, TIMEZONE);
+        console.log(`🕐 Current time: ${formatInTimeZone(nowUTC, TIMEZONE, 'yyyy-MM-dd HH:mm:ss zzz')}`);
 
         // Format meeting date nicely
         const meetingDateFormatted = booking.meeting_date ? 
             format(parseISO(booking.meeting_date), 'EEEE, dd MMMM yyyy') : 
             booking.meeting_date;
 
-        // Build comprehensive confirmation message
+        // Build comprehensive confirmation message for admin
         let confirmMsg = `✅ *NEW MEETING SCHEDULED*\n\n`;
         confirmMsg += `📅 *MEETING DETAILS*\n`;
         confirmMsg += `━━━━━━━━━━━━━━━━━━━━\n\n`;
@@ -231,22 +276,34 @@ serve(async (req) => {
         confirmMsg += `\n━━━━━━━━━━━━━━━━━━━━\n`;
         confirmMsg += `✨ Meeting has been added to the calendar!`;
 
+        let adminSent = false;
+        let clientSent = false;
+
         // Send to admin group
+        console.log('\n📢 Sending to admin group...');
         const groupId = await wa.getGroupId(settings['admin_whatsapp_group_code']);
         if (groupId) {
-            await wa.sendText(groupId, confirmMsg, true);
+            adminSent = await wa.sendText(groupId, confirmMsg, true);
             
-            // Log the notification for admin
-            await supabase.from('bcl_meetings_reminder_logs').insert({
-                meeting_id: booking.id_main || null,
-                reminder_type: 'booking_confirmation_admin',
-                recipient_group: 'admin_group',
-                channel: 'whatsapp'
-            });
+            if (adminSent) {
+                // Log the notification for admin
+                await supabase.from('bcl_meetings_reminder_logs').insert({
+                    meeting_id: booking.id_main || null,
+                    reminder_type: 'booking_confirmation_admin',
+                    recipient_group: 'admin_group',
+                    channel: 'whatsapp',
+                    sent_at: nowUTC.toISOString()
+                });
+                console.log('✅ Admin notification logged');
+            }
+        } else {
+            console.error('❌ Failed to get admin group ID');
         }
 
         // Send to client
         if (booking.client_mobile) {
+            console.log('\n📱 Sending to client...');
+            
             let clientMsg = `👋 Hello *${booking.client_name}*,\n\n`;
             clientMsg += `Your appointment with *BCL* has been successfully scheduled! ✅\n\n`;
             clientMsg += `📅 *Date:* ${meetingDateFormatted}\n`;
@@ -256,23 +313,38 @@ serve(async (req) => {
             clientMsg += `We look forward to seeing you. If you need to reschedule, please let us know in advance.\n\n`;
             clientMsg += `Best regards,\n*Booksmart Consultancy Limited*`;
 
-            const sentClient = await wa.sendText(booking.client_mobile, clientMsg);
+            clientSent = await wa.sendText(booking.client_mobile, clientMsg);
             
-            if (sentClient) {
+            if (clientSent) {
                 // Log the notification for client
                 await supabase.from('bcl_meetings_reminder_logs').insert({
                     meeting_id: booking.id_main || null,
                     reminder_type: 'booking_confirmation_client',
                     recipient_group: 'client',
-                    channel: 'whatsapp'
+                    channel: 'whatsapp',
+                    sent_at: nowUTC.toISOString()
                 });
+                console.log('✅ Client notification logged');
             }
+        } else {
+            console.log('⚠️ No client mobile number provided, skipping client notification');
         }
+
+        console.log('\n' + '='.repeat(60));
+        console.log('📊 BOOKING CONFIRMATION SUMMARY');
+        console.log('='.repeat(60));
+        console.log(`Admin notification: ${adminSent ? '✅ Sent' : '❌ Failed'}`);
+        console.log(`Client notification: ${clientSent ? '✅ Sent' : '❌ Failed or skipped'}`);
+        console.log('='.repeat(60));
 
         return new Response(
             JSON.stringify({ 
                 success: true, 
-                message: 'Booking confirmations sent' 
+                message: 'Booking confirmations processed',
+                results: {
+                    admin_sent: adminSent,
+                    client_sent: clientSent
+                }
             }),
             { 
                 headers: { "Content-Type": "application/json" },
@@ -281,11 +353,14 @@ serve(async (req) => {
         );
 
     } catch (error) {
-        console.error('Error in booking confirmation:', error);
+        console.error('❌ ERROR in booking confirmation:', error);
+        console.error('Stack trace:', error.stack);
+        
         return new Response(
             JSON.stringify({ 
                 success: false, 
-                error: error.message 
+                error: error.message,
+                stack: error.stack
             }),
             { 
                 headers: { "Content-Type": "application/json" },
