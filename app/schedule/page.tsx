@@ -425,13 +425,57 @@ const BookingScheduler = () => {
             // otherMeetingVenueArea: undefined,
         };
 
-
         try {
+            // Check for meeting conflicts before proceeding
+            const { data: existingMeetings, error: fetchError } = await supabase
+                .from('bcl_meetings_meetings')
+                .select('id_main, meeting_date, meeting_start_time, meeting_end_time, meeting_slot_start_time, meeting_slot_end_time, client_name')
+                .eq('meeting_date', dataToSubmit.meetingDate)
+                .in('status', ['upcoming', 'rescheduled']);
+
+            if (fetchError) {
+                console.error('Error checking for conflicts:', fetchError);
+                throw new Error('Failed to check for meeting conflicts');
+            }
+
+            // Check for time slot conflicts (including travel time)
+            if (existingMeetings && existingMeetings.length > 0) {
+                const newSlotStart = dataToSubmit.meetingSlotStartTime;
+                const newSlotEnd = dataToSubmit.meetingSlotEndTime;
+
+                const [newStartHour, newStartMin] = newSlotStart.split(':').map(Number);
+                const [newEndHour, newEndMin] = newSlotEnd.split(':').map(Number);
+                const newStartMinutes = newStartHour * 60 + newStartMin;
+                const newEndMinutes = newEndHour * 60 + newEndMin;
+
+                for (const meeting of existingMeetings) {
+                    const existingSlotStart = meeting.meeting_slot_start_time;
+                    const existingSlotEnd = meeting.meeting_slot_end_time;
+
+                    const [existingStartHour, existingStartMin] = existingSlotStart.split(':').map(Number);
+                    const [existingEndHour, existingEndMin] = existingSlotEnd.split(':').map(Number);
+                    const existingStartMinutes = existingStartHour * 60 + existingStartMin;
+                    const existingEndMinutes = existingEndHour * 60 + existingEndMin;
+
+                    // Check if time slots overlap
+                    if (newStartMinutes < existingEndMinutes && existingStartMinutes < newEndMinutes) {
+                        setFormStatus('error');
+                        toast({
+                            variant: "destructive",
+                            title: "Meeting Conflict Detected",
+                            description: `This time slot conflicts with an existing meeting for ${meeting.client_name} (${existingSlotStart} - ${existingSlotEnd}). Please choose a different time.`
+                        });
+                        return;
+                    }
+                }
+            }
+
+            // No conflicts, proceed with scheduling
             // Call addEvent first (assuming it needs the final data)
             const { eventId, hangoutLink } = await addEvent(dataToSubmit);
 
             // Insert final data into Supabase
-            const { error } = await supabase.from('bcl_meetings_meetings').insert([
+            const { data: insertedData, error } = await supabase.from('bcl_meetings_meetings').insert([
                 {
                     booking_date: dataToSubmit.bookingDate,
                     booking_day: dataToSubmit.bookingDay,
@@ -457,7 +501,7 @@ const BookingScheduler = () => {
                     google_event_id: eventId, // Save Google Event ID
                     google_meet_link: hangoutLink || null, // Save Google Meet link (or null)
                 },
-            ]);
+            ]).select();
 
             if (error) throw error;
 
@@ -498,7 +542,7 @@ const BookingScheduler = () => {
                 console.error('Booking confirmation failed:', confirmError);
                 // Don't throw - booking was successful
             }
-            
+
             setFormStatus('success');
             toast({ title: "Success!", description: "Meeting scheduled successfully." });
 
@@ -516,7 +560,7 @@ const BookingScheduler = () => {
                     ...initialFormData, // Reset all fields first
                     bookingDate: currentDate.toISOString().split('T')[0],
                     bookingDay: currentDate.toLocaleDateString('en-US', { weekday: 'long' }),
-                    bclAttendeeMobile: '+254700298298', // Keep default BCL mobile
+                    bclAttendeeMobile: '+254700505275', // Keep default BCL mobile
                     venueDistance: '10', // Reset travel time default
                 }));
                 setActiveStep(0);
