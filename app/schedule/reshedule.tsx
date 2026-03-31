@@ -1,7 +1,6 @@
 "use server"
 
-import { google } from 'googleapis';
-import { auth, clerkClient } from '@clerk/nextjs/server';
+import { updateGoogleCalendarEvent } from '@/utils/googleCalendarService';
 import { createClient } from '@supabase/supabase-js';
 
 interface FormData {
@@ -9,82 +8,89 @@ interface FormData {
   meetingStartTime: string;
   meetingEndTime: string;
   meetingDate: string;
-  // Add other properties as needed
+  meetingAgenda?: string;
+  meetingVenueArea?: string;
+  meetingType?: string;
+  clientName?: string;
+  clientCompany?: string;
+  client_mobile?: string;
 }
 
 const supabaseUrl = 'https://zyszsqgdlrpnunkegipk.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5c3pzcWdkbHJwbnVua2VnaXBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDgzMjc4OTQsImV4cCI6MjAyMzkwMzg5NH0.fK_zR8wR6Lg8HeK7KBTTnyF0zoyYBqjkeWeTKqi32ws';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-const SCOPES = ['https://www.googleapis.com/auth/calendar'];
-
-export async function updateEvent(formData: FormData): Promise<string | undefined> {
-  const { userId } = await auth();
-
-  if (userId === null) {
-    console.error('User is not authenticated.');
-    return undefined;
-  }
-
-  const client = await clerkClient();
-  const oauthAccessTokensResponse = await client.users.getUserOauthAccessToken(userId, 'oauth_google');
-  const oauthAccessToken = oauthAccessTokensResponse.data[0];
-
-  if (!oauthAccessToken || !oauthAccessToken.token) {
-    throw new Error('User oauthAccessToken is null, undefined, or missing the token property.');
-  }
-
-  const { token } = oauthAccessToken;
-
-  // Create a new OAuth2 client with the Google access token
-  const oauth2Client = new google.auth.OAuth2();
-  oauth2Client.setCredentials({ access_token: token });
-
-  // Create a new calendar instance
-  const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
-
-  // Fetch the Google event ID from the "events" table in Supabase
-  const { data, error } = await supabase
-    .from('bcl_meetings_meetings')
-    .select('google_event_id')
-    .eq('id_main', formData.eventId)
-
-  if (error) {
-    console.error('Error fetching Google event ID:', error.message);
-    return;
-  }
-
-  const googleEventId = data[0].google_event_id; // The Google event ID
-
-  const currentEventResponse = await calendar.events.get({
-    calendarId: 'primary',
-    eventId: googleEventId,
-  });
-
-  const currentEvent = currentEventResponse.data;
-
-  // Define the updated event
-  const event = {
-    ...currentEvent,
-    description: `Scheduled meeting from ${formData.meetingStartTime} to ${formData.meetingEndTime}`,
-    start: {
-      dateTime: `${formData.meetingDate}T${formData.meetingStartTime}:00+03:00`,
-      timeZone: 'Africa/Nairobi',
-    },
-    end: {
-      dateTime: `${formData.meetingDate}T${formData.meetingEndTime}:00+03:00`,
-      timeZone: 'Africa/Nairobi',
-    },
-  };
-
-  // Update the event
+export async function updateEvent(formData: FormData): Promise<boolean> {
   try {
-    const response = await calendar.events.update({
-      calendarId: 'primary',
-      eventId: googleEventId, // Use the Google event ID
-      requestBody: event,
-    });
+    console.log('Automatically rescheduling meeting and syncing to Google Calendar:', formData.eventId);
+
+    // First get the current meeting details from Supabase
+    const { data: currentMeeting, error: fetchError } = await supabase
+      .from('bcl_meetings_meetings_duplicate')
+      .select('*')
+      .eq('id_main', formData.eventId)
+      .single();
+
+    if (fetchError || !currentMeeting) {
+      console.error('Error fetching current meeting:', fetchError?.message);
+      return false;
+    }
+
+    // Update meeting in Supabase with new date/time
+    const { error: updateError } = await supabase
+      .from('bcl_meetings_meetings_duplicate')
+      .update({
+        meeting_date: formData.meetingDate,
+        meeting_start_time: formData.meetingStartTime,
+        meeting_end_time: formData.meetingEndTime,
+        status: 'rescheduled',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id_main', formData.eventId);
+
+    if (updateError) {
+      console.error('Error updating meeting in Supabase:', updateError.message);
+      return false;
+    }
+
+    // Prepare meeting data for Google Calendar sync
+    const meetingForSync = {
+      id_main: formData.eventId,
+      client_name: formData.clientName || currentMeeting.client_name,
+      client_company: formData.clientCompany || currentMeeting.client_company,
+      meeting_date: formData.meetingDate,
+      meeting_start_time: formData.meetingStartTime,
+      meeting_end_time: formData.meetingEndTime,
+      meeting_agenda: formData.meetingAgenda || currentMeeting.meeting_agenda,
+      meeting_venue_area: formData.meetingVenueArea || currentMeeting.meeting_venue_area,
+      meeting_type: (formData.meetingType === 'inPerson' ? 'physical' : 'virtual') || currentMeeting.meeting_type,
+      client_mobile: formData.client_mobile || currentMeeting.client_mobile
+    };
+
+    // Automatically update in Google Calendar using auto-sync API
+    try {
+      const response = await fetch(`/api/auto-sync-calendar`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify(meetingForSync)
+      });
+
+      if (response.ok) {
+        console.log('Meeting automatically rescheduled in Google Calendar');
+      } else {
+        console.error('Auto-sync update API failed:', await response.text());
+      }
+    } catch (calendarError) {
+      console.error('Error updating in Google Calendar:', calendarError);
+      // Don't fail the operation if calendar sync fails
+    }
+
+    return true;
   } catch (error: any) {
-    console.error('Error updating event:', error.message);
+    console.error('Error rescheduling meeting:', error.message);
+    return false;
   }
 }

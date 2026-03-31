@@ -4,7 +4,6 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { addEvent } from './send'; // Assuming this path is correct
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 
 // ShadCN UI components
@@ -432,7 +431,7 @@ const BookingScheduler = () => {
         try {
             // Check for meeting conflicts before proceeding
             const { data: existingMeetings, error: fetchError } = await supabase
-                .from('bcl_meetings_meetings')
+                .from('bcl_meetings_meetings_duplicate')
                 .select('id_main, meeting_date, meeting_start_time, meeting_end_time, meeting_slot_start_time, meeting_slot_end_time, client_name')
                 .eq('meeting_date', dataToSubmit.meetingDate)
                 .in('status', ['upcoming', 'rescheduled']);
@@ -475,11 +474,7 @@ const BookingScheduler = () => {
             }
 
             // No conflicts, proceed with scheduling
-            // Call addEvent first (assuming it needs the final data)
-            const { eventId, hangoutLink } = await addEvent(dataToSubmit);
-
-            // Insert final data into Supabase
-            const { data: insertedData, error } = await supabase.from('bcl_meetings_meetings').insert([
+            const { data: insertedData, error } = await supabase.from('bcl_meetings_meetings_duplicate').insert([
                 {
                     booking_date: dataToSubmit.bookingDate,
                     booking_day: dataToSubmit.bookingDay,
@@ -502,12 +497,35 @@ const BookingScheduler = () => {
                     meeting_slot_end_time: dataToSubmit.meetingSlotEndTime,
                     badge_status: 'Open', // Default status
                     status: 'upcoming', // Default status
-                    google_event_id: eventId, // Save Google Event ID
-                    google_meet_link: hangoutLink || null, // Save Google Meet link (or null)
+                    google_event_id: null,
+                    google_meet_link: null,
                 },
             ]).select();
 
             if (error) throw error;
+
+            if (insertedData?.[0]?.id_main) {
+                try {
+                    const syncResponse = await fetch('/api/auto-sync-calendar', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(insertedData[0]),
+                    });
+
+                    if (!syncResponse.ok) {
+                        throw new Error(await syncResponse.text());
+                    }
+                } catch (syncError) {
+                    console.error('Automatic calendar sync failed:', syncError);
+                    toast({
+                        variant: "destructive",
+                        title: "Warning",
+                        description: "Meeting was created, but automatic calendar sync failed.",
+                    });
+                }
+            }
 
             try {
                 await fetch(

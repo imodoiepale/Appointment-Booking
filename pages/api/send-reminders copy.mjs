@@ -13,9 +13,9 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function getNextMeeting() {
   const { data: meetings, error } = await supabase
-    .from('bcl_meetings_meetings')
+    .from('bcl_meetings_meetings_duplicate')
     .select('*')
-    .order('id_main',72)
+    .order('id_main', 72)
     .limit(1);
 
   if (error) {
@@ -37,8 +37,8 @@ async function scheduleReminder() {
     return;
   }
 
-     sendReminder(meeting);
-    console.log(`Scheduled reminder for meeting with ${meeting.client_name} in ${timeUntilReminder / 1000} seconds.`);
+  sendReminder(meeting);
+  console.log(`Scheduled reminder for meeting with ${meeting.client_name} in ${timeUntilReminder / 1000} seconds.`);
 
 }
 

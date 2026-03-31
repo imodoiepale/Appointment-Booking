@@ -2,12 +2,12 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter, Poppins } from 'next/font/google'
 import './globals.css'
-import { ClerkProvider } from '@clerk/nextjs'
 import Header from '../components/Header'
 import { ThemeProvider } from "@/components/theme-provider"
 import Sidebar from '@/components/Sidebar'
-import { NotificationProvider } from '@/context/NotificationContext'
+import { NotificationProvider } from '@/components/NotificationSystem'
 import { Toaster } from "@/components/ui/toaster"
+import ClerkProviderWrapper from '../components/ClerkProviderWrapper'
 
 // Using Inter for a clean, modern look like in the reference design
 const inter = Inter({
@@ -38,30 +38,28 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <ClerkProvider>
-      <html lang="en" suppressHydrationWarning>
-        <body className={`${inter.variable} font-sans antialiased bg-gray-100`}>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="light"
-            enableSystem={false}
-            disableTransitionOnChange
-          >
-            <NotificationProvider>
-              <div className="flex min-h-screen">
-                <Sidebar />
-                <div className="flex-1">
-                  <Header />
-                  <main className="p-6">
-                    {children}
-                  </main>
-                </div> 
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${inter.variable} font-sans antialiased bg-gray-100`}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem={false}
+          disableTransitionOnChange
+        >
+          <NotificationProvider>
+            <div className="flex min-h-screen">
+              <Sidebar />
+              <div className="flex-1">
+                <Header />
+                <main className="p-6">
+                  {children}
+                </main>
               </div>
-              <Toaster />
-            </NotificationProvider>
-          </ThemeProvider>
-        </body>
-      </html>
-    </ClerkProvider>
+            </div>
+            <Toaster />
+          </NotificationProvider>
+        </ThemeProvider>
+      </body>
+    </html>
   )
 }

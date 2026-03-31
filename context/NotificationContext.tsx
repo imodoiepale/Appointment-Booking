@@ -190,7 +190,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const meetingsSubscription = supabase
       .channel('meetings-channel')
       .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'bcl_meetings_meetings' },
+        { event: '*', schema: 'public', table: 'bcl_meetings_meetings_duplicate' },
         (payload: SupabasePayload) => {
           const { eventType, new: newRecord, old: oldRecord } = payload;
 
@@ -274,7 +274,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       try {
         const { data, error } = await supabase
-          .from('bcl_meetings_meetings')
+          .from('bcl_meetings_meetings_duplicate')
           .select('*')
           .eq('meeting_date', today)
           .in('status', ['upcoming', 'rescheduled']);

@@ -151,7 +151,7 @@ const CalendarView = () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('bcl_meetings_meetings')
+        .from('bcl_meetings_meetings_duplicate')
         .select('*')
         .order('meeting_date', { ascending: true })
         .order('meeting_start_time', { ascending: true });
@@ -204,7 +204,7 @@ const CalendarView = () => {
     setIsDeleting(true);
     try {
       const { error } = await supabase
-        .from('bcl_meetings_meetings')
+        .from('bcl_meetings_meetings_duplicate')
         .delete()
         .eq('id_main', deletingMeeting.id_main); // Changed from meeting_id to id_main
 
@@ -315,7 +315,7 @@ const CalendarView = () => {
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
-        table: 'bcl_meetings_meetings'
+        table: 'bcl_meetings_meetings_duplicate'
       }, (payload) => {
         console.log('Change received!', payload);
         fetchMeetings(); // Re-fetch data on any change

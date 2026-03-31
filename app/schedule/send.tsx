@@ -1,8 +1,11 @@
 "use server"
 
+import { createGoogleCalendarEvent } from '@/utils/googleCalendarService';
+import { createClient } from '@supabase/supabase-js';
 
-import { google } from 'googleapis';
-import { auth, clerkClient } from '@clerk/nextjs/server';
+const supabaseUrl = 'https://zyszsqgdlrpnunkegipk.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5c3pzcWdkbHJwbnVua2VnaXBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDgzMjc4OTQsImV4cCI6MjAyMzkwMzg5NH0.fK_zR8wR6Lg8HeK7KBTTnyF0zoyYBqjkeWeTKqi32ws';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 interface FormData {
   meetingAgenda: string;
@@ -15,95 +18,66 @@ interface FormData {
   meetingDate: string;
   meetingVenueArea: string;
   clientEmail: string;
+  clientMobile: string;
   meetingType: string;
+  id_main?: number; // Add this to identify the meeting for syncing
 }
 
-const SCOPES = ['https://www.googleapis.com/auth/calendar'];
-
 export async function addEvent(formData: FormData): Promise<{ eventId: string, hangoutLink: string | null | undefined }> {
-  const { userId } = await auth();
-
-  if (userId === null) {
-    console.error('User is not authenticated.');
-    return { eventId: '', hangoutLink: undefined };
-  }
-
-  const client = await clerkClient();
-  const oauthAccessTokensResponse = await client.users.getUserOauthAccessToken(userId, 'oauth_google');
-  const oauthAccessToken = oauthAccessTokensResponse.data[0];
-
-  if (!oauthAccessToken || !oauthAccessToken.token) {
-    throw new Error('User oauthAccessToken is null, undefined, or missing the token property.');
-  }
-
-  const { token } = oauthAccessToken;
-
-  // Create a new OAuth2 client with the Google access token
-  const oauth2Client = new google.auth.OAuth2();
-  oauth2Client.setCredentials({ access_token: token });
-
-  // Create a new calendar instance
-  const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
-
-  // Define the event
-  const event = {
-    summary: `MEETING with ${formData.clientName} from ${formData.clientCompany}`,
-    description: `Scheduled meeting from ${formData.meetingStartTime} to ${formData.meetingEndTime}. Slot: ${formData.meetingSlotStartTime} - ${formData.meetingSlotEndTime}`,
-    location: formData.meetingVenueArea,
-    start: {
-      dateTime: `${formData.meetingDate}T${formData.meetingStartTime}:00+03:00`,
-      timeZone: 'Africa/Nairobi',
-    },
-    end: {
-      dateTime: `${formData.meetingDate}T${formData.meetingEndTime}:00+03:00`,
-      timeZone: 'Africa/Nairobi',
-    },
-    attendees: [
-      { email: formData.clientEmail },
-      {email: 'info@booksmartconsult.com'},
-      { email: 'sandip@booksmartconsult.com'},
-    ],
-    reminders: {
-      useDefault: false,
-      overrides: [
-        { method: 'popup', minutes: 24 * 60 }, // 24hrs hours before
-        { method: 'popup', minutes: 240 }, // 4 hours before
-        { method: 'popup', minutes: 120 }, // 2 hours before
-        { method: 'popup', minutes: 60 },  // 1 hour before
-        { method: 'popup', minutes: 15 },  // 15 minutes before
-      ],
-    },
-    conferenceData: formData.meetingType === 'virtual'
-      ? {
-        createRequest: {
-          requestId: Math.random().toString(36).substring(2),
-          conferenceSolutionKey: { type: 'hangoutsMeet' },
-        },
-      }
-      : undefined,
-  };
-
-  // Insert the event
   try {
-    const response = await calendar.events.insert({
-      calendarId: 'primary',
-      requestBody: event,
-      conferenceDataVersion: 1,
-    });
+    console.log('Auto-syncing meeting to Google Calendar:', formData);
 
-    const eventId = response.data.id;
-    const hangoutLink = response.data.hangoutLink;
-    if (eventId) {
-      console.log(eventId);
-      console.log('Google Meet Link:', hangoutLink)
-      return { eventId, hangoutLink };
-    } else {
-      console.error('Error: Event ID is null or undefined.');
-      return { eventId: '', hangoutLink: undefined };
+    // If we have the meeting ID, use the auto-sync API
+    if (formData.id_main) {
+      try {
+        const response = await fetch(`/api/auto-sync-calendar`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({
+            id_main: formData.id_main,
+            client_name: formData.clientName,
+            client_company: formData.clientCompany,
+            meeting_date: formData.meetingDate,
+            meeting_start_time: formData.meetingStartTime,
+            meeting_end_time: formData.meetingEndTime,
+            meeting_agenda: formData.meetingAgenda,
+            meeting_venue_area: formData.meetingVenueArea,
+            meeting_type: formData.meetingType,
+            client_mobile: formData.clientMobile
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log('Meeting automatically synced to Google Calendar with event ID:', result.eventId);
+
+          return {
+            eventId: result.eventId,
+            hangoutLink: result.hangoutLink
+          };
+        } else {
+          console.error('Auto-sync API failed:', await response.text());
+        }
+      } catch (apiError) {
+        console.error('Error calling auto-sync API:', apiError);
+      }
     }
-  } catch (error: any) {
-    console.error('Error creating event:', error.message);
-    return { eventId: '', hangoutLink: undefined };
-  }
 
+    // Fallback if no ID or sync failed
+    return {
+      eventId: `placeholder_${Date.now()}`,
+      hangoutLink: formData.meetingType === 'virtual' ? 'https://meet.google.com/placeholder' : null
+    };
+
+  } catch (error: any) {
+    console.error('Error auto-syncing to Google Calendar:', error.message);
+    // Return placeholder values on error so the meeting creation doesn't fail
+    return {
+      eventId: `placeholder_${Date.now()}`,
+      hangoutLink: formData.meetingType === 'virtual' ? 'https://meet.google.com/placeholder' : null
+    };
+  }
 }

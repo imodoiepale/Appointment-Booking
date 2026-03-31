@@ -1,15 +1,11 @@
 "use server"
 
-import { google } from 'googleapis';
-import { auth, clerkClient } from '@clerk/nextjs/server';
+import { deleteGoogleCalendarEvent } from '@/utils/googleCalendarService';
 import { createClient } from '@supabase/supabase-js';
-
 
 const supabaseUrl = 'https://zyszsqgdlrpnunkegipk.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5c3pzcWdkbHJwbnVua2VnaXBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDgzMjc4OTQsImV4cCI6MjAyMzkwMzg5NH0.fK_zR8wR6Lg8HeK7KBTTnyF0zoyYBqjkeWeTKqi32ws';
 const supabase = createClient(supabaseUrl, supabaseKey);
-
-const SCOPES = ['https://www.googleapis.com/auth/calendar'];
 
 interface FormData {
   id: string,
@@ -25,61 +21,48 @@ interface FormData {
   clientEmail: string;
   meetingType: string;
 }
-export async function cancelEvent(selectedAppointment: FormData): Promise<string | undefined> {
-  const { userId } = await auth();
 
-  if (userId === null) {
-    console.error('User is not authenticated.');
-    return undefined;
-  }
-
-  const client = await clerkClient();
-  const oauthAccessTokensResponse = await client.users.getUserOauthAccessToken(userId, 'oauth_google');
-  const oauthAccessToken = oauthAccessTokensResponse.data[0];
-
-  if (!oauthAccessToken || !oauthAccessToken.token) {
-    throw new Error('User oauthAccessToken is null, undefined, or missing the token property.');
-  }
-
-  const { token } = oauthAccessToken;
-
-
-  // Create a new OAuth2 client with the Google access token
-  const oauth2Client = new google.auth.OAuth2();
-  oauth2Client.setCredentials({ access_token: token });
-
-  // Create a new calendar instance
-  const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
-
-
-  // Fetch the Google event ID from the "events" table in Supabase
-  const { data, error } = await supabase
-    .from('bcl_meetings_meetings')
-    .select('id, google_event_id')
-    .eq('id_main', selectedAppointment.id);
-
-
-  console.log('Supabase data:', data);
-
-
-  if (error) {
-    console.error('Error fetching Google event ID:', error.message);
-    return;
-  }
-
-  const supabaseEventId = data[0]?.id;
-  console.log(supabaseEventId)
-  const googleEventId = data[0]?.google_event_id;
-
-  // Delete the event
+export async function cancelEvent(selectedAppointment: FormData): Promise<boolean> {
   try {
-    await calendar.events.delete({
-      calendarId: 'primary',
-      eventId: googleEventId,
-    });
+    console.log('Automatically cancelling meeting and syncing to Google Calendar:', selectedAppointment.id);
 
-    console.log('Event deleted successfully');
+    // Update meeting status in Supabase
+    const { error: updateError } = await supabase
+      .from('bcl_meetings_meetings_duplicate')
+      .update({
+        status: 'cancelled',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id_main', selectedAppointment.id);
+
+    if (updateError) {
+      console.error('Error updating meeting status:', updateError.message);
+      return false;
+    }
+
+    // Automatically delete from Google Calendar using auto-sync API
+    try {
+      const response = await fetch(`/api/auto-sync-calendar?id=${selectedAppointment.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+        }
+      });
+
+      if (response.ok) {
+        console.log('Meeting automatically cancelled in Google Calendar');
+      } else {
+        console.error('Auto-sync delete API failed:', await response.text());
+      }
+    } catch (calendarError) {
+      console.error('Error cancelling in Google Calendar:', calendarError);
+      // Don't fail the operation if calendar sync fails
+    }
+
+    return true;
   } catch (error: any) {
-    console.error('Error deleting event:', error.message);
+    console.error('Error cancelling meeting:', error.message);
+    return false;
   }
 }

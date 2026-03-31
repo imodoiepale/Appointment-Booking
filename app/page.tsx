@@ -4,8 +4,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { updateEvent } from './schedule/reshedule';
-import { cancelEvent } from './schedule/cancel';
 import { ChangeEvent } from 'react';
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 
@@ -32,6 +30,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -40,11 +48,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/hooks/use-toast"; // Corrected import path
 
 // Icons
-import { Calendar, Clock, Mic, MicOff, UserPlus, Building, MapPin, CheckCircle, XCircle, RefreshCw, MessageSquare, Table2, LayoutGrid, Link as LinkIcon, Phone, Video } from 'lucide-react'; // Added Phone icon
-
-const supabaseUrl = 'https://zyszsqgdlrpnunkegipk.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5c3pzcWdkbHJwbnVua2VnaXBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDgzMjc4OTQsImV4cCI6MjAyMzkwMzg5NH0.fK_zR8wR6Lg8HeK7KBTTnyF0zoyYBqjkeWeTKqi32ws';
-const supabase = createClient(supabaseUrl, supabaseKey);
+import { Calendar, Clock, Mic, MicOff, UserPlus, Building, MapPin, CheckCircle, XCircle, RefreshCw, MessageSquare, Table2, LayoutGrid, Link as LinkIcon, Phone, Video, Trash2 } from 'lucide-react'; // Added Phone icon
+import supabase from '@/utils/supabaseClient';
 
 // --- Helper Function for Formatting ---
 const formatTime = (timeString) => {
@@ -54,39 +59,41 @@ const formatTime = (timeString) => {
   return `${parts[0]}:${parts[1]}`; // Format as HH:MM
 };
 
-const Dashboard = () => {
-  // Interface remains the same
-  interface Appointment {
-    id_main: number;
-    meeting_start_time: string;
-    meeting_duration: number;
-    meeting_end_time: string;
-    meeting_date: string;
-    meeting_day: string;
-    status: string;
-    booking_date: string;
-    booking_day: string;
-    client_name: string;
-    client_company: string;
-    client_mobile: string;
-    meeting_venue_area: string;
-    meeting_type: string;
-    meeting_agenda: string;
-    bcl_attendee: string;
-    bcl_attendee_mobile: string;
-    venue_distance: string;
-    meeting_slot_start_time: string;
-    meeting_slot_end_time: string;
-    badge_status: string;
-    google_event_id: string;
-    google_meet_link: string;
-  }
+// --- Appointment Interface ---
+interface Appointment {
+  id_main: number;
+  meeting_start_time: string;
+  meeting_duration: number;
+  meeting_end_time: string;
+  meeting_date: string;
+  meeting_day: string;
+  status: string;
+  booking_date: string;
+  booking_day: string;
+  client_name: string;
+  client_company: string;
+  client_mobile: string;
+  meeting_venue_area: string;
+  meeting_type: string;
+  meeting_agenda: string;
+  bcl_attendee: string;
+  bcl_attendee_mobile: string;
+  venue_distance: string;
+  meeting_slot_start_time: string;
+  meeting_slot_end_time: string;
+  badge_status: string;
+  google_event_id: string;
+  google_meet_link: string;
+}
 
+const Dashboard = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [activeTab, setActiveTab] = useState("upcoming");
   const [isRescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [calendarConnectionStatus, setCalendarConnectionStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
   const { toast } = useToast();
   const [isListening, setIsListening] = useState(false);
   const [viewMode, setViewMode] = useState("cards"); // Default to cards
@@ -98,6 +105,38 @@ const Dashboard = () => {
     meetingDate: '',
     dateTimeLocal: '',
   });
+
+  const syncMeetingWithCalendar = async (appointment: Appointment, method: 'POST' | 'PUT' | 'DELETE') => {
+    const url = method === 'DELETE'
+      ? `/api/auto-sync-calendar?id=${appointment.id_main}`
+      : '/api/auto-sync-calendar';
+
+    const response = await fetch(url, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      ...(method !== 'DELETE' ? { body: JSON.stringify(appointment) } : {}),
+    });
+
+    if (!response.ok) {
+      let errorMessage = `Calendar sync failed with status ${response.status}`;
+      const rawText = await response.text();
+
+      if (rawText) {
+        try {
+          const payload = JSON.parse(rawText);
+          errorMessage = payload?.error || rawText;
+        } catch {
+          errorMessage = rawText;
+        }
+      }
+
+      throw new Error(errorMessage);
+    }
+
+    return response.json().catch(() => null);
+  };
 
   // --- Voice Recognition Setup (Unchanged) ---
   const commands = [
@@ -246,11 +285,23 @@ const Dashboard = () => {
 
   // --- Fetch Data & Set Initial View Mode ---
   useEffect(() => {
+    const fetchCalendarStatus = async () => {
+      try {
+        const response = await fetch('/api/auth/google/status');
+        if (!response.ok) throw new Error('Failed to load Google Calendar status');
+        const result = await response.json();
+        setCalendarConnectionStatus(result.connected ? 'connected' : 'disconnected');
+      } catch (error) {
+        console.error('Error fetching Google Calendar status:', error);
+        setCalendarConnectionStatus('disconnected');
+      }
+    };
+
     const fetchEvents = async () => {
       setLoading(true);
       try {
         const { data, error } = await supabase
-          .from('bcl_meetings_meetings')
+          .from('bcl_meetings_meetings_duplicate')
           .select('*');
 
         if (error) throw error;
@@ -277,6 +328,7 @@ const Dashboard = () => {
     };
 
     fetchEvents();
+    fetchCalendarStatus();
 
     // Set initial view mode based on screen size
     const handleResize = () => {
@@ -289,9 +341,13 @@ const Dashboard = () => {
     };
     handleResize(); // Call on initial load
     window.addEventListener('resize', handleResize);
+    window.addEventListener('focus', fetchCalendarStatus);
 
     // Cleanup listener on component unmount
-    return () => window.removeEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('focus', fetchCalendarStatus);
+    };
   }, [toast]); // Added toast to dependency array
 
   // --- Event Handlers (Mostly Unchanged, added formatting/parsing checks) ---
@@ -388,7 +444,7 @@ const Dashboard = () => {
       };
 
       const { data, error } = await supabase
-        .from('bcl_meetings_meetings')
+        .from('bcl_meetings_meetings_duplicate')
         .update(updates)
         .eq('id_main', selectedAppointment.id_main)
         .select()
@@ -397,28 +453,17 @@ const Dashboard = () => {
       if (error) throw error;
       if (!data) throw new Error("Update failed, no data returned.");
 
-      // Update Google Calendar Event (if exists)
-      if (selectedAppointment.google_event_id) {
-        try {
-          await updateEvent({
-            eventId: selectedAppointment.google_event_id,
-            // Pass the updated data to the Google Calendar function
-            meetingStartTime: updates.meeting_start_time,
-            meetingDuration: updates.meeting_duration.toString(), // Pass as string if required by updateEvent
-            meetingEndTime: updates.meeting_end_time,
-            meetingDate: updates.meeting_date,
-          });
-          toast({ title: "Google Calendar Updated", description: "Event updated in Google Calendar." });
-        } catch (googleError) {
-          console.error("Google Calendar update failed:", googleError);
-          toast({ variant: "destructive", title: "Warning", description: "Database updated, but failed to update Google Calendar event." });
-        }
+      try {
+        await syncMeetingWithCalendar(data, 'PUT');
+      } catch (googleError) {
+        console.error("Google Calendar update failed:", googleError);
+        toast({ variant: "destructive", title: "Warning", description: "Meeting was updated, but calendar sync failed." });
       }
 
       // Update local state
       setAppointments(prev =>
         prev.map(app =>
-          app.id_main === selectedAppointment.id_main ? { ...app, ...updates } : app
+          app.id_main === selectedAppointment.id_main ? { ...app, ...data } : app
         )
       );
 
@@ -440,30 +485,29 @@ const Dashboard = () => {
       return;
     }
     try {
-      // Cancel Google Calendar Event first (if exists)
-      if (selectedAppointment.google_event_id) {
-        try {
-          await cancelEvent(selectedAppointment); // Pass necessary details or the whole object
-          toast({ title: "Google Calendar Updated", description: "Event canceled in Google Calendar." });
-        } catch (googleError) {
-          console.error("Google Calendar cancellation failed:", googleError);
-          toast({ variant: "destructive", title: "Warning", description: "Failed to cancel Google Calendar event, proceeding with DB update." });
-        }
-      }
-
       // Update Supabase
-      const { error } = await supabase
-        .from('bcl_meetings_meetings')
+      const { data, error } = await supabase
+        .from('bcl_meetings_meetings_duplicate')
         .update({ status: 'canceled', badge_status: 'Rejected' })
-        .eq('id_main', selectedAppointment.id_main);
+        .eq('id_main', selectedAppointment.id_main)
+        .select()
+        .single();
 
       if (error) throw error;
+      if (!data) throw new Error("Cancel failed, no data returned.");
+
+      try {
+        await syncMeetingWithCalendar(data, 'DELETE');
+      } catch (googleError) {
+        console.error("Google Calendar cancellation failed:", googleError);
+        toast({ variant: "destructive", title: "Warning", description: "Meeting was canceled, but calendar removal failed." });
+      }
 
       // Update local state
       setAppointments(prev =>
         prev.map(app =>
           app.id_main === selectedAppointment.id_main
-            ? { ...app, status: 'canceled', badge_status: 'Rejected' }
+            ? { ...app, ...data }
             : app
         )
       );
@@ -487,17 +531,27 @@ const Dashboard = () => {
       if (typeof id !== 'number' || isNaN(id)) throw new Error('Invalid ID');
 
       // Update Supabase
-      const { error } = await supabase
-        .from('bcl_meetings_meetings')
+      const { data, error } = await supabase
+        .from('bcl_meetings_meetings_duplicate')
         .update({ status: 'completed', badge_status: 'Confirmed' }) // Confirm when completing
-        .eq('id_main', id);
+        .eq('id_main', id)
+        .select()
+        .single();
 
       if (error) throw error;
+      if (!data) throw new Error("Complete failed, no data returned.");
+
+      try {
+        await syncMeetingWithCalendar(data, 'PUT');
+      } catch (googleError) {
+        console.error("Google Calendar completion sync failed:", googleError);
+        toast({ variant: "destructive", title: "Warning", description: "Meeting was completed, but calendar sync failed." });
+      }
 
       // Update local state
       setAppointments(prev =>
         prev.map(app =>
-          app.id_main === id ? { ...app, status: 'completed', badge_status: 'Confirmed' } : app
+          app.id_main === id ? { ...app, ...data } : app
         )
       );
 
@@ -507,6 +561,49 @@ const Dashboard = () => {
       toast({ variant: "destructive", title: "Error", description: `Failed to complete: ${error.message}` });
     } finally {
       setSelectedAppointment(null);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedAppointment) {
+      toast({ variant: "destructive", title: "Error", description: 'No appointment selected.' });
+      return;
+    }
+
+    const meetingToDelete = selectedAppointment;
+
+    try {
+      if (meetingToDelete.google_event_id) {
+        await syncMeetingWithCalendar(meetingToDelete, 'DELETE');
+      }
+      if (meetingToDelete.google_event_id) {
+        const { data: refreshedMeeting, error: refreshError } = await supabase
+          .from('bcl_meetings_meetings_duplicate')
+          .select('google_event_id, google_meet_link')
+          .eq('id_main', meetingToDelete.id_main)
+          .single();
+
+        if (refreshError) throw refreshError;
+        if (refreshedMeeting?.google_event_id) {
+          throw new Error('Calendar event still exists. Reconnect Google Calendar and try again.');
+        }
+      }
+
+      const { error } = await supabase
+        .from('bcl_meetings_meetings_duplicate')
+        .delete()
+        .eq('id_main', meetingToDelete.id_main);
+
+      if (error) throw error;
+
+      setAppointments(prev => prev.filter(app => app.id_main !== meetingToDelete.id_main));
+      toast({ title: "Success", description: "Meeting permanently deleted." });
+      setSelectedAppointment(null);
+    } catch (error) {
+      console.error('Error deleting appointment:', error.message);
+      toast({ variant: "destructive", title: "Error", description: `Failed to delete: ${error.message}` });
+    } finally {
+      setDeleteDialogOpen(false);
     }
   };
 
@@ -521,18 +618,28 @@ const Dashboard = () => {
     }
     try {
       // Update Supabase
-      const { error } = await supabase
-        .from('bcl_meetings_meetings')
+      const { data, error } = await supabase
+        .from('bcl_meetings_meetings_duplicate')
         .update({ badge_status: 'Confirmed' })
-        .eq('id_main', selectedAppointment.id_main);
+        .eq('id_main', selectedAppointment.id_main)
+        .select()
+        .single();
 
       if (error) throw error;
+      if (!data) throw new Error("Confirm failed, no data returned.");
+
+      try {
+        await syncMeetingWithCalendar(data, 'PUT');
+      } catch (googleError) {
+        console.error("Google Calendar confirmation sync failed:", googleError);
+        toast({ variant: "destructive", title: "Warning", description: "Meeting was confirmed, but calendar sync failed." });
+      }
 
       // Update local state
       setAppointments(prev =>
         prev.map(app =>
           app.id_main === selectedAppointment.id_main
-            ? { ...app, badge_status: 'Confirmed' }
+            ? { ...app, ...data }
             : app
         )
       );
@@ -638,6 +745,18 @@ const Dashboard = () => {
       </div>
     );
   }
+
+  const calendarStatusBadgeClass = calendarConnectionStatus === 'connected'
+    ? 'bg-green-100 text-green-700 border-green-300'
+    : calendarConnectionStatus === 'disconnected'
+      ? 'bg-red-100 text-red-700 border-red-300'
+      : 'bg-yellow-100 text-yellow-700 border-yellow-300';
+
+  const calendarStatusLabel = calendarConnectionStatus === 'connected'
+    ? 'Google Calendar Connected'
+    : calendarConnectionStatus === 'disconnected'
+      ? 'Google Calendar Disconnected'
+      : 'Checking Google Calendar';
 
   // --- Detail Item Renderer for Dialog (Mobile Optimized) ---
   const renderAppointmentDetailItem = (label: string, value: string | number | undefined | null, icon = null, isLink = false) => (
@@ -793,6 +912,28 @@ const Dashboard = () => {
     // Added responsive padding
     <div className="min-h-screen bg-gray-100 p-2 sm:p-4">
       <Toaster />
+
+      {/* Header with Google Calendar Connect */}
+      <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">Meeting Dashboard</h1>
+            <p className="text-sm text-gray-600 mt-1">Manage your appointments and sync with Google Calendar</p>
+          </div>
+          <div className="flex flex-col sm:items-end gap-2 w-full sm:w-auto">
+            <Badge variant="outline" className={`px-3 py-1 text-xs sm:text-sm ${calendarStatusBadgeClass}`}>
+              {calendarStatusLabel}
+            </Badge>
+            <Button
+              onClick={() => window.open('/api/auth/google', '_blank')}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <Calendar className="w-4 h-4 mr-2" />
+              {calendarConnectionStatus === 'connected' ? 'Reconnect Google Calendar' : 'Connect Google Calendar'}
+            </Button>
+          </div>
+        </div>
+      </div>
 
       {/* Voice control indicator (Unchanged position) */}
       {/* <div className="fixed top-3 right-3 sm:top-4 sm:right-4 z-50">
@@ -1087,6 +1228,15 @@ const Dashboard = () => {
                     Mark Done
                   </Button>
                 )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDeleteDialogOpen(true)}
+                  className="border-red-400 text-red-800 hover:bg-red-50 px-3 py-1.5 text-xs sm:text-sm"
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1 sm:mr-1.5" />
+                  Delete Permanently
+                </Button>
                 {(selectedAppointment?.status === 'completed' || selectedAppointment?.status === 'canceled') && (
                   <span className="text-xs sm:text-sm text-gray-500 italic px-3 py-1.5">
                     This meeting is {selectedAppointment.status}.
@@ -1199,6 +1349,28 @@ const Dashboard = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Meeting Permanently?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {selectedAppointment
+                  ? `This will permanently delete meeting ID ${selectedAppointment.id_main} for ${selectedAppointment.client_name}. If a Google Calendar event exists, it must be removed first. This action cannot be undone.`
+                  : 'This action cannot be undone.'}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Keep Meeting</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDelete}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                Delete Permanently
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div> {/* End Container */}
     </div> // End Main Div
   );
@@ -1282,13 +1454,13 @@ const AppointmentCard = ({ appointment, onClick, getStatusColor, getStatusIcon, 
           </div>
         </div>
       </CardContent>
-      {/* Smaller footer */}
-      <div className="bg-gray-50/70 px-2.5 py-1 text-[10px] text-gray-400 border-t">
-        ID: {appointment.id_main}
+      {/* Smaller footer with sync button */}
+      <div className="bg-gray-50/70 px-2.5 py-1 text-[10px] text-gray-400 border-t flex justify-between items-center">
+        <span>ID: {appointment.id_main}</span>
+        <span>Auto-sync enabled</span>
       </div>
     </Card>
   );
 };
-
 
 export default Dashboard;

@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { UserButton } from '@clerk/nextjs';
+// import { UserButton } from '@clerk/nextjs';
 import {
     LayoutDashboard,
     Calendar,
@@ -26,7 +26,7 @@ const Sidebar = () => {
 
     const navigation = [
         // { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-        { name: 'Appointments', href: '/', icon: Calendar},
+        { name: 'Appointments', href: '/', icon: Calendar },
         { name: 'Calendar View', href: '/calendar', icon: Calendar },
         { name: 'Schedule Meeting', href: '/schedule', icon: PlusCircle },
         // { name: 'Settings', href: '/settings', icon: Settings },
@@ -65,8 +65,8 @@ const Sidebar = () => {
                                     key={item.name}
                                     href={item.href}
                                     className={`flex items-center px-4 py-3 text-sm rounded-md transition-colors ${isActive
-                                            ? 'bg-teal-50 text-teal-600'
-                                            : 'text-gray-600 hover:bg-gray-100'
+                                        ? 'bg-teal-50 text-teal-600'
+                                        : 'text-gray-600 hover:bg-gray-100'
                                         }`}
                                 >
                                     <item.icon

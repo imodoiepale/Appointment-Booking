@@ -20,7 +20,7 @@ cron.schedule('*/15 * * * *', () => sendReminders(15)); // 15 minutes before
 
 async function sendReminders(minutesBeforeMeeting) {
   const { data: meetings, error } = await supabase
-    .from('bcl_meetings_meetings')
+    .from('bcl_meetings_meetings_duplicate')
     .select('*')
     .gt('meeting_start_time', new Date(Date.now() + minutesBeforeMeeting * 60 * 1000).toISOString())
     .gte('meeting_date', new Date().toISOString().split('T')[0]);

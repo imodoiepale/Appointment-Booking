@@ -3,7 +3,7 @@
 const withPWA = require("@ducanh2912/next-pwa").default({
     dest: "public",
     cacheOnFrontEndNav: true,
-    aggressiveFrontEndNavCaching: true, 
+    aggressiveFrontEndNavCaching: true,
     reloadOnOnline: true,
     swcMinify: true,
     disable: false,
@@ -13,6 +13,14 @@ const withPWA = require("@ducanh2912/next-pwa").default({
 });
 
 const nextConfig = {
+    // Server external packages for Next.js 15
+    serverExternalPackages: ['@clerk/nextjs'],
+
+    // Experimental configuration for Next.js 15
+    experimental: {
+        // Add any other experimental features here
+    },
+
     // Basic configuration for images
     images: {
         remotePatterns: [
@@ -26,10 +34,10 @@ const nextConfig = {
             }
         ]
     },
-    
+
     // Use output: 'standalone' for better Vercel compatibility
     output: 'standalone',
-    
+
     // Ignore build errors to ensure successful deployment
     typescript: {
         ignoreBuildErrors: true,
@@ -37,7 +45,7 @@ const nextConfig = {
     eslint: {
         ignoreDuringBuilds: true,
     },
-    
+
     // Custom webpack configuration for better compatibility
     webpack: (config, { isServer }) => {
         // Needed for Node modules that expect filesystem access
@@ -49,10 +57,10 @@ const nextConfig = {
                 tls: false
             };
         }
-        
+
         return config;
     },
-    
+
     // Disable React StrictMode to avoid potential double-rendering issues
     reactStrictMode: false,
 }
