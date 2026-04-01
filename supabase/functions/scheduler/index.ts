@@ -287,20 +287,20 @@ serve(async (req) => {
 
         if (!sent?.length) {
             // Get today's meetings
-            const { data: todaysMeetings } = await supabase.from('bcl_meetings_meetings_duplicate')
+            const { data: todaysMeetings } = await supabase.from('bcl_meetings_meetings')
                 .select('*')
                 .eq('meeting_date', todayDateStr)
                 .order('meeting_start_time');
 
             // Get ALL pending meetings (today and future)
-            const { data: allPendingMeetings } = await supabase.from('bcl_meetings_meetings_duplicate')
+            const { data: allPendingMeetings } = await supabase.from('bcl_meetings_meetings')
                 .select('*')
                 .gte('meeting_date', todayDateStr)
                 .order('meeting_date, meeting_start_time');
 
             // Get tomorrow's count
             const tomorrowDateStr = format(addDays(nowEAT, 1), 'yyyy-MM-dd');
-            const { data: tomMeetings } = await supabase.from('bcl_meetings_meetings_duplicate')
+            const { data: tomMeetings } = await supabase.from('bcl_meetings_meetings')
                 .select('*')
                 .eq('meeting_date', tomorrowDateStr);
 
@@ -396,7 +396,7 @@ serve(async (req) => {
             .gte('sent_at', startOfDay(nowEAT).toISOString());
 
         if (!sentWeek?.length) {
-            const { data: weekMeetings } = await supabase.from('bcl_meetings_meetings_duplicate')
+            const { data: weekMeetings } = await supabase.from('bcl_meetings_meetings')
                 .select('*')
                 .in('meeting_date', weekDates)
                 .order('meeting_date, meeting_start_time');
@@ -430,7 +430,7 @@ serve(async (req) => {
     const tomorrowDateStr = format(addDays(nowEAT, 1), 'yyyy-MM-dd');
     
     // Fetch meetings for today and tomorrow
-    const { data: allMeetings } = await supabase.from('bcl_meetings_meetings_duplicate')
+    const { data: allMeetings } = await supabase.from('bcl_meetings_meetings')
         .select('*')
         .in('meeting_date', [todayDateStr, tomorrowDateStr]);
     

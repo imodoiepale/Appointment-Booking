@@ -110,7 +110,7 @@ Ensure these are properly configured:
 
 ### Supabase Setup
 1. Deploy Edge Function to `auto-sync-calendar`
-2. Set up database triggers on `bcl_meetings_meetings_duplicate` table
+2. Set up database triggers on `bcl_meetings_meetings` table
 3. Configure proper CORS and authentication
 
 ## Testing

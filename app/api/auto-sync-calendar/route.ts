@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     if (eventId) {
       // Get the updated meeting data to retrieve the Google Meet link
       const { data: updatedMeeting } = await supabase
-        .from('bcl_meetings_meetings_duplicate')
+        .from('bcl_meetings_meetings')
         .select('google_meet_link')
         .eq('id_main', meetingData.id_main)
         .single();

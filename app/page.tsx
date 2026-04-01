@@ -301,7 +301,7 @@ const Dashboard = () => {
       setLoading(true);
       try {
         const { data, error } = await supabase
-          .from('bcl_meetings_meetings_duplicate')
+          .from('bcl_meetings_meetings')
           .select('*');
 
         if (error) throw error;
@@ -444,7 +444,7 @@ const Dashboard = () => {
       };
 
       const { data, error } = await supabase
-        .from('bcl_meetings_meetings_duplicate')
+        .from('bcl_meetings_meetings')
         .update(updates)
         .eq('id_main', selectedAppointment.id_main)
         .select()
@@ -487,7 +487,7 @@ const Dashboard = () => {
     try {
       // Update Supabase
       const { data, error } = await supabase
-        .from('bcl_meetings_meetings_duplicate')
+        .from('bcl_meetings_meetings')
         .update({ status: 'canceled', badge_status: 'Rejected' })
         .eq('id_main', selectedAppointment.id_main)
         .select()
@@ -532,7 +532,7 @@ const Dashboard = () => {
 
       // Update Supabase
       const { data, error } = await supabase
-        .from('bcl_meetings_meetings_duplicate')
+        .from('bcl_meetings_meetings')
         .update({ status: 'completed', badge_status: 'Confirmed' }) // Confirm when completing
         .eq('id_main', id)
         .select()
@@ -578,7 +578,7 @@ const Dashboard = () => {
       }
       if (meetingToDelete.google_event_id) {
         const { data: refreshedMeeting, error: refreshError } = await supabase
-          .from('bcl_meetings_meetings_duplicate')
+          .from('bcl_meetings_meetings')
           .select('google_event_id, google_meet_link')
           .eq('id_main', meetingToDelete.id_main)
           .single();
@@ -590,7 +590,7 @@ const Dashboard = () => {
       }
 
       const { error } = await supabase
-        .from('bcl_meetings_meetings_duplicate')
+        .from('bcl_meetings_meetings')
         .delete()
         .eq('id_main', meetingToDelete.id_main);
 
@@ -619,7 +619,7 @@ const Dashboard = () => {
     try {
       // Update Supabase
       const { data, error } = await supabase
-        .from('bcl_meetings_meetings_duplicate')
+        .from('bcl_meetings_meetings')
         .update({ badge_status: 'Confirmed' })
         .eq('id_main', selectedAppointment.id_main)
         .select()

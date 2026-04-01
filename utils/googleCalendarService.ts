@@ -114,7 +114,7 @@ export async function createGoogleCalendarEvent(meeting: MeetingEvent): Promise<
     const meetLink = response.data?.hangoutLink || null;
 
     await supabase
-      .from('bcl_meetings_meetings_duplicate')
+      .from('bcl_meetings_meetings')
       .update({
         google_event_id: eventId,
         google_meet_link: meetLink,
@@ -193,7 +193,7 @@ export async function updateGoogleCalendarEvent(meeting: MeetingEvent): Promise<
   try {
     const calendar = await getGoogleCalendarClient();
     const { data: meetingData } = await supabase
-      .from('bcl_meetings_meetings_duplicate')
+      .from('bcl_meetings_meetings')
       .select('google_event_id')
       .eq('id_main', meeting.id_main)
       .single();
@@ -222,7 +222,7 @@ export async function updateGoogleCalendarEvent(meeting: MeetingEvent): Promise<
     const meetLink = response.data?.hangoutLink || null;
 
     await supabase
-      .from('bcl_meetings_meetings_duplicate')
+      .from('bcl_meetings_meetings')
       .update({
         google_meet_link: meetLink,
       })
@@ -239,7 +239,7 @@ export async function deleteGoogleCalendarEvent(meetingId: number): Promise<void
   try {
     const calendar = await getGoogleCalendarClient();
     const { data: meetingData } = await supabase
-      .from('bcl_meetings_meetings_duplicate')
+      .from('bcl_meetings_meetings')
       .select('google_event_id')
       .eq('id_main', meetingId)
       .single();
@@ -255,7 +255,7 @@ export async function deleteGoogleCalendarEvent(meetingId: number): Promise<void
     });
 
     await supabase
-      .from('bcl_meetings_meetings_duplicate')
+      .from('bcl_meetings_meetings')
       .update({
         google_event_id: null,
         google_meet_link: null,
@@ -272,7 +272,7 @@ export async function deleteGoogleCalendarEvent(meetingId: number): Promise<void
 export async function syncMeetingsToCalendar(): Promise<void> {
   try {
     const { data: meetings, error } = await supabase
-      .from('bcl_meetings_meetings_duplicate')
+      .from('bcl_meetings_meetings')
       .select('*')
       .in('status', ['upcoming', 'rescheduled'])
       .is('google_event_id', null);

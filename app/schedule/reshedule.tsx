@@ -22,7 +22,7 @@ export async function updateEvent(formData: FormData): Promise<boolean> {
 
     // First get the current meeting details from Supabase
     const { data: currentMeeting, error: fetchError } = await supabase
-      .from('bcl_meetings_meetings_duplicate')
+      .from('bcl_meetings_meetings')
       .select('*')
       .eq('id_main', formData.eventId)
       .single();
@@ -34,7 +34,7 @@ export async function updateEvent(formData: FormData): Promise<boolean> {
 
     // Update meeting in Supabase with new date/time
     const { error: updateError } = await supabase
-      .from('bcl_meetings_meetings_duplicate')
+      .from('bcl_meetings_meetings')
       .update({
         meeting_date: formData.meetingDate,
         meeting_start_time: formData.meetingStartTime,

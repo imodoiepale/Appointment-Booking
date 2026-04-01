@@ -431,7 +431,7 @@ const BookingScheduler = () => {
         try {
             // Check for meeting conflicts before proceeding
             const { data: existingMeetings, error: fetchError } = await supabase
-                .from('bcl_meetings_meetings_duplicate')
+                .from('bcl_meetings_meetings')
                 .select('id_main, meeting_date, meeting_start_time, meeting_end_time, meeting_slot_start_time, meeting_slot_end_time, client_name')
                 .eq('meeting_date', dataToSubmit.meetingDate)
                 .in('status', ['upcoming', 'rescheduled']);
@@ -474,7 +474,7 @@ const BookingScheduler = () => {
             }
 
             // No conflicts, proceed with scheduling
-            const { data: insertedData, error } = await supabase.from('bcl_meetings_meetings_duplicate').insert([
+            const { data: insertedData, error } = await supabase.from('bcl_meetings_meetings').insert([
                 {
                     booking_date: dataToSubmit.bookingDate,
                     booking_day: dataToSubmit.bookingDay,

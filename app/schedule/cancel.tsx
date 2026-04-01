@@ -28,7 +28,7 @@ export async function cancelEvent(selectedAppointment: FormData): Promise<boolea
 
     // Update meeting status in Supabase
     const { error: updateError } = await supabase
-      .from('bcl_meetings_meetings_duplicate')
+      .from('bcl_meetings_meetings')
       .update({
         status: 'cancelled',
         updated_at: new Date().toISOString()
