@@ -39,7 +39,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased bg-gray-100`}>
+      <body className={`${inter.variable} font-sans antialiased bg-gray-100 overflow-x-hidden`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="light"
@@ -47,11 +47,11 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <NotificationProvider>
-            <div className="flex min-h-screen">
+            <div className="flex min-h-screen bg-gray-50 w-full overflow-x-hidden">
               <Sidebar />
-              <div className="flex-1">
+              <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                 <Header />
-                <main className="p-6">
+                <main className="flex-1 p-4 lg:p-6 overflow-auto">
                   {children}
                 </main>
               </div>

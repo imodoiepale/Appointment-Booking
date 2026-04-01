@@ -962,11 +962,6 @@ const Dashboard = () => {
       <div className="mb-3 sm:mb-4">
         {/* Stack elements vertically on small screens */}
         <div className="flex flex-col sm:flex-row justify-between items-center mb-3 gap-2 sm:gap-4">
-          {/* Responsive Title */}
-          <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800">
-            Meeting Dashboard
-          </h1>
-
           {/* Container for controls/stats, allows wrapping */}
           <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2 sm:space-x-4">
             {/* View toggle */}

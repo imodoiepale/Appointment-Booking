@@ -30,7 +30,7 @@ const Sidebar = () => {
         { name: 'Calendar View', href: '/calendar', icon: Calendar },
         { name: 'Schedule Meeting', href: '/schedule', icon: PlusCircle },
         // { name: 'Settings', href: '/settings', icon: Settings },
-        // { name: 'Help', href: '/help', icon: HelpCircle },
+        { name: 'Help', href: '/help', icon: HelpCircle },
     ];
 
     return (
@@ -38,16 +38,16 @@ const Sidebar = () => {
             {/* Mobile sidebar toggle */}
             <button
                 onClick={toggleSidebar}
-                className="fixed z-50 bottom-4 right-4 lg:hidden bg-teal-500 text-white p-3 rounded-full shadow-lg"
+                className="fixed z-50 bottom-4 right-4 lg:hidden bg-teal-500 text-white p-3 rounded-full shadow-lg hover:bg-teal-600 transition-colors"
             >
                 {expanded ? <X size={24} /> : <Menu size={24} />}
             </button>
 
             <div
-                className={`fixed inset-y-0 left-0 z-40 transition-all duration-300 transform bg-white shadow-lg lg:shadow-none lg:translate-x-0 lg:static lg:inset-auto lg:flex-shrink-0 w-64 ${expanded ? 'translate-x-0' : '-translate-x-full'
+                className={`fixed inset-y-0 left-0 z-40 transition-all duration-300 ease-in-out transform bg-white shadow-lg lg:shadow-none lg:translate-x-0 lg:static lg:inset-auto lg:flex-shrink-0 w-64 ${expanded ? 'translate-x-0' : '-translate-x-full'
                     }`}
             >
-                <div className="flex flex-col h-full">
+                <div className="flex flex-col h-screen max-h-screen overflow-hidden">
                     {/* Brand/Logo */}
                     <div className="flex items-center p-4 border-b">
                         <div className="bg-teal-500 text-white p-2 rounded-md mr-2">
@@ -57,7 +57,7 @@ const Sidebar = () => {
                     </div>
 
                     {/* Navigation */}
-                    <nav className="flex-1 px-2 py-4 space-y-1">
+                    <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
                         {navigation.map((item) => {
                             const isActive = pathname === item.href;
                             return (
