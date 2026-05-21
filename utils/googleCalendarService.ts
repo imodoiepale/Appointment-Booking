@@ -1,9 +1,10 @@
 import { google } from 'googleapis';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://zyszsqgdlrpnunkegipk.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5c3pzcWdkbHJwbnVua2VnaXBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDgzMjc4OTQsImV4cCI6MjAyMzkwMzg5NH0.fK_zR8wR6Lg8HeK7KBTTnyF0zoyYBqjkeWeTKqi32ws';
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 interface MeetingEvent {
   id_main: number;
@@ -31,7 +32,17 @@ async function getGoogleCalendarClient() {
   const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
   const accessToken = cookieStore.get('google_access_token')?.value;
-  const refreshToken = cookieStore.get('google_refresh_token')?.value;
+  let refreshToken = cookieStore.get('google_refresh_token')?.value;
+
+  if (!refreshToken) {
+    const { data } = await supabase
+      .from('email_accounts')
+      .select('refresh_token')
+      .eq('status', 'active')
+      .limit(1)
+      .single();
+    refreshToken = data?.refresh_token ?? undefined;
+  }
 
   if (!accessToken && !refreshToken) {
     throw new Error('Google Calendar not connected. Please connect your Google Calendar first.');
