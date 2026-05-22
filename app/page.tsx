@@ -2,7 +2,7 @@
 // @ts-nocheck
 "use client"
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { ChangeEvent } from 'react';
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
@@ -48,7 +48,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/hooks/use-toast"; // Corrected import path
 
 // Icons
-import { Calendar, Clock, Mic, MicOff, UserPlus, Building, MapPin, CheckCircle, XCircle, RefreshCw, MessageSquare, Table2, LayoutGrid, Link as LinkIcon, Phone, Video, Trash2 } from 'lucide-react'; // Added Phone icon
+import { Calendar, Clock, Mic, MicOff, UserPlus, Building, MapPin, CheckCircle, XCircle, RefreshCw, MessageSquare, Table2, LayoutGrid, Link as LinkIcon, Phone, Video, Trash2, Loader2, CloudOff, Cloud, ShieldCheck, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, Users, CalendarDays } from 'lucide-react';
 import supabase from '@/utils/supabaseClient';
 
 // --- Helper Function for Formatting ---
@@ -84,6 +84,18 @@ interface Appointment {
   badge_status: string;
   google_event_id: string;
   google_meet_link: string;
+  created_by: string;
+  updated_by: string;
+}
+
+interface AuthUser {
+  id?: string;
+  email?: string;
+  displayName?: string;
+  firstName?: string;
+  lastName?: string;
+  username?: string;
+  role?: string;
 }
 
 const Dashboard = () => {
@@ -94,6 +106,11 @@ const Dashboard = () => {
   const [isRescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [calendarConnectionStatus, setCalendarConnectionStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [syncingMeetingId, setSyncingMeetingId] = useState<number | null>(null);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [itemsPerPage, setItemsPerPage] = useState(12);
   const { toast } = useToast();
   const [isListening, setIsListening] = useState(false);
   const [viewMode, setViewMode] = useState("cards"); // Default to cards
@@ -111,12 +128,19 @@ const Dashboard = () => {
       ? `/api/auto-sync-calendar?id=${appointment.id_main}`
       : '/api/auto-sync-calendar';
 
+    const currentUserIdentifier = currentUser?.displayName || currentUser?.email || currentUser?.username || null;
+    const body = method !== 'DELETE' ? {
+      ...appointment,
+      created_by: appointment.created_by || currentUserIdentifier,
+      updated_by: method === 'PUT' ? currentUserIdentifier : (appointment.updated_by || null),
+    } : undefined;
+
     const response = await fetch(url, {
       method,
       headers: {
         'Content-Type': 'application/json',
       },
-      ...(method !== 'DELETE' ? { body: JSON.stringify(appointment) } : {}),
+      ...(body ? { body: JSON.stringify(body) } : {}),
     });
 
     if (!response.ok) {
@@ -327,8 +351,19 @@ const Dashboard = () => {
       }
     };
 
+    const fetchUser = async () => {
+      try {
+        const res = await fetch('/api/auth/session');
+        const json = await res.json();
+        setCurrentUser(json.authenticated && json.user ? json.user : null);
+      } catch {
+        setCurrentUser(null);
+      }
+    };
+
     fetchEvents();
     fetchCalendarStatus();
+    fetchUser();
 
     // Set initial view mode based on screen size
     const handleResize = () => {
@@ -351,6 +386,58 @@ const Dashboard = () => {
   }, [toast]); // Added toast to dependency array
 
   // --- Event Handlers (Mostly Unchanged, added formatting/parsing checks) ---
+
+  const handleSyncMeeting = async (appointment: Appointment) => {
+    if (calendarConnectionStatus !== 'connected') {
+      toast({ variant: 'destructive', title: 'Not Connected', description: 'Please connect Google Calendar first.' });
+      return;
+    }
+    setSyncingMeetingId(appointment.id_main);
+    try {
+      const result = await syncMeetingWithCalendar(appointment, 'POST');
+      const updated = { google_event_id: result?.eventId || appointment.google_event_id, google_meet_link: result?.hangoutLink || appointment.google_meet_link };
+      setAppointments(prev => prev.map(a => a.id_main === appointment.id_main ? { ...a, ...updated } : a));
+      setSelectedAppointment(prev => prev?.id_main === appointment.id_main ? { ...prev, ...updated } : prev);
+      toast({ title: 'Synced', description: 'Meeting added to Google Calendar.' });
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Sync Failed', description: error.message });
+    } finally {
+      setSyncingMeetingId(null);
+    }
+  };
+
+  const handleUnsyncMeeting = async (appointment: Appointment) => {
+    if (calendarConnectionStatus !== 'connected') {
+      toast({ variant: 'destructive', title: 'Not Connected', description: 'Please connect Google Calendar first.' });
+      return;
+    }
+    setSyncingMeetingId(appointment.id_main);
+    try {
+      await syncMeetingWithCalendar(appointment, 'DELETE');
+      const cleared = { google_event_id: null, google_meet_link: null };
+      setAppointments(prev => prev.map(a => a.id_main === appointment.id_main ? { ...a, ...cleared } : a));
+      setSelectedAppointment(prev => prev?.id_main === appointment.id_main ? { ...prev, ...cleared } : prev);
+      toast({ title: 'Unsynced', description: 'Meeting removed from Google Calendar.' });
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Unsync Failed', description: error.message });
+    } finally {
+      setSyncingMeetingId(null);
+    }
+  };
+
+  const disconnectCalendar = async () => {
+    setIsDisconnecting(true);
+    try {
+      const response = await fetch('/api/auth/google/disconnect', { method: 'POST' });
+      if (!response.ok) throw new Error('Disconnect failed');
+      setCalendarConnectionStatus('disconnected');
+      toast({ title: 'Disconnected', description: 'Google Calendar has been disconnected.' });
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Disconnect Failed', description: error.message });
+    } finally {
+      setIsDisconnecting(false);
+    }
+  };
 
   const toggleListening = () => {
     if (!browserSupportsSpeechRecognition) {
@@ -435,23 +522,24 @@ const Dashboard = () => {
 
     try {
       const updates = {
-        meeting_start_time: formatTime(rescheduleFormData.meetingStartTime), // Ensure HH:MM format
+        meeting_start_time: formatTime(rescheduleFormData.meetingStartTime),
         meeting_duration: duration,
-        meeting_end_time: formatTime(rescheduleFormData.meetingEndTime), // Ensure HH:MM format
+        meeting_end_time: formatTime(rescheduleFormData.meetingEndTime),
         meeting_date: rescheduleFormData.meetingDate,
         status: 'rescheduled',
         badge_status: 'Tentative',
       };
 
-      const { data, error } = await supabase
-        .from('bcl_meetings_meetings')
-        .update(updates)
-        .eq('id_main', selectedAppointment.id_main)
-        .select()
-        .single();
-
-      if (error) throw error;
-      if (!data) throw new Error("Update failed, no data returned.");
+      const response = await fetch(`/api/meetings/${selectedAppointment.id_main}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Reschedule failed');
+      }
+      const data = await response.json();
 
       try {
         await syncMeetingWithCalendar(data, 'PUT');
@@ -485,16 +573,16 @@ const Dashboard = () => {
       return;
     }
     try {
-      // Update Supabase
-      const { data, error } = await supabase
-        .from('bcl_meetings_meetings')
-        .update({ status: 'canceled', badge_status: 'Rejected' })
-        .eq('id_main', selectedAppointment.id_main)
-        .select()
-        .single();
-
-      if (error) throw error;
-      if (!data) throw new Error("Cancel failed, no data returned.");
+      const cancelResponse = await fetch(`/api/meetings/${selectedAppointment.id_main}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'canceled', badge_status: 'Rejected' }),
+      });
+      if (!cancelResponse.ok) {
+        const err = await cancelResponse.json();
+        throw new Error(err.error || 'Cancel failed');
+      }
+      const data = await cancelResponse.json();
 
       try {
         await syncMeetingWithCalendar(data, 'DELETE');
@@ -530,16 +618,16 @@ const Dashboard = () => {
       const id = selectedAppointment.id_main;
       if (typeof id !== 'number' || isNaN(id)) throw new Error('Invalid ID');
 
-      // Update Supabase
-      const { data, error } = await supabase
-        .from('bcl_meetings_meetings')
-        .update({ status: 'completed', badge_status: 'Confirmed' }) // Confirm when completing
-        .eq('id_main', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      if (!data) throw new Error("Complete failed, no data returned.");
+      const completeResponse = await fetch(`/api/meetings/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'completed', badge_status: 'Confirmed' }),
+      });
+      if (!completeResponse.ok) {
+        const err = await completeResponse.json();
+        throw new Error(err.error || 'Complete failed');
+      }
+      const data = await completeResponse.json();
 
       try {
         await syncMeetingWithCalendar(data, 'PUT');
@@ -589,12 +677,11 @@ const Dashboard = () => {
         }
       }
 
-      const { error } = await supabase
-        .from('bcl_meetings_meetings')
-        .delete()
-        .eq('id_main', meetingToDelete.id_main);
-
-      if (error) throw error;
+      const deleteResponse = await fetch(`/api/meetings/${meetingToDelete.id_main}`, { method: 'DELETE' });
+      if (!deleteResponse.ok) {
+        const err = await deleteResponse.json();
+        throw new Error(err.error || 'Delete failed');
+      }
 
       setAppointments(prev => prev.filter(app => app.id_main !== meetingToDelete.id_main));
       toast({ title: "Success", description: "Meeting permanently deleted." });
@@ -617,16 +704,16 @@ const Dashboard = () => {
       return;
     }
     try {
-      // Update Supabase
-      const { data, error } = await supabase
-        .from('bcl_meetings_meetings')
-        .update({ badge_status: 'Confirmed' })
-        .eq('id_main', selectedAppointment.id_main)
-        .select()
-        .single();
-
-      if (error) throw error;
-      if (!data) throw new Error("Confirm failed, no data returned.");
+      const confirmResponse = await fetch(`/api/meetings/${selectedAppointment.id_main}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ badge_status: 'Confirmed' }),
+      });
+      if (!confirmResponse.ok) {
+        const err = await confirmResponse.json();
+        throw new Error(err.error || 'Confirm failed');
+      }
+      const data = await confirmResponse.json();
 
       try {
         await syncMeetingWithCalendar(data, 'PUT');
@@ -681,11 +768,11 @@ const Dashboard = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'upcoming': return 'bg-blue-100 text-blue-700 border-blue-300';
+      case 'upcoming': return 'bg-[#0DAA8A]/10 text-[#087963] border-[#0DAA8A]/20';
       case 'rescheduled': return 'bg-purple-100 text-purple-700 border-purple-300';
       case 'pending': return 'bg-yellow-100 text-yellow-700 border-yellow-300';
       case 'canceled': return 'bg-red-100 text-red-700 border-red-300';
-      case 'completed': return 'bg-green-100 text-green-700 border-green-300';
+      case 'completed': return 'bg-emerald-100 text-emerald-700 border-emerald-300';
       default: return 'bg-gray-100 text-gray-700 border-gray-300';
     }
   };
@@ -704,8 +791,8 @@ const Dashboard = () => {
 
   const getBadgeStatusColor = (badgeStatus: string) => {
     switch (badgeStatus) {
-      case 'Open': return 'bg-blue-100 text-blue-700 border-blue-300';
-      case 'Confirmed': return 'bg-green-100 text-green-700 border-green-300';
+      case 'Open': return 'bg-[#0DAA8A]/10 text-[#087963] border-[#0DAA8A]/20';
+      case 'Confirmed': return 'bg-emerald-100 text-emerald-700 border-emerald-300';
       case 'Tentative': return 'bg-yellow-100 text-yellow-700 border-yellow-300';
       case 'Rejected': return 'bg-red-100 text-red-700 border-red-300';
       default: return 'bg-gray-100 text-gray-700 border-gray-300';
@@ -718,7 +805,7 @@ const Dashboard = () => {
       case 'rescheduled': return 'bg-purple-50/30 hover:bg-purple-50/60';
       case 'pending': return 'bg-yellow-50/30 hover:bg-yellow-50/60';
       case 'canceled': return 'bg-red-50/30 hover:bg-red-50/60';
-      case 'completed': return 'bg-green-50/30 hover:bg-green-50/60';
+      case 'completed': return 'bg-emerald-50/30 hover:bg-emerald-50/60';
       default: return 'bg-white hover:bg-gray-50/60';
     }
   };
@@ -730,17 +817,56 @@ const Dashboard = () => {
       (appointment.status === 'upcoming' || appointment.status === 'rescheduled' || checkAppointmentStatus(appointment).status === 'pending')
   ).length;
 
+  const appointmentBuckets = useMemo(() => {
+    const byStartAsc = (a: Appointment, b: Appointment) =>
+      new Date(`${a.meeting_date}T${a.meeting_start_time || '00:00'}`).getTime() -
+      new Date(`${b.meeting_date}T${b.meeting_start_time || '00:00'}`).getTime();
+    const byMeetingDesc = (a: Appointment, b: Appointment) =>
+      new Date(b.meeting_date || 0).getTime() - new Date(a.meeting_date || 0).getTime();
+    const byBookingDesc = (a: Appointment, b: Appointment) =>
+      new Date(b.booking_date || 0).getTime() - new Date(a.booking_date || 0).getTime();
+
+    return {
+      upcoming: appointments
+        .filter((app) => ['upcoming', 'rescheduled'].includes(checkAppointmentStatus(app).status))
+        .sort(byStartAsc),
+      pending: appointments
+        .filter((app) => checkAppointmentStatus(app).status === 'pending')
+        .sort(byStartAsc),
+      canceled: appointments
+        .filter((app) => app.status === 'canceled')
+        .sort(byBookingDesc),
+      completed: appointments
+        .filter((app) => app.status === 'completed')
+        .sort(byMeetingDesc),
+    };
+  }, [appointments]);
+
+  const activeAppointments = appointmentBuckets[activeTab] || [];
+  const totalPages = Math.max(1, Math.ceil(activeAppointments.length / itemsPerPage));
+  const paginatedAppointments = activeAppointments.slice(currentPage * itemsPerPage, currentPage * itemsPerPage + itemsPerPage);
+  const startItem = activeAppointments.length ? currentPage * itemsPerPage + 1 : 0;
+  const endItem = Math.min((currentPage + 1) * itemsPerPage, activeAppointments.length);
+
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [activeTab, viewMode, itemsPerPage]);
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages - 1));
+  }, [totalPages]);
+
   // --- Loading State (Unchanged) ---
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen bg-gray-100">
-        <div className="text-center">
-          <div className="flex items-center justify-center space-x-2">
-            <div className="w-5 h-5 bg-blue-500 rounded-full animate-bounce delay-75"></div>
-            <div className="w-5 h-5 bg-blue-600 rounded-full animate-bounce delay-150"></div>
-            <div className="w-5 h-5 bg-blue-700 rounded-full animate-bounce delay-225"></div>
+      <div className="flex min-h-[60vh] items-center justify-center bg-slate-50">
+        <div className="rounded-lg border border-slate-200 bg-white px-6 py-5 text-center shadow-sm">
+          <div className="flex items-center justify-center gap-2">
+            <Loader2 className="h-5 w-5 animate-spin text-teal-600" />
+            <div className="h-2 w-2 rounded-full bg-blue-500" />
+            <div className="h-2 w-2 rounded-full bg-emerald-500" />
           </div>
-          <p className="text-base font-medium text-gray-600 mt-3">Loading Schedules...</p>
+          <p className="mt-3 text-sm font-medium text-slate-600">Loading schedules...</p>
         </div>
       </div>
     );
@@ -757,6 +883,58 @@ const Dashboard = () => {
     : calendarConnectionStatus === 'disconnected'
       ? 'Google Calendar Disconnected'
       : 'Checking Google Calendar';
+
+  const currentUserDisplay = currentUser?.displayName || currentUser?.email || currentUser?.username || 'Authenticated user';
+  const currentUserRole = currentUser?.role?.replace(/_/g, ' ') || 'User';
+  const syncedCount = appointments.filter((appointment) => appointment.google_event_id).length;
+  const statCards = [
+    { label: 'Total Meetings', value: appointments.length, icon: <CalendarDays className="h-4 w-4" />, accent: 'bg-[#0DAA8A]', iconClass: 'bg-[#0DAA8A]/10 text-[#087963]' },
+    { label: 'Today', value: totalAppointmentsToday, icon: <Clock className="h-4 w-4" />, accent: 'bg-blue-500', iconClass: 'bg-blue-50 text-blue-600' },
+    { label: 'Pending', value: appointmentBuckets.pending.length, icon: <MessageSquare className="h-4 w-4" />, accent: 'bg-amber-500', iconClass: 'bg-amber-50 text-amber-600' },
+    { label: 'Synced', value: syncedCount, icon: <Cloud className="h-4 w-4" />, accent: 'bg-emerald-500', iconClass: 'bg-emerald-50 text-emerald-600' },
+  ];
+
+  const Pager = () => (
+    <div className="flex flex-col gap-3 border-t border-slate-100 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-xs text-slate-500">
+        Showing <span className="font-semibold text-slate-900">{startItem}</span> to{' '}
+        <span className="font-semibold text-slate-900">{endItem}</span> of{' '}
+        <span className="font-semibold text-slate-900">{activeAppointments.length}</span>
+      </p>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Rows</span>
+          <Select value={String(itemsPerPage)} onValueChange={(value) => setItemsPerPage(Number(value))}>
+            <SelectTrigger className="h-8 w-20 rounded-lg border-slate-200 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {[8, 12, 24, 48].map((size) => (
+                <SelectItem key={size} value={String(size)}>{size}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-1">
+          <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg" onClick={() => setCurrentPage(0)} disabled={currentPage === 0}>
+            <ChevronsLeft className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg" onClick={() => setCurrentPage((page) => Math.max(0, page - 1))} disabled={currentPage === 0}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="min-w-20 text-center text-xs font-semibold text-slate-600">
+            {currentPage + 1} / {totalPages}
+          </span>
+          <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg" onClick={() => setCurrentPage((page) => Math.min(totalPages - 1, page + 1))} disabled={currentPage >= totalPages - 1}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg" onClick={() => setCurrentPage(totalPages - 1)} disabled={currentPage >= totalPages - 1}>
+            <ChevronsRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 
   // --- Detail Item Renderer for Dialog (Mobile Optimized) ---
   const renderAppointmentDetailItem = (label: string, value: string | number | undefined | null, icon = null, isLink = false) => (
@@ -777,29 +955,29 @@ const Dashboard = () => {
 
   // --- TABLE VIEW (Mobile Adjustments) ---
   const renderTableView = (filteredAppointments) => (
-    <div className="overflow-x-auto border border-gray-200 rounded-lg shadow-sm bg-white">
-      <Table className="w-full min-w-[900px]"> {/* Slightly reduced min-width */}
-        <TableHeader className="sticky top-0 z-10 bg-gray-100 border-b border-gray-300">
+    <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+      <Table className="w-full min-w-[900px]">
+        <TableHeader className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50">
           <TableRow>
-            {/* Adjusted padding and font size */}
-            <TableHead className="w-[40px] px-2 py-2 text-xs font-semibold text-gray-600">#</TableHead>
-            <TableHead className="w-[80px] px-2 py-2 text-xs font-semibold text-gray-600">ID</TableHead>
-            <TableHead className="w-[120px] px-2 py-2 text-xs font-semibold text-gray-600">Meeting Status</TableHead>
-            <TableHead className="w-[120px] px-2 py-2 text-xs font-semibold text-gray-600"> Confirmation Status</TableHead>
-            <TableHead className="px-3 py-2 text-xs font-semibold text-gray-600">Client</TableHead>
-            <TableHead className="px-3 py-2 text-xs font-semibold text-gray-600">Company</TableHead>
-            <TableHead className="w-[100px] px-2 py-2 text-xs font-semibold text-gray-600">Date</TableHead>
-            <TableHead className="w-[80px] px-2 py-2 text-xs font-semibold text-gray-600">Day</TableHead>
-            <TableHead className="px-3 py-2 text-xs font-semibold text-gray-600">Venue</TableHead>
-            <TableHead className="w-[130px] px-2 py-2 text-xs font-semibold text-gray-600">Time</TableHead>
-            <TableHead className="px-3 py-2 text-xs font-semibold text-gray-600">Type</TableHead>
-            <TableHead className="px-3 py-2 text-xs font-semibold text-gray-600">Agenda</TableHead>
+            <TableHead className="w-[40px] px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">#</TableHead>
+            <TableHead className="w-[80px] px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">ID</TableHead>
+            <TableHead className="w-[120px] px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Status</TableHead>
+            <TableHead className="w-[120px] px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Confirm</TableHead>
+            <TableHead className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Client</TableHead>
+            <TableHead className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Company</TableHead>
+            <TableHead className="w-[100px] px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Date</TableHead>
+            <TableHead className="w-[80px] px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Day</TableHead>
+            <TableHead className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Venue</TableHead>
+            <TableHead className="w-[130px] px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Time</TableHead>
+            <TableHead className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Type</TableHead>
+            <TableHead className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Agenda</TableHead>
+            <TableHead className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Sync</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {filteredAppointments.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={11} className="h-24 text-center text-sm text-gray-500">
+              <TableCell colSpan={13} className="h-24 text-center text-sm text-slate-500">
                 No appointments found.
               </TableCell>
             </TableRow>
@@ -809,12 +987,11 @@ const Dashboard = () => {
               return (
                 <TableRow
                   key={appointment.id_main}
-                  className={`cursor-pointer ${getTableRowColor(displayAppointment.status)}`}
+                  className="cursor-pointer border-slate-100 hover:bg-slate-50"
                   onClick={() => setSelectedAppointment(appointment)}
                 >
-                  {/* Adjusted padding and font size */}
-                  <TableCell className="px-2 py-1.5 text-xs font-medium text-gray-500">{index + 1}</TableCell>
-                  <TableCell className="px-2 py-1.5 text-xs font-medium text-gray-800">{appointment.id_main}</TableCell>
+                  <TableCell className="px-3 py-2 text-xs font-medium text-slate-400">{currentPage * itemsPerPage + index + 1}</TableCell>
+                  <TableCell className="px-3 py-2 text-xs font-semibold text-slate-700">{appointment.id_main}</TableCell>
                   <TableCell className="px-2 py-1.5">
                     <div className="flex items-center">
                       <Badge variant="outline" className={`text-[10px] ${getStatusColor(displayAppointment.status)}`}>
@@ -827,7 +1004,7 @@ const Dashboard = () => {
                   </TableCell>
                   <TableCell className="px-2 py-1.5">
                     <div className="flex items-center">
-                      <Badge variant="outline" className={`text-[10px]${getBadgeStatusColor(appointment.badge_status)}`}>
+                      <Badge variant="outline" className={`text-[10px] ${getBadgeStatusColor(appointment.badge_status)}`}>
                         <span className="flex items-center">
                           {appointment.badge_status}
                         </span>
@@ -873,6 +1050,17 @@ const Dashboard = () => {
                       </span>
                     </div>
                   </TableCell>
+                  <TableCell className="px-2 py-1.5">
+                    {appointment.google_event_id ? (
+                      <Badge className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-200 flex items-center gap-0.5 w-fit">
+                        <Calendar className="h-2.5 w-2.5" />Synced
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] text-gray-400 flex items-center gap-0.5 w-fit">
+                        <Calendar className="h-2.5 w-2.5" />Not Synced
+                      </Badge>
+                    )}
+                  </TableCell>
                 </TableRow>
               );
             })
@@ -900,6 +1088,10 @@ const Dashboard = () => {
             getStatusIcon={getStatusIcon}
             getBadgeStatusColor={getBadgeStatusColor}
             checkAppointmentStatus={checkAppointmentStatus}
+            calendarConnectionStatus={calendarConnectionStatus}
+            onSync={handleSyncMeeting}
+            onUnsync={handleUnsyncMeeting}
+            isSyncing={syncingMeetingId === appointment.id_main}
           />
         ))}
       </div>
@@ -907,32 +1099,85 @@ const Dashboard = () => {
   );
 
 
-  // --- MAIN RETURN (Responsive Layout) ---
+  // --- MAIN RETURN ---
   return (
-    // Added responsive padding
-    <div className="min-h-screen bg-gray-100 p-2 sm:p-4">
+    <div className="mx-auto max-w-[1600px] space-y-5 p-4 md:p-6 lg:p-8">
       <Toaster />
 
-      {/* Header with Google Calendar Connect */}
-      <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      {/* ── Page Header ── */}
+      <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm">
+        <div className="h-1 w-full bg-[#0DAA8A]" />
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-5 sm:p-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Meeting Dashboard</h1>
-            <p className="text-sm text-gray-600 mt-1">Manage your appointments and sync with Google Calendar</p>
+            <Badge className="mb-3 bg-[#0DAA8A]/10 text-[#087963] hover:bg-[#0DAA8A]/10">BCL Meetings</Badge>
+            <h1 className="text-3xl font-bold text-slate-950 tracking-tight md:text-4xl">Meeting Dashboard</h1>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <p className="text-sm text-slate-500">Review appointments, pending actions, and calendar sync.</p>
+              {currentUser && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-2.5 py-1 text-xs font-medium text-teal-700 ring-1 ring-teal-100">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  {currentUserDisplay}
+                  <span className="hidden sm:inline text-teal-500">({currentUserRole})</span>
+                </span>
+              )}
+            </div>
           </div>
-          <div className="flex flex-col sm:items-end gap-2 w-full sm:w-auto">
-            <Badge variant="outline" className={`px-3 py-1 text-xs sm:text-sm ${calendarStatusBadgeClass}`}>
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-start sm:justify-end">
+            <Badge
+              variant="outline"
+              className={`px-2.5 py-1 text-xs font-medium rounded-lg ${calendarStatusBadgeClass}`}
+            >
               {calendarStatusLabel}
             </Badge>
-            <Button
-              onClick={() => window.open('/api/auth/google', '_blank')}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              <Calendar className="w-4 h-4 mr-2" />
-              {calendarConnectionStatus === 'connected' ? 'Reconnect Google Calendar' : 'Connect Google Calendar'}
-            </Button>
+            {calendarConnectionStatus === 'connected' ? (
+              <>
+                <Button
+                  onClick={() => window.open('/api/auth/google', '_blank')}
+                  variant="outline"
+                  size="sm"
+                  className="h-9 gap-1.5 rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 text-xs"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Reconnect
+                </Button>
+                <Button
+                  onClick={disconnectCalendar}
+                  disabled={isDisconnecting}
+                  variant="outline"
+                  size="sm"
+                  className="h-9 gap-1.5 rounded-xl border-red-200 text-red-600 hover:bg-red-50 text-xs"
+                >
+                  <XCircle className="w-3.5 h-3.5" />
+                  {isDisconnecting ? 'Disconnecting...' : 'Disconnect'}
+                </Button>
+              </>
+            ) : (
+              <Button
+                onClick={() => window.open('/api/auth/google', '_blank')}
+                size="sm"
+                className="h-9 gap-1.5 rounded-xl bg-[#0DAA8A] hover:bg-[#0B9579] text-white text-xs"
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                Connect Google Calendar
+              </Button>
+            )}
           </div>
         </div>
+      </Card>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {statCards.map((card) => (
+          <Card key={card.label} className="relative overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm">
+            <div className={`absolute inset-x-0 top-0 h-0.5 ${card.accent}`} />
+            <div className="p-4">
+              <div className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl ${card.iconClass}`}>
+                {card.icon}
+              </div>
+              <p className="text-2xl font-bold text-slate-950">{card.value}</p>
+              <p className="mt-1 text-xs font-medium text-slate-500">{card.label}</p>
+            </div>
+          </Card>
+        ))}
       </div>
 
       {/* Voice control indicator (Unchanged position) */}
@@ -958,47 +1203,43 @@ const Dashboard = () => {
         </TooltipProvider>
       </div> */}
 
-      {/* Header (Responsive) */}
-      <div className="mb-3 sm:mb-4">
-        {/* Stack elements vertically on small screens */}
-        <div className="flex flex-col sm:flex-row justify-between items-center mb-3 gap-2 sm:gap-4">
-          {/* Container for controls/stats, allows wrapping */}
-          <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2 sm:space-x-4">
-            {/* View toggle */}
-            <div className="bg-white border border-gray-200 rounded-lg p-0.5 flex shadow-sm">
-              <Button
-                variant="ghost"
-                size="sm" // Keep size sm, looks okay on mobile too
-                onClick={() => setViewMode("cards")}
-                className={`rounded-l-md px-2.5 py-1 ${viewMode === "cards" ? "bg-blue-500 text-white hover:bg-blue-600" : "text-gray-600 hover:bg-gray-100"}`}
-              >
-                <LayoutGrid className="h-4 w-4 mr-1" /> {/* Slightly smaller icon/margin */}
-                Cards
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setViewMode("table")}
-                className={`rounded-r-md px-2.5 py-1 ${viewMode === "table" ? "bg-blue-500 text-white hover:bg-blue-600" : "text-gray-600 hover:bg-gray-100"}`}
-              >
-                <Table2 className="h-4 w-4 mr-1" /> {/* Slightly smaller icon/margin */}
-                Table
-              </Button>
-            </div>
-            {/* Stats Card (Smaller on mobile) */}
-            <Card className="border-gray-200 shadow-sm">
-              <CardContent className="p-2 sm:p-3 flex items-center">
-                <div className="mr-2 sm:mr-3 text-blue-500">
-                  <Calendar className="h-5 w-5 sm:h-6 sm:w-6" />
-                </div>
-                <div>
-                  <p className="text-[11px] sm:text-xs text-gray-500">Today's Meetings</p>
-                  <p className="text-base sm:text-xl font-bold text-gray-800">{totalAppointmentsToday}</p>
-                </div>
-              </CardContent>
-            </Card>
+      {/* ── Controls bar ── */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* View toggle */}
+        <div className="flex items-center bg-white ring-1 ring-slate-200 rounded-xl p-1 shadow-sm">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setViewMode("cards")}
+            className={`h-8 rounded-lg px-3 text-xs gap-1.5 ${viewMode === "cards" ? "bg-[#0DAA8A] text-white hover:bg-[#0B9579]" : "text-slate-500 hover:bg-slate-50"}`}
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+            Cards
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setViewMode("table")}
+            className={`h-8 rounded-lg px-3 text-xs gap-1.5 ${viewMode === "table" ? "bg-[#0DAA8A] text-white hover:bg-[#0B9579]" : "text-slate-500 hover:bg-slate-50"}`}
+          >
+            <Table2 className="h-3.5 w-3.5" />
+            Table
+          </Button>
+        </div>
+
+        {/* Today's meetings stat */}
+        <div className="flex items-center gap-2 bg-white ring-1 ring-slate-200 rounded-lg px-3 py-1.5 shadow-sm">
+          <div className="w-6 h-6 rounded-md bg-teal-50 flex items-center justify-center">
+            <Calendar className="h-3.5 w-3.5 text-teal-600" />
+          </div>
+          <div>
+            <p className="text-[10px] text-slate-400 leading-none">Today</p>
+            <p className="text-sm font-bold text-slate-800 leading-tight">{totalAppointmentsToday} meeting{totalAppointmentsToday !== 1 ? 's' : ''}</p>
           </div>
         </div>
+      </div>
+
+      <div>
 
         {/* Voice transcript display (Responsive) */}
         {/* {isListening && (
@@ -1011,162 +1252,160 @@ const Dashboard = () => {
           </div>
         )} */}
 
-        {/* Main content Tabs (Responsive) */}
-        <Tabs defaultValue="upcoming" value={activeTab} onValueChange={setActiveTab} className="bg-white p-2 sm:p-4 rounded-lg shadow border border-gray-200">
-          {/* Responsive Tab Triggers */}
-          <TabsList className="grid grid-cols-2 sm:grid-cols-4 mb-4 sm:mb-6 bg-gray-100 p-1 rounded-md flex-wrap">
-            {["upcoming", "pending", "canceled", "completed"].map((tabValue) => (
-              <TabsTrigger
-                key={tabValue}
-                value={tabValue}
-                className={`text-xs sm:text-sm px-2 py-1 sm:py-1.5 data-[state=active]:shadow data-[state=active]:text-white text-gray-600
-                  ${tabValue === 'upcoming' ? 'data-[state=active]:bg-blue-500' : ''}
-                  ${tabValue === 'pending' ? 'data-[state=active]:bg-yellow-500' : ''}
-                  ${tabValue === 'canceled' ? 'data-[state=active]:bg-red-500' : ''}
-                  ${tabValue === 'completed' ? 'data-[state=active]:bg-green-500' : ''}
-                `}
-              >
-                {tabValue.charAt(0).toUpperCase() + tabValue.slice(1)}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+        {/* ── Tabs ── */}
+        <Tabs defaultValue="upcoming" value={activeTab} onValueChange={setActiveTab} className="rounded-2xl ring-1 ring-slate-200 bg-white shadow-sm overflow-hidden">
+          <div className="px-4 pt-4 pb-3 border-b border-slate-100">
+            <TabsList className="grid grid-cols-2 sm:grid-cols-4 gap-1 bg-slate-100 p-1 rounded-xl h-auto">
+              {[
+                { value: 'upcoming',  active: 'bg-teal-600 text-white shadow-sm',   counts: appointmentBuckets.upcoming.length },
+                { value: 'pending',   active: 'bg-amber-500 text-white shadow-sm',  counts: appointmentBuckets.pending.length },
+                { value: 'canceled',  active: 'bg-red-500 text-white shadow-sm',    counts: appointmentBuckets.canceled.length },
+                { value: 'completed', active: 'bg-emerald-600 text-white shadow-sm', counts: appointmentBuckets.completed.length },
+              ].map(({ value, active, counts }) => (
+                <TabsTrigger
+                  key={value}
+                  value={value}
+                  className={`text-xs font-medium py-1.5 rounded-lg data-[state=active]:shadow-none text-slate-500 data-[state=active]:text-white ${active.includes('teal') ? 'data-[state=active]:bg-[#0DAA8A]' : active.includes('amber') ? 'data-[state=active]:bg-amber-500' : active.includes('red') ? 'data-[state=active]:bg-red-500' : 'data-[state=active]:bg-emerald-600'}`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    {value.charAt(0).toUpperCase() + value.slice(1)}
+                    <span className="hidden sm:inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] bg-white/25 font-bold">{counts}</span>
+                  </span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
+          <div className="p-4">
 
           {/* Tab Content Panes */}
-          <TabsContent value="upcoming" className="mt-0">
-            {viewMode === "cards" ? renderCardView(appointments.filter(app => ['upcoming', 'rescheduled'].includes(checkAppointmentStatus(app).status)).sort((a, b) => new Date(a.meeting_date + 'T' + a.meeting_start_time).getTime() - new Date(b.meeting_date + 'T' + b.meeting_start_time).getTime())) : renderTableView(appointments.filter(app => ['upcoming', 'rescheduled'].includes(checkAppointmentStatus(app).status)).sort((a, b) => new Date(a.meeting_date + 'T' + a.meeting_start_time).getTime() - new Date(b.meeting_date + 'T' + b.meeting_start_time).getTime()))}
-          </TabsContent>
-          <TabsContent value="pending" className="mt-0">
-            {viewMode === "cards" ? renderCardView(appointments.filter(app => checkAppointmentStatus(app).status === 'pending').sort((a, b) => new Date(a.meeting_date + 'T' + a.meeting_start_time).getTime() - new Date(b.meeting_date + 'T' + b.meeting_start_time).getTime())) : renderTableView(appointments.filter(app => checkAppointmentStatus(app).status === 'pending').sort((a, b) => new Date(a.meeting_date + 'T' + a.meeting_start_time).getTime() - new Date(b.meeting_date + 'T' + b.meeting_start_time).getTime()))}
-          </TabsContent>
-          <TabsContent value="canceled" className="mt-0">
-            {viewMode === "cards" ? renderCardView(appointments.filter(app => app.status === 'canceled').sort((a, b) => new Date(b.booking_date || 0).getTime() - new Date(a.booking_date || 0).getTime())) : renderTableView(appointments.filter(app => app.status === 'canceled').sort((a, b) => new Date(b.booking_date || 0).getTime() - new Date(a.booking_date || 0).getTime()))}
-          </TabsContent>
-          <TabsContent value="completed" className="mt-0">
-            {viewMode === "cards" ? renderCardView(appointments.filter(app => app.status === 'completed').sort((a, b) => new Date(b.meeting_date).getTime() - new Date(a.meeting_date).getTime())) : renderTableView(appointments.filter(app => app.status === 'completed').sort((a, b) => new Date(b.meeting_date).getTime() - new Date(a.meeting_date).getTime()))}
-          </TabsContent>
+          {(['upcoming', 'pending', 'canceled', 'completed'] as const).map((value) => (
+            <TabsContent key={value} value={value} className="mt-0">
+              {viewMode === "cards" ? renderCardView(paginatedAppointments) : renderTableView(paginatedAppointments)}
+              {activeAppointments.length > 0 && <Pager />}
+            </TabsContent>
+          ))}
+          </div>{/* /p-4 */}
         </Tabs>
 
-        {/* --- SELECTED APPOINTMENT DETAILS DIALOG (Responsive) --- */}
+        {/* --- SELECTED APPOINTMENT DETAILS DIALOG --- */}
         <Dialog open={!!selectedAppointment} onOpenChange={(open) => !open && setSelectedAppointment(null)}>
-          {/* Responsive max-width and padding */}
-          <DialogContent className="max-w-sm sm:max-w-lg md:max-w-3xl bg-white sm:rounded-lg p-4 sm:p-5">
-            <DialogHeader className="border-b pb-2 mb-3 sm:pb-3 sm:mb-4">
-              <DialogTitle className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-2">
-                {/* Responsive Text Size */}
-                <span className="text-base sm:text-lg md:text-xl text-gray-800 font-semibold truncate">
-                  Mtg: {selectedAppointment?.client_name}
-                </span>
+          <DialogContent className="max-w-sm sm:max-w-xl md:max-w-3xl rounded-lg p-0 overflow-hidden bg-white">
+            {/* Dialog Header */}
+            <DialogHeader className="px-5 pt-5 pb-4 border-b border-slate-100">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <DialogTitle className="text-lg font-bold text-slate-900 truncate">
+                    {selectedAppointment?.client_name}
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-slate-500 mt-0.5">
+                    {selectedAppointment?.client_company && (
+                      <span className="flex items-center gap-1">
+                        <Building className="h-3 w-3" />
+                        {selectedAppointment.client_company}
+                        <span className="text-slate-300">·</span>
+                        ID {selectedAppointment?.id_main}
+                      </span>
+                    )}
+                  </DialogDescription>
+                </div>
                 {selectedAppointment && (
-                  <Badge variant="outline" className={`${getBadgeStatusColor(selectedAppointment.badge_status)} px-2 py-0.5 text-[10px] sm:text-xs self-start sm:self-center`}>
-                    {selectedAppointment.badge_status}
-                  </Badge>
+                  <div className="flex gap-1.5 flex-shrink-0 flex-wrap justify-end">
+                    <Badge variant="outline" className={`${getBadgeStatusColor(selectedAppointment.badge_status)} text-xs px-2 py-0.5`}>
+                      {selectedAppointment.badge_status}
+                    </Badge>
+                    <Badge variant="outline" className={`${getStatusColor(checkAppointmentStatus(selectedAppointment).status)} text-xs px-2 py-0.5`}>
+                      {checkAppointmentStatus(selectedAppointment).status}
+                    </Badge>
+                  </div>
                 )}
-              </DialogTitle>
-              <DialogDescription className="text-xs sm:text-sm text-gray-500 mt-0.5">
-                {selectedAppointment?.id_main && `ID: ${selectedAppointment.id_main} | ${selectedAppointment?.client_company}`}
-              </DialogDescription>
+              </div>
             </DialogHeader>
 
             {selectedAppointment && (
-              // Stack columns on mobile
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-x-6 sm:gap-y-4 max-h-[70vh] sm:max-h-[65vh] overflow-y-auto pr-1 sm:pr-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto p-5 pt-4">
                 {/* Column 1 */}
-                <div className="space-y-3 sm:space-y-4">
-                  {/* Client Details Card (Responsive Padding) */}
-                  <Card className="border-gray-200 shadow-sm">
-                    <CardHeader className="pb-1 pt-2 px-3 sm:pb-2 sm:pt-3 sm:px-4">
-                      <CardTitle className="text-sm sm:text-base font-semibold text-gray-700 flex items-center">
-                        <UserPlus className="h-3.5 w-3.5 mr-1.5 sm:h-4 sm:w-4 sm:mr-2 text-blue-600" />
-                        Client Details
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2 px-3 pb-2 sm:space-y-2.5 sm:px-4 sm:pb-3">
+                <div className="space-y-3">
+                  <div className="rounded-lg ring-1 ring-slate-100 overflow-hidden">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border-b border-slate-100">
+                      <div className="w-5 h-5 rounded-md bg-teal-50 flex items-center justify-center">
+                        <UserPlus className="h-3 w-3 text-teal-600" />
+                      </div>
+                      <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Client</span>
+                    </div>
+                    <div className="p-3 space-y-2">
                       {renderAppointmentDetailItem('Name', selectedAppointment.client_name)}
                       {renderAppointmentDetailItem('Company', selectedAppointment.client_company, <Building />)}
                       {renderAppointmentDetailItem('Mobile', selectedAppointment.client_mobile, <Phone />)}
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
 
-                  {/* Meeting Details Card (Responsive Padding) */}
-                  <Card className="border-gray-200 shadow-sm">
-                    <CardHeader className="pb-1 pt-2 px-3 sm:pb-2 sm:pt-3 sm:px-4">
-                      <CardTitle className="text-sm sm:text-base font-semibold text-gray-700 flex items-center">
-                        <Calendar className="h-3.5 w-3.5 mr-1.5 sm:h-4 sm:w-4 sm:mr-2 text-green-600" />
-                        Meeting Details
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="px-3 pb-2 sm:px-4 sm:pb-3">
-                      {/* Use finer grid for smaller screens */}
-                      <div className="grid grid-cols-2 gap-x-3 gap-y-2 sm:gap-x-4 sm:gap-y-2.5">
-                        {renderAppointmentDetailItem('Date', selectedAppointment.meeting_date ? new Date(selectedAppointment.meeting_date).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A')}
-                        {renderAppointmentDetailItem('Day', selectedAppointment.meeting_day)}
-                        {renderAppointmentDetailItem('Start', formatTime(selectedAppointment.meeting_start_time), <Clock />)}
-                        {renderAppointmentDetailItem('End', formatTime(selectedAppointment.meeting_end_time))}
-                        {renderAppointmentDetailItem('Duration', `${selectedAppointment.meeting_duration || '?'} min`)}
-                        {renderAppointmentDetailItem('Status', checkAppointmentStatus(selectedAppointment).status.charAt(0).toUpperCase() + checkAppointmentStatus(selectedAppointment).status.slice(1), getStatusIcon(checkAppointmentStatus(selectedAppointment).status))}
-                        {/* Span venue across columns for better fit */}
-                        <div className="col-span-2">
-                          {renderAppointmentDetailItem('Venue', selectedAppointment.meeting_venue_area, <MapPin />)}
-                        </div>
-                        <div className="col-span-2">
-                          {renderAppointmentDetailItem('Type', selectedAppointment.meeting_type)}
-                        </div>
+                  <div className="rounded-lg ring-1 ring-slate-100 overflow-hidden">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border-b border-slate-100">
+                      <div className="w-5 h-5 rounded-md bg-emerald-50 flex items-center justify-center">
+                        <Calendar className="h-3 w-3 text-emerald-600" />
                       </div>
-                    </CardContent>
-                  </Card>
+                      <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Meeting Details</span>
+                    </div>
+                    <div className="p-3 grid grid-cols-2 gap-x-4 gap-y-2">
+                      {renderAppointmentDetailItem('Date', selectedAppointment.meeting_date ? new Date(selectedAppointment.meeting_date).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A')}
+                      {renderAppointmentDetailItem('Day', selectedAppointment.meeting_day)}
+                      {renderAppointmentDetailItem('Start', formatTime(selectedAppointment.meeting_start_time), <Clock />)}
+                      {renderAppointmentDetailItem('End', formatTime(selectedAppointment.meeting_end_time))}
+                      {renderAppointmentDetailItem('Duration', `${selectedAppointment.meeting_duration || '?'} min`)}
+                      {renderAppointmentDetailItem('Type', selectedAppointment.meeting_type)}
+                      <div className="col-span-2">{renderAppointmentDetailItem('Venue', selectedAppointment.meeting_venue_area, <MapPin />)}</div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Column 2 */}
-                <div className="space-y-3 sm:space-y-4">
-                  {/* Agenda Card (Responsive Padding) */}
-                  <Card className="border-gray-200 shadow-sm">
-                    <CardHeader className="pb-1 pt-2 px-3 sm:pb-2 sm:pt-3 sm:px-4">
-                      <CardTitle className="text-sm sm:text-base font-semibold text-gray-700 flex items-center">
-                        <MessageSquare className="h-3.5 w-3.5 mr-1.5 sm:h-4 sm:w-4 sm:mr-2 text-purple-600" />
-                        Agenda
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="px-3 pb-2 sm:px-4 sm:pb-3">
-                      <div className="bg-gray-50 p-2 rounded-md border border-gray-200 text-xs sm:text-sm text-gray-700 max-h-24 overflow-y-auto">
-                        <p>{selectedAppointment.meeting_agenda || 'No agenda provided.'}</p>
+                <div className="space-y-3">
+                  <div className="rounded-lg ring-1 ring-slate-100 overflow-hidden">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border-b border-slate-100">
+                      <div className="w-5 h-5 rounded-md bg-purple-50 flex items-center justify-center">
+                        <MessageSquare className="h-3 w-3 text-purple-600" />
                       </div>
-                    </CardContent>
-                  </Card>
+                      <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Agenda</span>
+                    </div>
+                    <div className="p-3">
+                      <p className="text-xs text-slate-600 bg-slate-50 rounded-lg p-2.5 border border-slate-100 max-h-24 overflow-y-auto leading-relaxed">
+                        {selectedAppointment.meeting_agenda || 'No agenda provided.'}
+                      </p>
+                    </div>
+                  </div>
 
-                  {/* BCL Attendee Card (Responsive Padding) */}
-                  <Card className="border-gray-200 shadow-sm">
-                    <CardHeader className="pb-1 pt-2 px-3 sm:pb-2 sm:pt-3 sm:px-4">
-                      <CardTitle className="text-sm sm:text-base font-semibold text-gray-700 flex items-center">
-                        <UserPlus className="h-3.5 w-3.5 mr-1.5 sm:h-4 sm:w-4 sm:mr-2 text-orange-600" />
-                        BCL Attendee
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2 px-3 pb-2 sm:space-y-2.5 sm:px-4 sm:pb-3">
+                  <div className="rounded-lg ring-1 ring-slate-100 overflow-hidden">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border-b border-slate-100">
+                      <div className="w-5 h-5 rounded-md bg-orange-50 flex items-center justify-center">
+                        <UserPlus className="h-3 w-3 text-orange-600" />
+                      </div>
+                      <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">BCL Attendee</span>
+                    </div>
+                    <div className="p-3 space-y-2">
                       {renderAppointmentDetailItem('Name', selectedAppointment.bcl_attendee)}
                       {renderAppointmentDetailItem('Mobile', selectedAppointment.bcl_attendee_mobile, <Phone />)}
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
 
-                  {/* Google Meet Link Card (Responsive Padding) */}
                   {selectedAppointment.google_meet_link && (
-                    <Card className="border-gray-200 shadow-sm">
-                      <CardHeader className="pb-1 pt-2 px-3 sm:pb-2 sm:pt-3 sm:px-4">
-                        <CardTitle className="text-sm sm:text-base font-semibold text-gray-700 flex items-center">
-                          <LinkIcon className="h-3.5 w-3.5 mr-1.5 sm:h-4 sm:w-4 sm:mr-2 text-cyan-600" />
-                          Meeting Link
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="px-3 pb-2 sm:px-4 sm:pb-3">
+                    <div className="rounded-lg ring-1 ring-cyan-100 overflow-hidden">
+                      <div className="flex items-center gap-2 px-3 py-2 bg-cyan-50 border-b border-cyan-100">
+                        <div className="w-5 h-5 rounded-md bg-cyan-100 flex items-center justify-center">
+                          <Video className="h-3 w-3 text-cyan-600" />
+                        </div>
+                        <span className="text-xs font-semibold text-cyan-700 uppercase tracking-wide">Google Meet</span>
+                      </div>
+                      <div className="p-3">
                         {renderAppointmentDetailItem('Link', selectedAppointment.google_meet_link, null, true)}
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
             )}
 
-            {/* Footer Actions (Responsive Button Sizes, Flex Wrap) */}
-            <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:justify-between items-center mt-4 pt-3 sm:mt-5 sm:pt-4 border-t">
+            {/* Footer Actions */}
+            <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:justify-between items-center px-5 py-4 border-t border-slate-100 bg-slate-50/50">
               {/* Wrap action buttons for smaller screens */}
               <div className="flex flex-wrap gap-2 justify-center sm:justify-start w-full sm:w-auto">
                 {selectedAppointment?.status !== 'canceled' && selectedAppointment?.status !== 'completed' && (
@@ -1184,7 +1423,7 @@ const Dashboard = () => {
                       });
                       setRescheduleDialogOpen(true);
                     }}
-                    className="border-blue-300 text-blue-700 hover:bg-blue-50 px-3 py-1.5 text-xs sm:text-sm" // Adjusted padding/text size
+                    className="rounded-lg border-teal-200 text-teal-700 hover:bg-teal-50 px-3 py-1.5 text-xs sm:text-sm"
                   >
                     <RefreshCw className="h-3.5 w-3.5 mr-1 sm:mr-1.5" />
                     Reschedule
@@ -1223,6 +1462,35 @@ const Dashboard = () => {
                     Mark Done
                   </Button>
                 )}
+                {calendarConnectionStatus === 'connected' && selectedAppointment?.status !== 'canceled' && (
+                  selectedAppointment?.google_event_id ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleUnsyncMeeting(selectedAppointment)}
+                      disabled={syncingMeetingId === selectedAppointment?.id_main}
+                      className="border-orange-300 text-orange-700 hover:bg-orange-50 px-3 py-1.5 text-xs sm:text-sm"
+                    >
+                      {syncingMeetingId === selectedAppointment?.id_main
+                        ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />Unsyncing...</>
+                        : <><CloudOff className="h-3.5 w-3.5 mr-1" />Unsync Calendar</>
+                      }
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleSyncMeeting(selectedAppointment)}
+                      disabled={syncingMeetingId === selectedAppointment?.id_main}
+                      className="border-cyan-300 text-cyan-700 hover:bg-cyan-50 px-3 py-1.5 text-xs sm:text-sm"
+                    >
+                      {syncingMeetingId === selectedAppointment?.id_main
+                        ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />Syncing...</>
+                        : <><Cloud className="h-3.5 w-3.5 mr-1" />Sync to Calendar</>
+                      }
+                    </Button>
+                  )
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -1251,26 +1519,26 @@ const Dashboard = () => {
           </DialogContent>
         </Dialog>
 
-        {/* --- RESCHEDULE DIALOG (Responsive) --- */}
+        {/* --- RESCHEDULE DIALOG --- */}
         <Dialog open={isRescheduleDialogOpen} onOpenChange={setRescheduleDialogOpen}>
-          {/* Responsive width and padding */}
-          <DialogContent className="max-w-xs sm:max-w-sm bg-white sm:rounded-lg p-4 sm:p-5">
-            <DialogHeader className="border-b pb-2 mb-3 sm:pb-3 sm:mb-4">
-              {/* Responsive text size */}
-              <DialogTitle className="text-base sm:text-lg font-semibold text-gray-800">
+          <DialogContent className="max-w-xs sm:max-w-sm rounded-lg p-0 overflow-hidden bg-white">
+            <DialogHeader className="px-5 pt-5 pb-4 border-b border-slate-100">
+              <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <div className="w-6 h-6 rounded-md bg-teal-50 flex items-center justify-center">
+                  <RefreshCw className="h-3.5 w-3.5 text-teal-600" />
+                </div>
                 Reschedule Meeting
               </DialogTitle>
-              <DialogDescription className="text-xs sm:text-sm">
-                Update details for {selectedAppointment?.client_name}.
+              <DialogDescription className="text-xs text-slate-500 mt-0.5">
+                {selectedAppointment?.client_name}
               </DialogDescription>
             </DialogHeader>
 
-            <div className="grid grid-cols-1 gap-3 sm:gap-4 py-3 sm:py-4">
-              {/* Date & Time Input (Responsive Label/Input) */}
-              <div className="space-y-1">
-                <Label htmlFor="dateTimeLocal" className="text-xs sm:text-sm font-medium text-gray-700">New Date & Start Time</Label>
+            <div className="p-5 space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="dateTimeLocal" className="text-xs font-medium text-slate-700">New Date &amp; Start Time</Label>
                 <div className="relative">
-                  <Calendar className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-400" />
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                   <Input
                     id="dateTimeLocal"
                     name="dateTimeLocal"
@@ -1278,65 +1546,55 @@ const Dashboard = () => {
                     value={rescheduleFormData.dateTimeLocal}
                     onChange={handleRescheduleInputChange}
                     min={new Date().toISOString().slice(0, 16)}
-                    className="w-full pl-8 sm:pl-9 border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-xs sm:text-sm h-9 sm:h-10" // Adjusted padding/height
+                    className="pl-9 h-9 rounded-lg border-slate-200 text-xs focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
                   />
                 </div>
               </div>
 
-              {/* Duration Select (Responsive Label/Select) */}
-              <div className="space-y-1">
-                <Label htmlFor="meetingDuration" className="text-xs sm:text-sm font-medium text-gray-700">Duration</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="meetingDuration" className="text-xs font-medium text-slate-700">Duration</Label>
                 <div className="relative">
-                  <Clock className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-400" />
+                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 z-10" />
                   <Select
                     value={rescheduleFormData.meetingDuration}
                     onValueChange={(value) => handleRescheduleInputChange({ target: { name: 'meetingDuration', value } })}
                   >
-                    <SelectTrigger className="w-full pl-8 sm:pl-9 border-gray-300 text-xs sm:text-sm h-9 sm:h-10">
+                    <SelectTrigger className="pl-9 h-9 rounded-lg border-slate-200 text-xs">
                       <SelectValue placeholder="Select duration" />
                     </SelectTrigger>
-                    <SelectContent>
-                      {/* Smaller text in select items */}
-                      <SelectItem value="15" className="text-xs sm:text-sm">15 minutes</SelectItem>
-                      <SelectItem value="30" className="text-xs sm:text-sm">30 minutes</SelectItem>
-                      <SelectItem value="45" className="text-xs sm:text-sm">45 minutes</SelectItem>
-                      <SelectItem value="60" className="text-xs sm:text-sm">1 hour</SelectItem>
-                      <SelectItem value="90" className="text-xs sm:text-sm">1.5 hours</SelectItem>
-                      <SelectItem value="120" className="text-xs sm:text-sm">2 hours</SelectItem>
-                      <SelectItem value="180" className="text-xs sm:text-sm">3 hours</SelectItem>
-                      <SelectItem value="240" className="text-xs sm:text-sm">4 hours</SelectItem>
+                    <SelectContent className="rounded-lg">
+                      {[['15','15 minutes'],['30','30 minutes'],['45','45 minutes'],['60','1 hour'],['90','1.5 hours'],['120','2 hours'],['180','3 hours'],['240','4 hours']].map(([v, l]) => (
+                        <SelectItem key={v} value={v} className="text-xs">{l}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
-              {/* Calculated End Time (Responsive Label/Input) */}
-              <div className="space-y-1">
-                <Label htmlFor="meetingEndTime" className="text-xs sm:text-sm font-medium text-gray-700">Calculated End Time</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="meetingEndTime" className="text-xs font-medium text-slate-700">Calculated End Time</Label>
                 <Input
                   id="meetingEndTime"
-                  name="meetingEndTime"
                   value={rescheduleFormData.meetingEndTime || '--:--'}
                   readOnly
-                  className="w-full bg-gray-100 border-gray-300 text-xs sm:text-sm text-gray-500 h-9 sm:h-10" // Adjusted height
+                  className="h-9 rounded-lg bg-slate-50 border-slate-200 text-xs text-slate-500 cursor-default"
                 />
               </div>
             </div>
 
-            {/* Footer Buttons (Responsive Size) */}
-            <DialogFooter className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t flex flex-col sm:flex-row gap-2"> {/* Force row layout */}
+            <DialogFooter className="px-5 py-4 border-t border-slate-100 bg-slate-50/50 flex gap-2">
               <Button
                 variant="outline"
-                size="sm" // Consistent sm size
+                size="sm"
                 onClick={() => setRescheduleDialogOpen(false)}
-                className="flex-1 text-xs sm:text-sm" // Allow button to grow
+                className="flex-1 rounded-lg border-slate-200 text-xs h-8"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleFinalReschedule}
-                size="sm" // Consistent sm size
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm" // Allow button to grow
+                size="sm"
+                className="flex-1 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs h-8"
                 disabled={!rescheduleFormData.meetingEndTime}
               >
                 Confirm Reschedule
@@ -1346,20 +1604,20 @@ const Dashboard = () => {
         </Dialog>
 
         <AlertDialog open={isDeleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-          <AlertDialogContent>
+          <AlertDialogContent className="rounded-lg max-w-sm">
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete Meeting Permanently?</AlertDialogTitle>
-              <AlertDialogDescription>
+              <AlertDialogTitle className="text-slate-900 font-bold">Delete Meeting Permanently?</AlertDialogTitle>
+              <AlertDialogDescription className="text-slate-500 text-sm">
                 {selectedAppointment
-                  ? `This will permanently delete meeting ID ${selectedAppointment.id_main} for ${selectedAppointment.client_name}. If a Google Calendar event exists, it must be removed first. This action cannot be undone.`
+                  ? `This will permanently delete meeting ID ${selectedAppointment.id_main} for ${selectedAppointment.client_name}. If a Google Calendar event exists, it must be removed first.`
                   : 'This action cannot be undone.'}
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Keep Meeting</AlertDialogCancel>
+            <AlertDialogFooter className="gap-2">
+              <AlertDialogCancel className="rounded-lg border-slate-200 text-sm">Keep Meeting</AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleDelete}
-                className="bg-red-600 hover:bg-red-700"
+                className="rounded-lg bg-red-600 hover:bg-red-700 text-sm"
               >
                 Delete Permanently
               </AlertDialogAction>
@@ -1372,87 +1630,91 @@ const Dashboard = () => {
 };
 
 
-// --- APPOINTMENT CARD COMPONENT (Mobile Optimized Styling) ---
-const AppointmentCard = ({ appointment, onClick, getStatusColor, getStatusIcon, getBadgeStatusColor, checkAppointmentStatus }) => {
+// --- APPOINTMENT CARD COMPONENT ---
+const AppointmentCard = ({ appointment, onClick, getStatusColor, getStatusIcon, getBadgeStatusColor, checkAppointmentStatus, calendarConnectionStatus, onSync, onUnsync, isSyncing }) => {
   const displayAppointment = checkAppointmentStatus(appointment);
 
-  const getBorderColorClass = (status: string) => {
-    switch (status) {
-      case 'upcoming': return 'border-l-blue-500';
-      case 'rescheduled': return 'border-l-purple-500';
-      case 'pending': return 'border-l-yellow-500';
-      case 'canceled': return 'border-l-red-500';
-      case 'completed': return 'border-l-green-500';
-      default: return 'border-l-gray-300';
-    }
-  };
+  const accentColor = {
+    upcoming:    'bg-blue-500',
+    rescheduled: 'bg-purple-500',
+    pending:     'bg-amber-500',
+    canceled:    'bg-red-500',
+    completed:   'bg-emerald-500',
+  }[displayAppointment.status] || 'bg-slate-300';
 
   return (
     <Card
-      // Reduced border-l width for subtlety
-      className={`overflow-hidden hover:shadow-lg transition-shadow duration-200 cursor-pointer bg-white border ${getBorderColorClass(displayAppointment.status)} border-l-[3px] shadow-sm`}
+      className="group relative rounded-lg border-slate-200 bg-white shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer overflow-hidden flex flex-col"
       onClick={onClick}
     >
-      {/* Reduced padding, adjusted flex behavior for smaller screens */}
-      <CardHeader className="p-2.5 pb-1.5 flex flex-row items-start justify-between bg-gray-50/50 border-b">
-        <div className="flex-1 mr-2 overflow-hidden"> {/* Added overflow-hidden */}
-          {/* Smaller title, truncate */}
-          <CardTitle className="text-sm font-semibold text-gray-800 leading-tight truncate" title={appointment.client_name}>
+      {/* Top accent strip */}
+      <div className={`h-0.5 w-full ${accentColor}`} />
+
+      {/* Header */}
+      <div className="px-3 pt-3 pb-2 flex items-start justify-between gap-2 border-b border-slate-100">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-slate-800 truncate leading-tight" title={appointment.client_name}>
             {appointment.client_name}
-          </CardTitle>
-          {/* Smaller company text, truncate */}
-          <p className="text-[11px] text-gray-500 truncate" title={appointment.client_company}>
-            {appointment.client_company || 'No Company'}
+          </p>
+          <p className="text-[11px] text-slate-400 truncate mt-0.5" title={appointment.client_company}>
+            {appointment.client_company || '—'}
           </p>
         </div>
-        {/* Ensure badges don't push content too much */}
-        <div className="flex flex-col items-end space-y-1 flex-shrink-0 ml-1">
-          {/* Smaller badges */}
-          <Badge variant="outline" className={`text-[10px] px-1.5 py-0.5 ${getStatusColor(displayAppointment.status)} flex items-center`}>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <Badge variant="outline" className={`text-[10px] h-4 px-1.5 ${getStatusColor(displayAppointment.status)} flex items-center gap-0.5`}>
             {getStatusIcon(displayAppointment.status)}
             {displayAppointment.status.charAt(0).toUpperCase() + displayAppointment.status.slice(1)}
           </Badge>
-          <Badge variant="outline" className={`text-[10px] px-1.5 py-0.5 ${getBadgeStatusColor(appointment.badge_status)}`}>
+          <Badge variant="outline" className={`text-[10px] h-4 px-1.5 ${getBadgeStatusColor(appointment.badge_status)}`}>
             {appointment.badge_status}
           </Badge>
         </div>
-      </CardHeader>
-      {/* Reduced padding */}
-      <CardContent className="p-2.5 pt-2">
-        {/* Reduced spacing and text size */}
-        <div className="space-y-1.5 text-[11px] sm:text-xs">
-          <div className="flex items-center text-gray-600">
-            <Calendar className="h-3 w-3 mr-1.5 text-gray-400 flex-shrink-0" />
-            <span className="font-medium">
-              {new Date(appointment.meeting_date).toLocaleDateString('en-GB', { weekday: 'short', month: 'short', day: 'numeric' })}
-            </span>
-          </div>
-          <div className="flex items-center text-gray-600">
-            <Clock className="h-3 w-3 mr-1.5 text-gray-400 flex-shrink-0" />
-            <span className="font-medium">
-              {formatTime(appointment.meeting_start_time)} - {formatTime(appointment.meeting_end_time)}
-            </span>
-            <span className="ml-auto text-gray-500 text-[10px] sm:text-[11px]">({appointment.meeting_duration} min)</span>
-          </div>
-          <div className="flex items-center text-gray-600">
-            <MapPin className="h-3 w-3 mr-1.5 text-gray-400 flex-shrink-0" />
-            <span className="font-medium truncate" title={appointment.meeting_venue_area}>
-              {appointment.meeting_venue_area || 'N/A'}
-            </span>
-          </div>
-          {/* Improved agenda display with truncation */}
-          <div className="flex items-start text-gray-600">
-            <MessageSquare className="h-3 w-3 mr-1.5 text-gray-400 mt-[1px] flex-shrink-0" />
-            <span className="line-clamp-2" title={appointment.meeting_agenda}> {/* Show 2 lines max */}
-              {appointment.meeting_agenda || 'No agenda'}
-            </span>
-          </div>
+      </div>
+
+      {/* Body */}
+      <div className="px-3 py-2.5 flex-1 space-y-1.5 text-xs text-slate-600">
+        <div className="flex items-center gap-1.5">
+          <Calendar className="h-3 w-3 text-slate-300 shrink-0" />
+          <span className="font-medium text-slate-700">
+            {new Date(appointment.meeting_date).toLocaleDateString('en-GB', { weekday: 'short', month: 'short', day: 'numeric' })}
+          </span>
         </div>
-      </CardContent>
-      {/* Smaller footer with sync button */}
-      <div className="bg-gray-50/70 px-2.5 py-1 text-[10px] text-gray-400 border-t flex justify-between items-center">
-        <span>ID: {appointment.id_main}</span>
-        <span>Auto-sync enabled</span>
+        <div className="flex items-center gap-1.5">
+          <Clock className="h-3 w-3 text-slate-300 shrink-0" />
+          <span className="font-medium text-slate-700">{formatTime(appointment.meeting_start_time)} – {formatTime(appointment.meeting_end_time)}</span>
+          <span className="ml-auto text-[10px] text-slate-400">{appointment.meeting_duration}m</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <MapPin className="h-3 w-3 text-slate-300 shrink-0" />
+          <span className="truncate text-slate-600" title={appointment.meeting_venue_area}>{appointment.meeting_venue_area || 'N/A'}</span>
+        </div>
+        <div className="flex items-start gap-1.5">
+          <MessageSquare className="h-3 w-3 text-slate-300 mt-px shrink-0" />
+          <span className="line-clamp-2 text-slate-500" title={appointment.meeting_agenda}>{appointment.meeting_agenda || 'No agenda'}</span>
+        </div>
+      </div>
+
+      {/* Footer — sync status */}
+      <div className="px-3 py-2 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between gap-2">
+        <span className="text-[10px] text-slate-400">#{appointment.id_main}</span>
+        <div className="flex items-center gap-1.5">
+          {appointment.google_event_id ? (
+            <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-600 font-medium">
+              <Calendar className="w-2.5 h-2.5" />Synced
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-0.5 text-[10px] text-slate-400">
+              <Calendar className="w-2.5 h-2.5" />Not Synced
+            </span>
+          )}
+          {calendarConnectionStatus === 'connected' && (
+            isSyncing
+              ? <Loader2 className="w-3 h-3 text-slate-400 animate-spin" />
+              : appointment.google_event_id
+                ? <button onClick={(e) => { e.stopPropagation(); onUnsync(appointment); }} className="text-[10px] text-red-500 hover:text-red-700 font-medium leading-none">Unsync</button>
+                : <button onClick={(e) => { e.stopPropagation(); onSync(appointment); }} className="text-[10px] text-blue-500 hover:text-blue-700 font-medium leading-none">Sync</button>
+          )}
+        </div>
       </div>
     </Card>
   );

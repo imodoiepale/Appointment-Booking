@@ -1,20 +1,20 @@
 // app/layout.tsx
 import type { Metadata, Viewport } from 'next'
-import { Inter, Poppins } from 'next/font/google'
+import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
-import Header from '../components/Header'
 import { ThemeProvider } from "@/components/theme-provider"
-import Sidebar from '@/components/Sidebar'
-import { NotificationProvider } from '@/components/NotificationSystem'
-import { Toaster } from "@/components/ui/toaster"
-import ClerkProviderWrapper from '../components/ClerkProviderWrapper'
+import AppShell from '@/components/AppShell'
 
-// Using Inter for a clean, modern look like in the reference design
-const inter = Inter({
-  weight: ['400', '500', '600', '700'],
+const geist = Geist({
   subsets: ['latin'],
   display: 'swap',
-  variable: '--font-inter',
+  variable: '--font-geist',
+})
+
+const geistMono = Geist_Mono({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-geist-mono',
 })
 
 export const metadata: Metadata = {
@@ -39,25 +39,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased bg-gray-100 overflow-x-hidden`}>
+      <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased bg-slate-100 overflow-x-hidden`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="light"
           enableSystem={false}
           disableTransitionOnChange
         >
-          <NotificationProvider>
-            <div className="flex min-h-screen bg-gray-50 w-full overflow-x-hidden">
-              <Sidebar />
-              <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                <Header />
-                <main className="flex-1 p-4 lg:p-6 overflow-auto">
-                  {children}
-                </main>
-              </div>
-            </div>
-            <Toaster />
-          </NotificationProvider>
+          <AppShell>{children}</AppShell>
         </ThemeProvider>
       </body>
     </html>

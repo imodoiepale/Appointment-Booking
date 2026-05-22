@@ -28,12 +28,19 @@ export async function POST(request: NextRequest) {
       meeting_date: meetingData.meeting_date,
       meeting_start_time: meetingData.meeting_start_time,
       meeting_end_time: meetingData.meeting_end_time,
+      meeting_duration: meetingData.meeting_duration,
+      meeting_slot_start_time: meetingData.meeting_slot_start_time,
+      meeting_slot_end_time: meetingData.meeting_slot_end_time,
+      venue_distance: meetingData.venue_distance,
+      meeting_day: meetingData.meeting_day,
       meeting_agenda: meetingData.meeting_agenda,
       meeting_venue_area: meetingData.meeting_venue_area,
       meeting_type: (meetingData.meeting_type === 'inPerson' ? 'physical' : 'virtual') as 'physical' | 'virtual',
       client_mobile: meetingData.client_mobile,
       status: meetingData.status,
       badge_status: meetingData.badge_status,
+      created_by: meetingData.created_by,
+      updated_by: meetingData.updated_by,
     };
 
     const eventId = await createGoogleCalendarEvent(meetingForSync);
@@ -89,12 +96,19 @@ export async function PUT(request: NextRequest) {
       meeting_date: meetingData.meeting_date,
       meeting_start_time: meetingData.meeting_start_time,
       meeting_end_time: meetingData.meeting_end_time,
+      meeting_duration: meetingData.meeting_duration,
+      meeting_slot_start_time: meetingData.meeting_slot_start_time,
+      meeting_slot_end_time: meetingData.meeting_slot_end_time,
+      venue_distance: meetingData.venue_distance,
+      meeting_day: meetingData.meeting_day,
       meeting_agenda: meetingData.meeting_agenda,
       meeting_venue_area: meetingData.meeting_venue_area,
       meeting_type: (meetingData.meeting_type === 'inPerson' ? 'physical' : 'virtual') as 'physical' | 'virtual',
       client_mobile: meetingData.client_mobile,
       status: meetingData.status,
       badge_status: meetingData.badge_status,
+      created_by: meetingData.created_by,
+      updated_by: meetingData.updated_by,
     };
 
     const eventId = await updateGoogleCalendarEvent(meetingForSync);

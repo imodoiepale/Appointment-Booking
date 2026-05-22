@@ -11,6 +11,11 @@ interface MeetingEvent {
   meeting_date: string;
   meeting_start_time: string;
   meeting_end_time: string;
+  meeting_duration?: number;
+  meeting_slot_start_time?: string;
+  meeting_slot_end_time?: string;
+  venue_distance?: string;
+  meeting_day?: string;
   client_name: string;
   client_company: string;
   meeting_agenda: string;
@@ -19,6 +24,8 @@ interface MeetingEvent {
   client_mobile?: string;
   status?: string;
   badge_status?: string;
+  created_by?: string;
+  updated_by?: string;
 }
 
 interface NotificationData {
@@ -66,39 +73,89 @@ async function getGoogleCalendarClient() {
   return google.calendar({ version: 'v3', auth: oauth2Client });
 }
 
+function toHHMM(t: string | undefined): string {
+  if (!t) return '--:--';
+  const parts = t.split(':');
+  return `${parts[0]}:${parts[1]}`;
+}
+
+function calcTravelMinutes(slotTime: string | undefined, meetingTime: string): number {
+  if (!slotTime) return 0;
+  const [sh, sm] = slotTime.split(':').map(Number);
+  const [mh, mm] = meetingTime.split(':').map(Number);
+  return Math.abs((mh * 60 + mm) - (sh * 60 + sm));
+}
+
 function buildEventDescription(meeting: MeetingEvent) {
-  return [
-    'Meeting Details:',
-    `- Client: ${meeting.client_name}`,
-    `- Company: ${meeting.client_company}`,
-    `- Agenda: ${meeting.meeting_agenda}`,
-    `- Venue: ${meeting.meeting_venue_area}`,
-    `- Type: ${meeting.meeting_type}`,
-    `- Mobile: ${meeting.client_mobile || 'N/A'}`,
-    `- Status: ${meeting.status || 'upcoming'}`,
-    `- Badge Status: ${meeting.badge_status || 'Open'}`,
-  ].join('\n');
+  const hasSlot = !!(meeting.meeting_slot_start_time && meeting.meeting_slot_end_time);
+  const travelMins = hasSlot ? calcTravelMinutes(meeting.meeting_slot_start_time, meeting.meeting_start_time) : 0;
+
+  const lines: string[] = [
+    '── SCHEDULE ──',
+  ];
+
+  if (hasSlot) {
+    lines.push(`Slot Time:    ${toHHMM(meeting.meeting_slot_start_time)} → ${toHHMM(meeting.meeting_slot_end_time)}  (includes travel each way)`);
+    lines.push(`Meeting Time: ${toHHMM(meeting.meeting_start_time)} → ${toHHMM(meeting.meeting_end_time)}  (${meeting.meeting_duration ?? '?'} min)`);
+    lines.push(`Travel Time:  ${travelMins} min each way`);
+  } else {
+    lines.push(`Meeting Time: ${toHHMM(meeting.meeting_start_time)} → ${toHHMM(meeting.meeting_end_time)}  (${meeting.meeting_duration ?? '?'} min)`);
+  }
+
+  lines.push(
+    '',
+    '── CLIENT ──',
+    `Name:    ${meeting.client_name}`,
+    `Company: ${meeting.client_company}`,
+    `Mobile:  ${meeting.client_mobile || 'N/A'}`,
+    '',
+    '── VENUE ──',
+    `Location: ${meeting.meeting_venue_area}`,
+    `Type:     ${meeting.meeting_type === 'virtual' ? 'Virtual / Online' : 'In Person'}`,
+    ...(meeting.venue_distance ? [`Distance: ${meeting.venue_distance}`] : []),
+    '',
+    '── AGENDA ──',
+    meeting.meeting_agenda || 'No agenda provided.',
+    '',
+    '── STATUS ──',
+    `Meeting Status: ${meeting.status || 'upcoming'}`,
+    `Confirmation:   ${meeting.badge_status || 'Open'}`,
+    '',
+    '── TRACKING ──',
+    ...(meeting.created_by ? [`Created by: ${meeting.created_by}`] : []),
+    ...(meeting.updated_by ? [`Updated by: ${meeting.updated_by}`] : []),
+  );
+
+  return lines.join('\n');
 }
 
 function buildCalendarEvent(meeting: MeetingEvent) {
+  // Use slot times (which include travel) if available, otherwise fall back to meeting times
+  const eventStart = toHHMM(meeting.meeting_slot_start_time) !== '--:--'
+    ? meeting.meeting_slot_start_time!
+    : meeting.meeting_start_time;
+  const eventEnd = toHHMM(meeting.meeting_slot_end_time) !== '--:--'
+    ? meeting.meeting_slot_end_time!
+    : meeting.meeting_end_time;
+
   return {
     summary: `Meeting with ${meeting.client_name} - ${meeting.client_company}`,
     description: buildEventDescription(meeting),
     start: {
-      dateTime: `${meeting.meeting_date}T${meeting.meeting_start_time}:00+03:00`,
+      dateTime: `${meeting.meeting_date}T${toHHMM(eventStart)}:00+03:00`,
       timeZone: 'Africa/Nairobi',
     },
     end: {
-      dateTime: `${meeting.meeting_date}T${meeting.meeting_end_time}:00+03:00`,
+      dateTime: `${meeting.meeting_date}T${toHHMM(eventEnd)}:00+03:00`,
       timeZone: 'Africa/Nairobi',
     },
     reminders: {
       useDefault: false,
       overrides: [
+        { method: 'email', minutes: 60 },
         { method: 'popup', minutes: 60 },
+        { method: 'email', minutes: 30 },
         { method: 'popup', minutes: 30 },
-        { method: 'popup', minutes: 10 },
-        { method: 'popup', minutes: 5 },
       ],
     },
     ...(meeting.meeting_type === 'virtual' && {
@@ -129,6 +186,8 @@ export async function createGoogleCalendarEvent(meeting: MeetingEvent): Promise<
       .update({
         google_event_id: eventId,
         google_meet_link: meetLink,
+        ...(meeting.created_by ? { created_by: meeting.created_by } : {}),
+        ...(meeting.updated_by ? { updated_by: meeting.updated_by } : {}),
       })
       .eq('id_main', meeting.id_main);
 
@@ -236,6 +295,7 @@ export async function updateGoogleCalendarEvent(meeting: MeetingEvent): Promise<
       .from('bcl_meetings_meetings')
       .update({
         google_meet_link: meetLink,
+        ...(meeting.updated_by ? { updated_by: meeting.updated_by } : {}),
       })
       .eq('id_main', meeting.id_main);
 

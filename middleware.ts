@@ -1,27 +1,38 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 
-// import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+const AUTH_SESSION_COOKIE_NAME =
+  process.env.AUTH_SESSION_COOKIE_NAME ?? "bcl_auth_session";
 
-// const isPublicRoute = createRouteMatcher(["/"]);
+// Routes that don't require authentication
+const PUBLIC_PATHS = [
+  "/login",
+  "/api/auth/login",
+  "/api/auth/logout",
+  "/api/auth/session",
+  "/api/auth/google",          // Google Calendar OAuth flow
+  "/calendar-auth-success",    // OAuth callback redirect target
+];
 
-// Temporarily disable middleware completely
+function isPublicPath(pathname: string): boolean {
+  return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
+}
+
 export default function middleware(req: NextRequest) {
-  // Let all requests pass through
+  const { pathname } = req.nextUrl;
+
+  if (isPublicPath(pathname)) {
+    return NextResponse.next();
+  }
+
+  const sessionCookie = req.cookies.get(AUTH_SESSION_COOKIE_NAME)?.value;
+  if (!sessionCookie) {
+    const loginUrl = new URL("/login", req.url);
+    return NextResponse.redirect(loginUrl);
+  }
+
   return NextResponse.next();
 }
 
-// export default clerkMiddleware((auth, req) => {
-//   // Skip auth protection for now to debug the headers issue
-//   // if (!isPublicRoute(req)) {
-//   //   auth().protect()
-//   // }
-// });
-
 export const config = {
-  matcher: [
-    // Skip Next.js internals and all static files, unless found in search params
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-    // Always run for API routes
-    "/(api|trpc)(.*)"
-  ]
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)"],
 };

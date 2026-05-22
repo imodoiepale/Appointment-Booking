@@ -6,14 +6,12 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 // import { UserButton } from '@clerk/nextjs';
 import {
-    LayoutDashboard,
     Calendar,
     PlusCircle,
-    Users,
-    Settings,
     HelpCircle,
     Menu,
-    X
+    X,
+    CalendarDays,
 } from 'lucide-react';
 
 const Sidebar = () => {
@@ -38,61 +36,65 @@ const Sidebar = () => {
             {/* Mobile sidebar toggle */}
             <button
                 onClick={toggleSidebar}
-                className="fixed z-50 bottom-4 right-4 lg:hidden bg-teal-500 text-white p-3 rounded-full shadow-lg hover:bg-teal-600 transition-colors"
+                className="fixed bottom-4 right-4 z-50 rounded-full bg-[#0DAA8A] p-3 text-white shadow-lg shadow-[#0DAA8A]/25 transition-colors hover:bg-[#0B9579] lg:hidden"
             >
                 {expanded ? <X size={24} /> : <Menu size={24} />}
             </button>
 
             <div
-                className={`fixed inset-y-0 left-0 z-40 transition-all duration-300 ease-in-out transform bg-white shadow-lg lg:shadow-none lg:translate-x-0 lg:static lg:inset-auto lg:flex-shrink-0 w-64 ${expanded ? 'translate-x-0' : '-translate-x-full'
+                className={`fixed inset-y-0 left-0 z-40 w-72 transform border-r border-slate-200 bg-white/95 shadow-xl backdrop-blur transition-all duration-300 ease-in-out lg:static lg:inset-auto lg:w-68 lg:flex-shrink-0 lg:translate-x-0 lg:shadow-none ${expanded ? 'translate-x-0' : '-translate-x-full'
                     }`}
             >
                 <div className="flex flex-col h-screen max-h-screen overflow-hidden">
                     {/* Brand/Logo */}
-                    <div className="flex items-center p-4 border-b">
-                        <div className="bg-teal-500 text-white p-2 rounded-md mr-2">
+                    <div className="border-b border-slate-100 p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0DAA8A] text-white shadow-lg shadow-[#0DAA8A]/20">
                             <Calendar size={20} />
                         </div>
-                        <h1 className="text-lg font-bold text-gray-800">BCL Appointments</h1>
+                        <div className="min-w-0">
+                          <h1 className="truncate text-base font-bold text-slate-950">BCL Appointments</h1>
+                          <p className="text-xs text-slate-500">Meetings control center</p>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Navigation */}
-                    <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
+                    <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
                         {navigation.map((item) => {
                             const isActive = pathname === item.href;
                             return (
                                 <Link
                                     key={item.name}
                                     href={item.href}
-                                    className={`flex items-center px-4 py-3 text-sm rounded-md transition-colors ${isActive
-                                        ? 'bg-teal-50 text-teal-600'
-                                        : 'text-gray-600 hover:bg-gray-100'
+                                    className={`group flex items-center rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${isActive
+                                        ? 'bg-[#0DAA8A]/10 text-[#087963] ring-1 ring-[#0DAA8A]/15'
+                                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
                                         }`}
                                 >
                                     <item.icon
                                         size={18}
-                                        className={`mr-3 ${isActive ? 'text-teal-500' : 'text-gray-400'}`}
+                                        className={`mr-3 ${isActive ? 'text-[#0DAA8A]' : 'text-slate-400 group-hover:text-slate-600'}`}
                                     />
                                     <span>{item.name}</span>
-                                    {/* {item.badge && (
-                                        <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                                            {item.badge}
-                                        </span>
-                                    )} */}
                                 </Link>
                             );
                         })}
                     </nav>
 
                     {/* New Appointment Button */}
-                    <div className="px-4 py-4 border-t">
+                    <div className="border-t border-slate-100 p-4">
                         <Link
                             href="/schedule"
-                            className="flex items-center justify-center w-full px-4 py-2 text-sm font-medium text-white bg-teal-500 rounded-md hover:bg-teal-600 transition-colors"
+                            className="flex w-full items-center justify-center rounded-xl bg-[#0DAA8A] px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#0DAA8A]/20 transition-colors hover:bg-[#0B9579]"
                         >
                             <PlusCircle size={18} className="mr-2" />
                             New Appointment
                         </Link>
+                        <div className="mt-3 flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                          <CalendarDays className="h-4 w-4 text-[#0DAA8A]" />
+                          Synced scheduling workspace
+                        </div>
                     </div>
 
                     {/* User Profile */}
@@ -109,7 +111,7 @@ const Sidebar = () => {
             {/* Overlay for mobile */}
             {expanded && (
                 <div
-                    className="fixed inset-0 z-30 bg-black/50 lg:hidden"
+                    className="fixed inset-0 z-30 bg-slate-950/50 backdrop-blur-sm lg:hidden"
                     onClick={toggleSidebar}
                 ></div>
             )}
