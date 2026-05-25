@@ -10,6 +10,11 @@ const PUBLIC_PATHS = [
   "/api/auth/logout",
   "/api/auth/session",
   "/api/auth/google",          // Google Calendar OAuth flow
+  "/api/meetings",             // Mobile app meeting fetch/manage API
+  "/api/companies",            // Mobile app company dropdown API
+  "/api/meeting-notifications",
+  "/api/auto-sync-calendar",
+  "/api/sync-to-calendar",
   "/calendar-auth-success",    // OAuth callback redirect target
 ];
 

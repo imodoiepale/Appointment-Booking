@@ -643,9 +643,9 @@ const BookingScheduler = () => {
         const Tag = type === 'textarea' ? Textarea : Input; // Use Textarea if type is 'textarea'
         return (
             <div className="space-y-1.5">
-                <Label htmlFor={id} className={isInvalid ? 'text-red-600' : 'text-gray-700'}>{label}</Label>
+                <Label htmlFor={id} className={`text-xs font-semibold uppercase tracking-wide ${isInvalid ? 'text-red-600' : 'text-slate-500'}`}>{label}</Label>
                 <div className="relative">
-                    {Icon && <Icon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />}
+                    {Icon && <Icon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />}
                     <Tag
                         id={id}
                         name={id}
@@ -654,7 +654,7 @@ const BookingScheduler = () => {
                         onChange={handleChange}
                         placeholder={placeholder || `Enter ${label.toLowerCase()}`}
                         readOnly={readOnly}
-                        className={`${Icon ? 'pl-9' : ''} ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''} ${isInvalid ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'} ${className}`}
+                        className={`h-11 rounded-lg text-sm ${Icon ? 'pl-9' : ''} ${readOnly ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : 'bg-white'} ${isInvalid ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-slate-200 focus:border-[#0DAA8A] focus:ring-[#0DAA8A]/20'} ${className}`}
                         rows={type === 'textarea' ? 3 : undefined} // Add rows prop for Textarea
                     />
                     {children}
@@ -668,11 +668,11 @@ const BookingScheduler = () => {
         const { placeholder, items, icon: Icon, isInvalid = false, loading = false, loadingPlaceholder = "Loading...", onValueChange } = options;
         return (
             <div className="space-y-1.5">
-                <Label htmlFor={id} className={isInvalid ? 'text-red-600' : 'text-gray-700'}>{label}</Label>
+                <Label htmlFor={id} className={`text-xs font-semibold uppercase tracking-wide ${isInvalid ? 'text-red-600' : 'text-slate-500'}`}>{label}</Label>
                 <div className="relative">
-                    {Icon && <Icon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 z-10 pointer-events-none" />}
+                    {Icon && <Icon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 z-10 pointer-events-none" />}
                     {loading ? (
-                        <Button variant="outline" disabled className={`w-full justify-start font-normal ${Icon ? 'pl-9' : ''}`}>
+                        <Button variant="outline" disabled className={`h-11 w-full justify-start rounded-lg border-slate-200 bg-slate-50 font-normal text-slate-500 ${Icon ? 'pl-9' : ''}`}>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             {loadingPlaceholder}
                         </Button>
@@ -682,10 +682,10 @@ const BookingScheduler = () => {
                             onValueChange={onValueChange}
                             name={id} // Add name prop for potential form handling libraries
                         >
-                            <SelectTrigger className={`${Icon ? 'pl-9' : ''} ${isInvalid ? 'border-red-500 text-red-600 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'}`}>
+                            <SelectTrigger className={`h-11 rounded-lg text-sm ${Icon ? 'pl-9' : ''} ${isInvalid ? 'border-red-500 text-red-600 focus:border-red-500 focus:ring-red-500' : 'border-slate-200 focus:border-[#0DAA8A] focus:ring-[#0DAA8A]/20'}`}>
                                 <SelectValue placeholder={placeholder} />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent className="rounded-lg">
                                 {items.map((item) => (
                                     <SelectItem key={item.value} value={item.value}>
                                         {item.label}
@@ -731,7 +731,7 @@ const BookingScheduler = () => {
 
     // --- Main Return ---
     return (
-        <div className="min-h-screen bg-gray-100 ">
+        <div className="min-h-screen bg-slate-50 px-3 py-4 sm:px-5 lg:px-8">
             <Toaster />
 
             {/* Voice control indicator */}
@@ -758,24 +758,42 @@ const BookingScheduler = () => {
             </div> */}
 
             <div className="mx-auto max-w-6xl">
-                <Card className="bg-white shadow-lg border border-gray-200 p-4 md:p-4 lg:p-4 overflow-hidden">
-                    <CardHeader className="bg-gray-50 border-b border-gray-200 p-4 sm:p-6">
-                        <CardTitle className="text-xl sm:text-2xl font-bold text-center text-gray-800">
-                            Schedule New Meeting
-                        </CardTitle>
-                        <CardDescription className="text-center text-sm text-gray-500 mt-1">
-                            Complete the steps below to book an appointment.
-                        </CardDescription>
+                <Card className="overflow-hidden rounded-lg border-slate-200 bg-white shadow-sm">
+                    <CardHeader className="border-b border-slate-100 bg-white p-4 sm:p-6">
+                        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                            <div>
+                                <div className="mb-3 inline-flex items-center gap-2 rounded-lg bg-[#0DAA8A]/10 px-2.5 py-1 text-xs font-semibold text-[#087963] ring-1 ring-[#0DAA8A]/15">
+                                    <Calendar className="h-3.5 w-3.5" />
+                                    Booksmart Scheduler
+                                </div>
+                                <CardTitle className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
+                                    Schedule New Meeting
+                                </CardTitle>
+                                <CardDescription className="mt-1 text-sm text-slate-500">
+                                    Capture the client, attendee, slot, and agenda details in one guided flow.
+                                </CardDescription>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-xs sm:flex">
+                                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                                    <p className="font-semibold text-slate-950">{formData.meetingDate || 'No date'}</p>
+                                    <p className="text-slate-500">Meeting date</p>
+                                </div>
+                                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                                    <p className="font-semibold text-slate-950">{formData.meetingStartTime || '--:--'}</p>
+                                    <p className="text-slate-500">Start time</p>
+                                </div>
+                            </div>
+                        </div>
                     </CardHeader>
 
                     {/* Progress & Step Indicator Section */}
-                    <div className="px-4 sm:px-6 pt-4 pb-2 border-b border-gray-200">
+                    <div className="border-b border-slate-100 bg-slate-50/70 px-4 pb-3 pt-4 sm:px-6">
                         {/* Step indicators */}
-                        <div className="flex items-center justify-between mb-4">
+                        <div className="mb-1 flex items-center justify-between overflow-x-auto pb-1">
                             {steps.map((step, index) => (
                                 <React.Fragment key={step.id}>
                                     <div
-                                        className={`flex flex-col items-center cursor-pointer transition-colors duration-300 ${activeStep >= step.id ? 'text-blue-600' : 'text-gray-400 hover:text-gray-500'}`}
+                                        className={`min-w-[72px] flex flex-col items-center cursor-pointer transition-colors duration-300 ${activeStep >= step.id ? 'text-[#0DAA8A]' : 'text-slate-400 hover:text-slate-500'}`}
                                         onClick={() => {
                                             // Allow navigation only to completed or current steps
                                             if (activeStep > step.id || validateStep(step.id - 1)) { // Check if previous step is valid
@@ -787,17 +805,17 @@ const BookingScheduler = () => {
                                             }
                                         }}
                                     >
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 mb-1 relative transition-all duration-300 ${activeStep === step.id ? 'bg-blue-600 border-blue-600 text-white scale-110' :
-                                            activeStep > step.id ? 'bg-blue-100 border-blue-600 text-blue-600' :
-                                                'bg-white border-gray-300 text-gray-400'
+                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center border mb-1 relative transition-all duration-300 ${activeStep === step.id ? 'bg-[#0DAA8A] border-[#0DAA8A] text-white shadow-sm' :
+                                            activeStep > step.id ? 'bg-[#0DAA8A]/10 border-[#0DAA8A]/30 text-[#087963]' :
+                                                'bg-white border-slate-200 text-slate-400'
                                             }`}>
                                             {activeStep > step.id ? <Check className="h-5 w-5" /> : <step.icon className="h-4 w-4" />}
                                         </div>
-                                        <span className="text-xs font-medium text-center hidden sm:block">{step.name}</span>
+                                        <span className="hidden text-center text-xs font-semibold sm:block">{step.name}</span>
                                     </div>
                                     {/* Connector Line */}
                                     {index < steps.length - 1 && (
-                                        <div className={`flex-1 h-0.5 mx-2 transition-colors duration-300 ${activeStep > index ? 'bg-blue-600' : 'bg-gray-300'}`}></div>
+                                        <div className={`mx-2 h-px min-w-8 flex-1 transition-colors duration-300 ${activeStep > index ? 'bg-[#0DAA8A]' : 'bg-slate-200'}`}></div>
                                     )}
                                 </React.Fragment>
                             ))}
@@ -818,21 +836,21 @@ const BookingScheduler = () => {
                         </div>
                     )} */}
 
-                    <CardContent className="p-1 sm:p-6">
+                    <CardContent className="p-4 sm:p-6">
                         <form onSubmit={handleSubmit} noValidate>
                             {/* Step Content */}
                             <div className="min-h-[300px]"> {/* Ensure minimum height for content area */}
                                 {/* Step 1: Basic Info */}
                                 {activeStep === 0 && (
-                                    <div className="space-y-4 animate-fadeIn">
-                                        <h3 className="text-lg font-semibold text-gray-700 mb-3">Basic Information</h3>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="animate-fadeIn space-y-4">
+                                        <h3 className="mb-3 text-base font-bold text-slate-900">Basic Information</h3>
+                                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                             {renderInputField('bookingDate', 'Booking Date', { readOnly: true, icon: Calendar })}
                                             {renderInputField('bookingDay', 'Booking Day', { readOnly: true, icon: Calendar })}
                                             <div className="space-y-1.5">
-                                                <Label htmlFor="meetingDate" className={invalidFields.includes('meetingDate') ? 'text-red-600' : 'text-gray-700'}>Meeting Date *</Label>
+                                                <Label htmlFor="meetingDate" className={`text-xs font-semibold uppercase tracking-wide ${invalidFields.includes('meetingDate') ? 'text-red-600' : 'text-slate-500'}`}>Meeting Date *</Label>
                                                 <div className="relative">
-                                                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                                                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                                                     <Input
                                                         id="meetingDate"
                                                         name="meetingDate"
@@ -840,7 +858,7 @@ const BookingScheduler = () => {
                                                         min={new Date().toISOString().split('T')[0]}
                                                         value={formData.meetingDate}
                                                         onChange={(e) => handleMeetingDateChange(e.target.value ? new Date(e.target.value) : null)}
-                                                        className={`w-full pl-9 ${invalidFields.includes('meetingDate') ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'}`}
+                                                        className={`h-11 rounded-lg pl-9 text-sm ${invalidFields.includes('meetingDate') ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-slate-200 focus:border-[#0DAA8A] focus:ring-[#0DAA8A]/20'}`}
                                                     />
                                                 </div>
                                                 {invalidFields.includes('meetingDate') && <p className="text-xs text-red-500 mt-1">This field is required.</p>}
@@ -876,9 +894,9 @@ const BookingScheduler = () => {
 
                                 {/* Step 2: Client Details */}
                                 {activeStep === 1 && (
-                                    <div className="space-y-4 animate-fadeIn">
-                                        <h3 className="text-lg font-semibold text-gray-700 mb-3">Client Information</h3>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="animate-fadeIn space-y-4">
+                                        <h3 className="mb-3 text-base font-bold text-slate-900">Client Information</h3>
+                                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                             {renderInputField('clientName', 'Client Name *', { icon: User, isInvalid: invalidFields.includes('clientName') })}
                                             {renderSelectField('companyType', 'Company Type *', {
                                                 placeholder: 'Select Company Type',
@@ -927,25 +945,25 @@ const BookingScheduler = () => {
 
                                 {/* Step 3: Scheduling */}
                                 {activeStep === 2 && (
-                                    <div className="space-y-4 animate-fadeIn">
-                                        <h3 className="text-lg font-semibold text-gray-700 mb-3">Scheduling Details</h3>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="animate-fadeIn space-y-4">
+                                        <h3 className="mb-3 text-base font-bold text-slate-900">Scheduling Details</h3>
+                                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                             {/* Modified Meeting Start Time with single flexible input */}
                                             <div className="space-y-1.5">
-                                                <Label htmlFor="meetingStartTime" className={invalidFields.includes('meetingStartTime') ? 'text-red-600' : 'text-gray-700'}>Meeting Start Time *</Label>
+                                                <Label htmlFor="meetingStartTime" className={`text-xs font-semibold uppercase tracking-wide ${invalidFields.includes('meetingStartTime') ? 'text-red-600' : 'text-slate-500'}`}>Meeting Start Time *</Label>
                                                 <div className="relative">
-                                                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                                                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                                                     <Input
                                                         id="meetingStartTime"
                                                         name="meetingStartTime"
                                                         type="time"
                                                         value={formData.meetingStartTime}
                                                         onChange={(e) => handleMeetingStartTimeChange(e.target.value)}
-                                                        className={`w-full pl-9 ${invalidFields.includes('meetingStartTime') ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'}`}
+                                                        className={`h-11 rounded-lg pl-9 text-sm ${invalidFields.includes('meetingStartTime') ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-slate-200 focus:border-[#0DAA8A] focus:ring-[#0DAA8A]/20'}`}
                                                         placeholder="Enter time (HH:MM)"
                                                     />
                                                 </div>
-                                                <div className="text-xs text-gray-500 mt-1">
+                                                <div className="mt-1 text-xs text-slate-500">
                                                     Enter in 24-hour format (e.g., 09:00, 14:30)
                                                 </div>
                                                 {invalidFields.includes('meetingStartTime') && <p className="text-xs text-red-500 mt-1">This field is required.</p>}
@@ -1010,10 +1028,10 @@ const BookingScheduler = () => {
 
                                 {/* Step 4: Confirmation */}
                                 {activeStep === 3 && (
-                                    <div className="space-y-5 animate-fadeIn">
-                                        <h3 className="text-lg font-semibold text-gray-700 mb-3">Confirm Meeting Details</h3>
+                                    <div className="animate-fadeIn space-y-5">
+                                        <h3 className="mb-3 text-base font-bold text-slate-900">Confirm Meeting Details</h3>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                                             {/* Simplified Confirmation Display */}
                                             <ConfirmationItem label="Client" value={formData.clientName} />
                                             <ConfirmationItem label="Company" value={formData.companyType === 'new' ? formData.otherClientCompany : formData.clientCompany} />
@@ -1032,13 +1050,13 @@ const BookingScheduler = () => {
 
                                         {/* Status Messages */}
                                         {formStatus === 'success' && (
-                                            <div className="mt-4 bg-blue-50 border border-blue-300 text-blue-700 px-4 py-3 rounded-md flex items-center" role="alert">
-                                                <Check className="h-5 w-5 mr-2 text-blue-600" />
+                                            <div className="mt-4 flex items-center rounded-lg border border-[#0DAA8A]/25 bg-[#0DAA8A]/10 px-4 py-3 text-[#087963]" role="alert">
+                                                <Check className="h-5 w-5 mr-2 text-[#0DAA8A]" />
                                                 <p><strong className="font-semibold">Success!</strong> Meeting scheduled.</p>
                                             </div>
                                         )}
                                         {formStatus === 'error' && (
-                                            <div className="mt-4 bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-md flex items-center" role="alert">
+                                            <div className="mt-4 flex items-center rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700" role="alert">
                                                 <Info className="h-5 w-5 mr-2 text-red-600" />
                                                 <p><strong className="font-semibold">Error!</strong> Failed to schedule. Please try again.</p>
                                             </div>
@@ -1049,13 +1067,13 @@ const BookingScheduler = () => {
                         </form>
                     </CardContent>
 
-                    <CardFooter className="bg-gray-50 border-t border-gray-200 p-4 flex justify-between items-center">
+                    <CardFooter className="flex items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/80 p-4">
                         <Button
                             type="button"
                             variant="outline"
                             onClick={prevStep}
                             disabled={activeStep === 0 || formStatus === 'submitting'}
-                            className="flex items-center"
+                            className="flex h-10 items-center rounded-lg border-slate-200 text-slate-600 hover:bg-white"
                         >
                             <ChevronLeft className="h-4 w-4 mr-1" />
                             Previous
@@ -1066,7 +1084,7 @@ const BookingScheduler = () => {
                                 type="button"
                                 onClick={nextStep}
                                 disabled={formStatus === 'submitting'}
-                                className="flex items-center bg-blue-600 hover:bg-blue-700 text-white"
+                                className="flex h-10 items-center rounded-lg bg-[#0DAA8A] text-white hover:bg-[#0B9579]"
                             >
                                 Next
                                 <ChevronRight className="h-4 w-4 ml-1" />
@@ -1076,7 +1094,7 @@ const BookingScheduler = () => {
                                 type="button" // Changed from submit to prevent default form submission
                                 onClick={handleSubmit} // Trigger validation and submission logic
                                 disabled={formStatus === 'submitting' || formStatus === 'success'}
-                                className={`flex items-center ${formStatus === 'submitting' ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
+                                className={`flex h-10 items-center rounded-lg ${formStatus === 'submitting' ? 'bg-slate-400 cursor-not-allowed' : 'bg-[#0DAA8A] text-white hover:bg-[#0B9579]'}`}
                             >
                                 {formStatus === 'submitting' ? (
                                     <>
@@ -1102,9 +1120,9 @@ const BookingScheduler = () => {
 
 // Helper component for confirmation items
 const ConfirmationItem = ({ label, value }: { label: string, value: string | undefined | null }) => (
-    <div className="text-sm border-b border-gray-100 pb-2">
-        <p className="text-gray-500">{label}:</p>
-        <p className="font-medium text-gray-800 break-words">{value ? String(value) : '-'}</p>
+    <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-sm">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</p>
+        <p className="mt-1 break-words font-medium text-slate-900">{value ? String(value) : '-'}</p>
     </div>
 );
 

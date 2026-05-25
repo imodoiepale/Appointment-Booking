@@ -772,7 +772,7 @@ const Dashboard = () => {
   }
 
   const calendarStatusBadgeClass = calendarConnectionStatus === 'connected'
-    ? 'bg-blue-100 text-blue-700 border-blue-300'
+    ? 'bg-[#0DAA8A]/10 text-[#087963] border-[#0DAA8A]/30'
     : calendarConnectionStatus === 'disconnected'
       ? 'bg-red-100 text-red-700 border-red-300'
       : 'bg-yellow-100 text-yellow-700 border-yellow-300';
@@ -804,7 +804,7 @@ const Dashboard = () => {
         <div className="flex items-center gap-2">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Rows</span>
           <Select value={String(itemsPerPage)} onValueChange={(value) => setItemsPerPage(Number(value))}>
-            <SelectTrigger className="h-8 w-20 rounded-lg border-slate-200 text-xs">
+            <SelectTrigger className="h-8 w-20 rounded-lg border-slate-200 text-xs focus:ring-[#0DAA8A]/20">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -815,19 +815,19 @@ const Dashboard = () => {
           </Select>
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg" onClick={() => setCurrentPage(0)} disabled={currentPage === 0}>
+          <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg border-slate-200 hover:bg-slate-50" onClick={() => setCurrentPage(0)} disabled={currentPage === 0}>
             <ChevronsLeft className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg" onClick={() => setCurrentPage((page) => Math.max(0, page - 1))} disabled={currentPage === 0}>
+          <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg border-slate-200 hover:bg-slate-50" onClick={() => setCurrentPage((page) => Math.max(0, page - 1))} disabled={currentPage === 0}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="min-w-20 text-center text-xs font-semibold text-slate-600">
             {currentPage + 1} / {totalPages}
           </span>
-          <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg" onClick={() => setCurrentPage((page) => Math.min(totalPages - 1, page + 1))} disabled={currentPage >= totalPages - 1}>
+          <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg border-slate-200 hover:bg-slate-50" onClick={() => setCurrentPage((page) => Math.min(totalPages - 1, page + 1))} disabled={currentPage >= totalPages - 1}>
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg" onClick={() => setCurrentPage(totalPages - 1)} disabled={currentPage >= totalPages - 1}>
+          <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg border-slate-200 hover:bg-slate-50" onClick={() => setCurrentPage(totalPages - 1)} disabled={currentPage >= totalPages - 1}>
             <ChevronsRight className="h-4 w-4" />
           </Button>
         </div>
@@ -886,7 +886,7 @@ const Dashboard = () => {
               return (
                 <TableRow
                   key={appointment.id_main}
-                  className="cursor-pointer border-slate-100 hover:bg-slate-50"
+                  className="cursor-pointer border-slate-100 hover:bg-[#0DAA8A]/5"
                   onClick={() => setSelectedAppointment(appointment)}
                 >
                   <TableCell className="px-3 py-2 text-xs font-medium text-slate-400">{currentPage * itemsPerPage + index + 1}</TableCell>
@@ -1000,23 +1000,23 @@ const Dashboard = () => {
 
   // --- MAIN RETURN ---
   return (
-    <div className="space-y-5 p-4 md:p-6 lg:p-8">
+    <div className="min-h-screen space-y-5 bg-slate-50 p-4 md:p-6 lg:p-8">
       <Toaster />
 
       {/* ── Page Header ── */}
-      <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm">
-        <div className="h-1 w-full bg-blue-600" />
+      <Card className="overflow-hidden rounded-lg border-slate-200 bg-white shadow-sm">
+        <div className="h-1 w-full bg-[#0DAA8A]" />
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-5 sm:p-6">
           <div>
-            <Badge className="mb-3 bg-blue-600/10 text-blue-600 hover:bg-blue-600/10">BCL Meetings</Badge>
+            <Badge className="mb-3 rounded-lg bg-[#0DAA8A]/10 text-[#087963] hover:bg-[#0DAA8A]/10">BCL Meetings</Badge>
             <h1 className="text-3xl font-bold text-slate-950 tracking-tight md:text-4xl">Meeting Dashboard</h1>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               <p className="text-sm text-slate-500">Review appointments, pending actions, and calendar sync.</p>
               {currentUser && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-2.5 py-1 text-xs font-medium text-teal-700 ring-1 ring-teal-100">
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#0DAA8A]/10 px-2.5 py-1 text-xs font-medium text-[#087963] ring-1 ring-[#0DAA8A]/15">
                   <ShieldCheck className="h-3.5 w-3.5" />
                   {currentUserDisplay}
-                  <span className="hidden sm:inline text-teal-500">({currentUserRole})</span>
+                  <span className="hidden sm:inline text-[#0DAA8A]">({currentUserRole})</span>
                 </span>
               )}
             </div>
@@ -1034,7 +1034,7 @@ const Dashboard = () => {
                   onClick={() => window.open('/api/auth/google', '_blank')}
                   variant="outline"
                   size="sm"
-                  className="h-9 gap-1.5 rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 text-xs"
+                  className="h-9 gap-1.5 rounded-lg border-slate-200 text-slate-600 hover:bg-slate-50 text-xs"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                   Reconnect
@@ -1044,7 +1044,7 @@ const Dashboard = () => {
                   disabled={isDisconnecting}
                   variant="outline"
                   size="sm"
-                  className="h-9 gap-1.5 rounded-xl border-red-200 text-red-600 hover:bg-red-50 text-xs"
+                  className="h-9 gap-1.5 rounded-lg border-red-200 text-red-600 hover:bg-red-50 text-xs"
                 >
                   <XCircle className="w-3.5 h-3.5" />
                   {isDisconnecting ? 'Disconnecting...' : 'Disconnect'}
@@ -1054,7 +1054,7 @@ const Dashboard = () => {
               <Button
                 onClick={() => window.open('/api/auth/google', '_blank')}
                 size="sm"
-                className="h-9 gap-1.5 rounded-xl bg-[#0DAA8A] hover:bg-[#0B9579] text-white text-xs"
+                className="h-9 gap-1.5 rounded-lg bg-[#0DAA8A] hover:bg-[#0B9579] text-white text-xs"
               >
                 <Calendar className="w-3.5 h-3.5" />
                 Connect Google Calendar
@@ -1066,10 +1066,10 @@ const Dashboard = () => {
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {statCards.map((card) => (
-          <Card key={card.label} className="relative overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm">
+          <Card key={card.label} className="relative overflow-hidden rounded-lg border-slate-200 bg-white shadow-sm">
             <div className={`absolute inset-x-0 top-0 h-0.5 ${card.accent}`} />
             <div className="p-4">
-              <div className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl ${card.iconClass}`}>
+              <div className={`mb-3 flex h-9 w-9 items-center justify-center rounded-lg ${card.iconClass}`}>
                 {card.icon}
               </div>
               <p className="text-2xl font-bold text-slate-950">{card.value}</p>
@@ -1105,12 +1105,12 @@ const Dashboard = () => {
       {/* ── Controls bar ── */}
       <div className="flex flex-wrap items-center gap-2">
         {/* View toggle */}
-        <div className="flex items-center bg-white ring-1 ring-slate-200 rounded-xl p-1 shadow-sm">
+        <div className="flex items-center rounded-lg bg-white p-1 shadow-sm ring-1 ring-slate-200">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setViewMode("cards")}
-            className={`h-8 rounded-lg px-3 text-xs gap-1.5 ${viewMode === "cards" ? "bg-blue-600 text-white hover:bg-blue-600/90" : "text-slate-500 hover:bg-slate-50"}`}
+            className={`h-8 rounded-md px-3 text-xs gap-1.5 ${viewMode === "cards" ? "bg-[#0DAA8A] text-white hover:bg-[#0B9579]" : "text-slate-500 hover:bg-slate-50"}`}
           >
             <LayoutGrid className="h-3.5 w-3.5" />
             Cards
@@ -1119,7 +1119,7 @@ const Dashboard = () => {
             variant="ghost"
             size="sm"
             onClick={() => setViewMode("table")}
-            className={`h-8 rounded-lg px-3 text-xs gap-1.5 ${viewMode === "table" ? "bg-blue-600 text-white hover:bg-blue-600/90" : "text-slate-500 hover:bg-slate-50"}`}
+            className={`h-8 rounded-md px-3 text-xs gap-1.5 ${viewMode === "table" ? "bg-[#0DAA8A] text-white hover:bg-[#0B9579]" : "text-slate-500 hover:bg-slate-50"}`}
           >
             <Table2 className="h-3.5 w-3.5" />
             Table
@@ -1127,9 +1127,9 @@ const Dashboard = () => {
         </div>
 
         {/* Today's meetings stat */}
-        <div className="flex items-center gap-2 bg-white ring-1 ring-slate-200 rounded-lg px-3 py-1.5 shadow-sm">
-          <div className="w-6 h-6 rounded-md bg-teal-50 flex items-center justify-center">
-            <Calendar className="h-3.5 w-3.5 text-teal-600" />
+        <div className="flex items-center gap-2 rounded-lg bg-white px-3 py-1.5 shadow-sm ring-1 ring-slate-200">
+          <div className="w-6 h-6 rounded-md bg-[#0DAA8A]/10 flex items-center justify-center">
+            <Calendar className="h-3.5 w-3.5 text-[#087963]" />
           </div>
           <div>
             <p className="text-[10px] text-slate-400 leading-none">Today</p>
@@ -1152,11 +1152,11 @@ const Dashboard = () => {
         )} */}
 
         {/* ── Tabs ── */}
-        <Tabs defaultValue="upcoming" value={activeTab} onValueChange={setActiveTab} className="rounded-2xl ring-1 ring-slate-200 bg-white shadow-sm overflow-hidden">
+        <Tabs defaultValue="upcoming" value={activeTab} onValueChange={setActiveTab} className="overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-slate-200">
           <div className="px-4 pt-4 pb-3 border-b border-slate-100">
-            <TabsList className="grid grid-cols-2 sm:grid-cols-4 gap-1 bg-slate-100 p-1 rounded-xl h-auto">
+            <TabsList className="grid h-auto grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1 sm:grid-cols-4">
               {[
-                { value: 'upcoming', active: 'bg-teal-600 text-white shadow-sm', counts: appointmentBuckets.upcoming.length },
+                { value: 'upcoming', active: 'bg-[#0DAA8A] text-white shadow-sm', counts: appointmentBuckets.upcoming.length },
                 { value: 'pending', active: 'bg-amber-500 text-white shadow-sm', counts: appointmentBuckets.pending.length },
                 { value: 'canceled', active: 'bg-red-500 text-white shadow-sm', counts: appointmentBuckets.canceled.length },
                 { value: 'completed', active: 'bg-blue-600 text-white shadow-sm', counts: appointmentBuckets.completed.length },
@@ -1164,7 +1164,7 @@ const Dashboard = () => {
                 <TabsTrigger
                   key={value}
                   value={value}
-                  className={`text-xs font-medium py-1.5 rounded-lg data-[state=active]:shadow-none text-slate-500 data-[state=active]:text-white ${active.includes('teal') ? 'data-[state=active]:bg-blue-600' : active.includes('amber') ? 'data-[state=active]:bg-amber-500' : active.includes('red') ? 'data-[state=active]:bg-red-500' : 'data-[state=active]:bg-blue-600'}`}
+                  className={`text-xs font-medium py-1.5 rounded-md data-[state=active]:shadow-none text-slate-500 data-[state=active]:text-white ${active.includes('#0DAA8A') ? 'data-[state=active]:bg-[#0DAA8A]' : active.includes('amber') ? 'data-[state=active]:bg-amber-500' : active.includes('red') ? 'data-[state=active]:bg-red-500' : 'data-[state=active]:bg-blue-600'}`}
                 >
                   <span className="flex items-center gap-1.5">
                     {value.charAt(0).toUpperCase() + value.slice(1)}
