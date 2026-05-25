@@ -132,8 +132,9 @@ export async function scheduleMeetingNotification(meeting: any, minutesBefore: n
       if (!initialized) return false;
     }
 
-    // Format meeting details
-    const meetingDate = new Date(`${meeting.meeting_date}T${meeting.meeting_start_time}`);
+    // Base off slot start time (departure time) when available; fall back to meeting start.
+    const slotOrMeetingTime = meeting.meeting_slot_start_time || meeting.meeting_start_time;
+    const meetingDate = new Date(`${meeting.meeting_date}T${slotOrMeetingTime}`);
     const notificationTime = new Date(meetingDate.getTime() - (minutesBefore * 60 * 1000));
     
     // If notification time is in the past, don't schedule
@@ -181,9 +182,11 @@ export async function scheduleMeetingNotification(meeting: any, minutesBefore: n
 // Helper function to get the appropriate notification title
 function getNotificationTitle(minutesBefore: number, meeting: any): string {
   if (minutesBefore === 0) {
-    return `Meeting Starting Now`;
+    return `Time to Leave Now!`;
+  } else if (minutesBefore === 60) {
+    return `Meeting Reminder – 1 Hour`;
   } else {
-    return `Meeting in ${minutesBefore} minutes`;
+    return `Meeting Reminder – ${minutesBefore} Minutes`;
   }
 }
 
@@ -191,12 +194,14 @@ function getNotificationTitle(minutesBefore: number, meeting: any): string {
 function getNotificationBody(minutesBefore: number, meeting: any): string {
   const clientName = meeting.client_name;
   const venue = meeting.meeting_venue_area;
-  const timeString = meeting.meeting_start_time;
-  
+  const meetingStartTime = meeting.meeting_start_time;
+
   if (minutesBefore === 0) {
-    return `Your meeting with ${clientName} at ${venue} is starting now.`;
+    return `You need to leave now to get to your meeting with ${clientName} at ${meetingStartTime} (${venue}).`;
+  } else if (minutesBefore === 60) {
+    return `Leave in 1 hour for your meeting with ${clientName} at ${meetingStartTime} (${venue}).`;
   } else {
-    return `Your meeting with ${clientName} at ${venue} starts in ${minutesBefore} minutes (${timeString}).`;
+    return `Leave in ${minutesBefore} minutes for your meeting with ${clientName} at ${meetingStartTime} (${venue}).`;
   }
 }
 
@@ -250,16 +255,17 @@ export async function scheduleAllMeetingNotifications(meeting: any) {
   try {
     // Ensure database is initialized first
     await initDatabase();
-    
-    // Schedule notifications at 30 minutes before
+
+    // All timings are relative to slot_start_time (time to leave), not meeting start.
+    // 1 hour before slot → early heads-up
+    await scheduleMeetingNotification(meeting, 60);
+
+    // 30 min before slot → start wrapping up
     await scheduleMeetingNotification(meeting, 30);
-    
-    // Schedule notifications at 10 minutes before
-    await scheduleMeetingNotification(meeting, 10);
-    
-    // Schedule notifications at meeting start time
+
+    // At slot start → "leave now" alert
     await scheduleMeetingNotification(meeting, 0);
-    
+
     return true;
   } catch (error) {
     console.error('Error scheduling all notifications:', error);

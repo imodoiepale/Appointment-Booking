@@ -118,7 +118,7 @@ export const NotificationBell = () => {
       case 'meeting':
         return <Calendar className="h-4 w-4 text-blue-500" />;
       case 'success':
-        return <Clock className="h-4 w-4 text-green-500" />;
+        return <Clock className="h-4 w-4 text-blue-500" />;
       case 'error':
         return <Bell className="h-4 w-4 text-red-500" />;
       default:

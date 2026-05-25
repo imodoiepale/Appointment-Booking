@@ -283,15 +283,25 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
         if (data && data.length > 0) {
           data.forEach((meeting: Meeting) => {
-            const meetingTime = new Date(`${meeting.meeting_date}T${meeting.meeting_start_time}`);
+            // Use slot start time (departure time) when available; fall back to meeting start.
+            const slotOrMeetingTime = (meeting as any).meeting_slot_start_time || meeting.meeting_start_time;
+            const slotTime = new Date(`${meeting.meeting_date}T${slotOrMeetingTime}`);
             const now = new Date();
-            const minutesUntilMeeting = Math.floor((meetingTime.getTime() - now.getTime()) / (1000 * 60));
+            const minutesUntilSlot = Math.floor((slotTime.getTime() - now.getTime()) / (1000 * 60));
 
-            // Only create reminder for meetings happening within the next 60 minutes
-            if (minutesUntilMeeting > 0 && minutesUntilMeeting <= 60) {
+            if (minutesUntilSlot === 0) {
+              addNotification({
+                title: 'Time to Leave Now!',
+                message: `You need to leave now to get to your meeting with ${meeting.client_name} at ${meeting.meeting_start_time} (${meeting.meeting_venue_area}).`,
+                type: 'warning',
+                meetingId: meeting.id_main,
+                link: '/schedule'
+              });
+            } else if (minutesUntilSlot > 0 && minutesUntilSlot <= 60) {
+              const label = minutesUntilSlot <= 30 ? `${minutesUntilSlot} minutes` : '1 hour';
               addNotification({
                 title: 'Upcoming Meeting Reminder',
-                message: `You have a meeting with ${meeting.client_name} in ${minutesUntilMeeting} minutes.`,
+                message: `Leave in ${label} for your meeting with ${meeting.client_name} at ${meeting.meeting_start_time}.`,
                 type: 'info',
                 meetingId: meeting.id_main,
                 link: '/schedule'

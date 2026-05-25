@@ -156,6 +156,8 @@ function buildCalendarEvent(meeting: MeetingEvent) {
         { method: 'popup', minutes: 60 },
         { method: 'email', minutes: 30 },
         { method: 'popup', minutes: 30 },
+        // At slot start (departure time) — "time to leave" alert
+        { method: 'popup', minutes: 0 },
       ],
     },
     ...(meeting.meeting_type === 'virtual' && {

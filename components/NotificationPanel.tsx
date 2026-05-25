@@ -22,7 +22,7 @@ export default function NotificationPanel({ onClose }: NotificationPanelProps) {
     if (!notification.read) {
       markAsRead(notification.id);
     }
-    
+
     if (notification.link) {
       router.push(notification.link);
       if (onClose) onClose();
@@ -34,7 +34,7 @@ export default function NotificationPanel({ onClose }: NotificationPanelProps) {
       case 'info':
         return <Info className="h-4 w-4 text-blue-500" />;
       case 'success':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
+        return <CheckCircle className="h-4 w-4 text-blue-500" />;
       case 'warning':
         return <Bell className="h-4 w-4 text-amber-500" />;
       case 'error':
@@ -55,7 +55,7 @@ export default function NotificationPanel({ onClose }: NotificationPanelProps) {
     if (diffMins < 60) return `${diffMins} min ago`;
     if (diffHours < 24) return `${diffHours} hr ago`;
     if (diffDays === 1) return 'Yesterday';
-    
+
     return date.toLocaleDateString();
   };
 
@@ -73,9 +73,8 @@ export default function NotificationPanel({ onClose }: NotificationPanelProps) {
             {notifications.map((notification) => (
               <div
                 key={notification.id}
-                className={`p-3 hover:bg-gray-50 cursor-pointer transition-colors ${
-                  !notification.read ? 'bg-blue-50/50' : ''
-                }`}
+                className={`p-3 hover:bg-gray-50 cursor-pointer transition-colors ${!notification.read ? 'bg-blue-50/50' : ''
+                  }`}
                 onClick={() => handleNotificationClick(notification)}
               >
                 <div className="flex items-start gap-3">
@@ -127,7 +126,7 @@ export default function NotificationPanel({ onClose }: NotificationPanelProps) {
           </div>
         )}
       </ScrollArea>
-      
+
       {notifications.length > 0 && (
         <>
           <Separator />

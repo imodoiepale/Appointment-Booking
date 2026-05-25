@@ -10,7 +10,7 @@ export default function LoginPage() {
       <div className="relative grid w-full max-w-5xl overflow-hidden rounded-2xl border border-white/10 bg-white shadow-2xl shadow-slate-950/40 md:grid-cols-[0.95fr_1.05fr]">
         <div className="hidden bg-slate-950 p-8 text-white md:flex md:flex-col md:justify-between">
           <div>
-            <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-[#0DAA8A] shadow-lg shadow-[#0DAA8A]/25">
+            <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 shadow-lg shadow-blue-600/25">
               <Calendar className="h-5 w-5" />
             </div>
             <h1 className="mt-8 text-3xl font-bold tracking-tight">BCL Appointments</h1>
@@ -22,7 +22,7 @@ export default function LoginPage() {
           <div className="grid gap-3">
             {["Secure session cookies", "Google Calendar sync", "Client-ready meeting records"].map((item) => (
               <div key={item} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200">
-                <ShieldCheck className="h-4 w-4 text-[#0DAA8A]" />
+                <ShieldCheck className="h-4 w-4 text-blue-600" />
                 {item}
               </div>
             ))}
@@ -31,13 +31,13 @@ export default function LoginPage() {
 
         <div className="p-6 sm:p-8">
           <div className="mb-8 md:hidden">
-            <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[#0DAA8A] text-white shadow-lg shadow-[#0DAA8A]/25">
+            <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-600/25">
               <Calendar className="h-6 w-6" />
             </div>
           </div>
 
           <div className="mb-7">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#0DAA8A]">Secure access</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">Secure access</p>
             <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">Sign in to Meeting Dashboard</h2>
             <p className="mt-2 text-sm text-slate-500">Use your BCL account to continue.</p>
           </div>

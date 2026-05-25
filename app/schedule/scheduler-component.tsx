@@ -839,7 +839,7 @@ const BookingScheduler = () => {
                                 type="button"
                                 onClick={handleSubmit}
                                 disabled={formStatus === 'submitting' || formStatus === 'success'}
-                                className={`flex items-center ${formStatus === 'submitting' ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'}`}
+                                className={`flex items-center ${formStatus === 'submitting' ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
                             >
                                 {formStatus === 'submitting' ? (
                                     <>

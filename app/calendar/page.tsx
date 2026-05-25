@@ -386,8 +386,8 @@ const CalendarView = () => {
           </Card>
 
           <Card className="overflow-hidden shadow-sm border-gray-200">
-            <CardHeader className="bg-gradient-to-r from-green-50 to-cyan-50 px-4 py-3 border-b">
-              <CardTitle className="text-lg text-green-700">Upcoming Meetings</CardTitle>
+            <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50 px-4 py-3 border-b">
+              <CardTitle className="text-lg text-blue-700">Upcoming Meetings</CardTitle>
               <CardDescription>Next 7 days</CardDescription>
             </CardHeader>
             <CardContent className="p-3 max-h-[300px] overflow-y-auto">
@@ -817,7 +817,7 @@ const CalendarView = () => {
                   <Card className="border-gray-200 shadow-sm">
                     <CardHeader className="pb-1 pt-2 px-3 sm:pb-2 sm:pt-3 sm:px-4">
                       <CardTitle className="text-sm sm:text-base font-semibold text-gray-700 flex items-center">
-                        <CalendarIcon className="h-3.5 w-3.5 mr-1.5 sm:h-4 sm:w-4 sm:mr-2 text-green-600" />
+                        <CalendarIcon className="h-3.5 w-3.5 mr-1.5 sm:h-4 sm:w-4 sm:mr-2 text-blue-600" />
                         Meeting Details
                       </CardTitle>
                     </CardHeader>
@@ -986,7 +986,7 @@ const CalendarView = () => {
                           onClick={() => {
                             // Confirm meeting logic would go here
                           }}
-                          className="border-green-300 text-green-700 hover:bg-green-50 px-3 py-1.5 text-xs sm:text-sm"
+                          className="border-blue-300 text-blue-700 hover:bg-blue-50 px-3 py-1.5 text-xs sm:text-sm"
                         >
                           <CheckCircle className="h-3.5 w-3.5 mr-1 sm:mr-1.5" />
                           Confirm

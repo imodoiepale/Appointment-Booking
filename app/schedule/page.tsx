@@ -961,7 +961,7 @@ const BookingScheduler = () => {
                                                 onValueChange: handleDurationChange
                                             })}
                                             {renderInputField('meetingEndTime', 'Meeting End Time', { readOnly: true, icon: Clock })}
-                                            {renderSelectField('venueDistance', 'Travel Time (Each Way) *', {
+                                            {renderSelectField('venueDistance', 'Travel Time - Slot Time (Each Way) *', {
                                                 placeholder: 'Select travel time',
                                                 items: [
                                                     { value: '0', label: '0 min (Virtual/On-site)' }, { value: '10', label: '10 min' }, { value: '15', label: '15 min' },
@@ -1032,8 +1032,8 @@ const BookingScheduler = () => {
 
                                         {/* Status Messages */}
                                         {formStatus === 'success' && (
-                                            <div className="mt-4 bg-green-50 border border-green-300 text-green-700 px-4 py-3 rounded-md flex items-center" role="alert">
-                                                <Check className="h-5 w-5 mr-2 text-green-600" />
+                                            <div className="mt-4 bg-blue-50 border border-blue-300 text-blue-700 px-4 py-3 rounded-md flex items-center" role="alert">
+                                                <Check className="h-5 w-5 mr-2 text-blue-600" />
                                                 <p><strong className="font-semibold">Success!</strong> Meeting scheduled.</p>
                                             </div>
                                         )}
@@ -1076,7 +1076,7 @@ const BookingScheduler = () => {
                                 type="button" // Changed from submit to prevent default form submission
                                 onClick={handleSubmit} // Trigger validation and submission logic
                                 disabled={formStatus === 'submitting' || formStatus === 'success'}
-                                className={`flex items-center ${formStatus === 'submitting' ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'}`}
+                                className={`flex items-center ${formStatus === 'submitting' ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
                             >
                                 {formStatus === 'submitting' ? (
                                     <>

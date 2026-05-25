@@ -36,7 +36,7 @@ const Sidebar = () => {
             {/* Mobile sidebar toggle */}
             <button
                 onClick={toggleSidebar}
-                className="fixed bottom-4 right-4 z-50 rounded-full bg-[#0DAA8A] p-3 text-white shadow-lg shadow-[#0DAA8A]/25 transition-colors hover:bg-[#0B9579] lg:hidden"
+                className="fixed bottom-4 right-4 z-50 rounded-full bg-blue-600 p-3 text-white shadow-lg shadow-blue-600/25 transition-colors hover:bg-blue-200 lg:hidden"
             >
                 {expanded ? <X size={24} /> : <Menu size={24} />}
             </button>
@@ -49,7 +49,7 @@ const Sidebar = () => {
                     {/* Brand/Logo */}
                     <div className="border-b border-slate-100 p-4">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0DAA8A] text-white shadow-lg shadow-[#0DAA8A]/20">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-600/20">
                             <Calendar size={20} />
                         </div>
                         <div className="min-w-0">
@@ -68,13 +68,13 @@ const Sidebar = () => {
                                     key={item.name}
                                     href={item.href}
                                     className={`group flex items-center rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${isActive
-                                        ? 'bg-[#0DAA8A]/10 text-[#087963] ring-1 ring-[#0DAA8A]/15'
+                                        ? 'bg-blue-600/10 text-blue-600 ring-1 ring-blue-600/15'
                                         : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
                                         }`}
                                 >
                                     <item.icon
                                         size={18}
-                                        className={`mr-3 ${isActive ? 'text-[#0DAA8A]' : 'text-slate-400 group-hover:text-slate-600'}`}
+                                        className={`mr-3 ${isActive ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'}`}
                                     />
                                     <span>{item.name}</span>
                                 </Link>
@@ -86,13 +86,13 @@ const Sidebar = () => {
                     <div className="border-t border-slate-100 p-4">
                         <Link
                             href="/schedule"
-                            className="flex w-full items-center justify-center rounded-xl bg-[#0DAA8A] px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#0DAA8A]/20 transition-colors hover:bg-[#0B9579]"
+                            className="flex w-full items-center justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition-colors hover:bg-blue-200"
                         >
                             <PlusCircle size={18} className="mr-2" />
                             New Appointment
                         </Link>
                         <div className="mt-3 flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
-                          <CalendarDays className="h-4 w-4 text-[#0DAA8A]" />
+                          <CalendarDays className="h-4 w-4 text-blue-600" />
                           Synced scheduling workspace
                         </div>
                     </div>

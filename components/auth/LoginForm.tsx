@@ -95,7 +95,7 @@ export function LoginForm() {
         ? createPortal(
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm">
               <div className="flex min-w-[260px] items-center gap-3 rounded-xl border border-white/20 bg-white px-5 py-4 shadow-2xl">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-[#0DAA8A]" />
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600" />
                 <span className="text-sm font-semibold text-slate-800">Signing in...</span>
               </div>
             </div>,
@@ -129,7 +129,7 @@ export function LoginForm() {
               autoComplete="username"
               placeholder="you@company.com"
               required
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 pl-10 text-slate-900 placeholder-slate-400 transition-all focus:border-[#0DAA8A] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0DAA8A]/20"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 pl-10 text-slate-900 placeholder-slate-400 transition-all focus:border-blue-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/20"
             />
           </div>
         </div>
@@ -148,7 +148,7 @@ export function LoginForm() {
               autoComplete="current-password"
               placeholder="Enter your password"
               required
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 pl-10 pr-10 text-slate-900 placeholder-slate-400 transition-all focus:border-[#0DAA8A] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0DAA8A]/20"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 pl-10 pr-10 text-slate-900 placeholder-slate-400 transition-all focus:border-blue-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/20"
             />
             <button
               type="button"
@@ -167,7 +167,7 @@ export function LoginForm() {
             id="remember-me"
             checked={rememberMe}
             onChange={(e) => setRememberMe(e.target.checked)}
-            className="h-4 w-4 rounded border-slate-300 text-[#0DAA8A] focus:ring-[#0DAA8A]"
+            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
           />
           <label htmlFor="remember-me" className="text-sm text-slate-600">
             Remember me on this device
@@ -177,7 +177,7 @@ export function LoginForm() {
         <button
           type="submit"
           disabled={isSubmitting || !isSignInAvailable}
-          className="w-full rounded-xl bg-[#0DAA8A] px-4 py-3 font-semibold text-white shadow-lg shadow-[#0DAA8A]/25 transition-all hover:bg-[#0B9579] focus:outline-none focus:ring-2 focus:ring-[#0DAA8A] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white shadow-lg shadow-blue-600/25 transition-all hover:bg-[#0B9579] focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isSubmitting ? (
             <span className="flex items-center justify-center gap-2">
