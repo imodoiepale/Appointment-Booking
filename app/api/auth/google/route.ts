@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const GET = async (request: NextRequest) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
   const redirectUri = `${baseUrl}/api/auth/google/callback`;
   const scope = "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/userinfo.email";
   const loginHint = request.nextUrl.searchParams.get("login_hint") || request.headers.get("x-scanner-user-email") || "";
