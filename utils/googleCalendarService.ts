@@ -66,7 +66,13 @@ async function getGoogleCalendarClient() {
     throw new Error('Google Calendar not connected. Please connect your Google Calendar first.');
   }
 
-  const oauth2Client = new google.auth.OAuth2();
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  if (!clientId || !clientSecret) {
+    throw new Error('Google OAuth credentials not configured on server.');
+  }
+
+  const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
   oauth2Client.setCredentials({
     ...(accessToken ? { access_token: accessToken } : {}),
     ...(refreshToken ? { refresh_token: refreshToken } : {}),
@@ -74,10 +80,42 @@ async function getGoogleCalendarClient() {
 
   if (refreshToken) {
     try {
-      await oauth2Client.getAccessToken();
+      const { token } = await oauth2Client.getAccessToken();
+      if (token) {
+        let updateQuery = supabase
+          .from('email_accounts')
+          .update({
+            token: { access_token: token, refresh_token: refreshToken },
+            updated_at: new Date().toISOString(),
+          })
+          .eq('status', 'active');
+        if (mobileUserId) {
+          updateQuery = updateQuery.eq('user_id', mobileUserId);
+        } else if (mobileUserEmail) {
+          updateQuery = updateQuery.eq('email', mobileUserEmail);
+        }
+        await updateQuery;
+      }
     } catch (error: any) {
-      console.error('Error refreshing Google access token:', error.message);
-      throw new Error('Google Calendar connection expired. Please reconnect Google Calendar.');
+      const reason: string = error?.response?.data?.error ?? error.message ?? 'unknown';
+      console.error('Google token refresh failed:', reason, '| userId:', mobileUserId, '| email:', mobileUserEmail);
+
+      if (reason === 'invalid_grant' || reason === 'token_expired') {
+        // Token revoked or expired — mark as inactive so status endpoint reflects reality
+        let revokeQuery = supabase
+          .from('email_accounts')
+          .update({ status: 'inactive', is_active: false })
+          .eq('status', 'active');
+        if (mobileUserId) revokeQuery = revokeQuery.eq('user_id', mobileUserId);
+        else if (mobileUserEmail) revokeQuery = revokeQuery.eq('email', mobileUserEmail);
+        await revokeQuery.catch(() => {});
+      }
+
+      throw new Error(
+        reason === 'invalid_client'
+          ? 'Google OAuth credentials not configured correctly on server.'
+          : 'Google Calendar connection expired. Please reconnect Google Calendar.'
+      );
     }
   }
 

@@ -96,7 +96,10 @@ async function handleOAuthCode(
       );
     }
 
-    const redirectResponse = NextResponse.redirect(new URL("/calendar-auth-success", request.url));
+    const redirectTarget = state.source === "android"
+      ? "bclmeetings://auth/callback?connected=true"
+      : new URL("/calendar-auth-success", request.url).toString();
+    const redirectResponse = NextResponse.redirect(redirectTarget);
 
     if (googleUserEmail) {
       redirectResponse.cookies.set("google_user_email", googleUserEmail, {
