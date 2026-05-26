@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get("code");
+  const state = parseOAuthState(searchParams.get("state"));
 
   if (!code) {
     const url = new URL(request.url);
@@ -13,13 +14,31 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Authorization code is required" }, { status: 400 });
     }
 
-    return await handleOAuthCode(altCode, request);
+    return await handleOAuthCode(altCode, request, state);
   }
 
-  return await handleOAuthCode(code, request);
+  return await handleOAuthCode(code, request, state);
 }
 
-async function handleOAuthCode(code: string, request: NextRequest) {
+function parseOAuthState(rawState: string | null) {
+  if (!rawState) return { loginHint: "", mobileUserId: "", source: "web" };
+  try {
+    const parsed = JSON.parse(Buffer.from(rawState, "base64url").toString("utf8"));
+    return {
+      loginHint: typeof parsed.loginHint === "string" ? parsed.loginHint : "",
+      mobileUserId: typeof parsed.mobileUserId === "string" ? parsed.mobileUserId : "",
+      source: typeof parsed.source === "string" ? parsed.source : "web",
+    };
+  } catch {
+    return { loginHint: "", mobileUserId: "", source: "web" };
+  }
+}
+
+async function handleOAuthCode(
+  code: string,
+  request: NextRequest,
+  state: { loginHint: string; mobileUserId: string; source: string }
+) {
   try {
     const existingRefreshToken = request.cookies.get("google_refresh_token")?.value;
     const response = await fetch("https://oauth2.googleapis.com/token", {
@@ -63,10 +82,12 @@ async function handleOAuthCode(code: string, request: NextRequest) {
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!
       );
+      const accountUserId = state.mobileUserId || googleUserEmail || state.loginHint || "google_calendar_auth";
+      const accountEmail = googleUserEmail || state.loginHint || "google_calendar@system";
       await supabase.from("email_accounts").upsert(
         {
-          user_id: "google_calendar_auth",
-          email: "google_calendar@system",
+          user_id: accountUserId,
+          email: accountEmail,
           token: { access_token: data.access_token, refresh_token: refreshToken },
           refresh_token: refreshToken,
           status: "active",

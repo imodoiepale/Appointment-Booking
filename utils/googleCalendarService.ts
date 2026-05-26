@@ -37,17 +37,28 @@ interface NotificationData {
 
 async function getGoogleCalendarClient() {
   const { cookies } = await import('next/headers');
+  const { headers } = await import('next/headers');
   const cookieStore = await cookies();
+  const headerStore = await headers();
+  const mobileUserId = headerStore.get('x-scanner-user-id') || '';
+  const mobileUserEmail = headerStore.get('x-scanner-user-email') || '';
   const accessToken = cookieStore.get('google_access_token')?.value;
   let refreshToken = cookieStore.get('google_refresh_token')?.value;
 
   if (!refreshToken) {
-    const { data } = await supabase
+    let query = supabase
       .from('email_accounts')
       .select('refresh_token')
       .eq('status', 'active')
-      .limit(1)
-      .single();
+      .limit(1);
+
+    if (mobileUserId) {
+      query = query.eq('user_id', mobileUserId);
+    } else if (mobileUserEmail) {
+      query = query.eq('email', mobileUserEmail);
+    }
+
+    const { data } = await query.single();
     refreshToken = data?.refresh_token ?? undefined;
   }
 

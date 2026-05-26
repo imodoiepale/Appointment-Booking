@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, Clock, Mic, MicOff, UserPlus, Building, MapPin, CheckCircle, XCircle, RefreshCw, MessageSquare, Table2, LayoutGrid, Link as LinkIcon, Phone, Video, Trash2, Loader2, CloudOff, Cloud, ShieldCheck, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, Users, CalendarDays, AlertTriangle, User, BookOpen } from 'lucide-react';
+import { Calendar, Clock, Mic, MicOff, UserPlus, Building, MapPin, CheckCircle, XCircle, RefreshCw, MessageSquare, Table2, LayoutGrid, Link as LinkIcon, Phone, Video, Trash2, Loader2, CloudOff, Cloud, ShieldCheck, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, Users, CalendarDays, AlertTriangle, User, BookOpen, Search, Send, History } from 'lucide-react';
 import supabase from '@/utils/supabaseClient';
 import type { Appointment, AuthUser, CalendarConnectionStatus } from '@/components/dashboard/types';
 import AppointmentCard from './components/appointment-card';
@@ -36,13 +36,14 @@ function parseBclAttendees(value: any): string[] {
   return [];
 }
 
-const Dashboard = () => {
+const DashboardContent = () => {
   const searchParams = useSearchParams();
   const scope = searchParams.get('scope') ?? 'all'; // 'all' | 'assigned' | 'created'
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [isEditDialogOpen, setEditDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("upcoming");
   const [isRescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -54,6 +55,7 @@ const Dashboard = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [itemsPerPage, setItemsPerPage] = useState(12);
+  const [searchQuery, setSearchQuery] = useState('');
   const { toast } = useToast();
 
   const notify = {
@@ -87,6 +89,19 @@ const Dashboard = () => {
     meetingEndTime: '',
     meetingDate: '',
     dateTimeLocal: '',
+  });
+  const [editFormData, setEditFormData] = useState({
+    client_name: '',
+    client_company: '',
+    client_mobile: '',
+    meeting_date: '',
+    meeting_start_time: '',
+    meeting_duration: '60',
+    meeting_end_time: '',
+    meeting_type: 'inPerson',
+    meeting_venue_area: '',
+    meeting_agenda: '',
+    bcl_attendee_mobile: '',
   });
 
   const syncMeetingWithCalendar = async (appointment: Appointment, method: 'POST' | 'PUT' | 'DELETE') => {
@@ -497,6 +512,92 @@ const Dashboard = () => {
     }
   };
 
+  const openEditDialog = (appointment: Appointment) => {
+    setEditFormData({
+      client_name: appointment.client_name || '',
+      client_company: appointment.client_company || '',
+      client_mobile: appointment.client_mobile || '',
+      meeting_date: appointment.meeting_date || '',
+      meeting_start_time: formatTime(appointment.meeting_start_time) || '',
+      meeting_duration: String(appointment.meeting_duration || 60),
+      meeting_end_time: formatTime(appointment.meeting_end_time) || '',
+      meeting_type: appointment.meeting_type || 'inPerson',
+      meeting_venue_area: appointment.meeting_venue_area || '',
+      meeting_agenda: appointment.meeting_agenda || '',
+      bcl_attendee_mobile: appointment.bcl_attendee_mobile || '',
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleEditInputChange = (event: ChangeEvent<HTMLInputElement | HTMLSelectElement> | { target: { name: string; value: string } }) => {
+    const { name, value } = event.target;
+    setEditFormData((prev) => {
+      const next = { ...prev, [name]: value };
+      if ((name === 'meeting_start_time' || name === 'meeting_duration') && next.meeting_start_time && next.meeting_duration) {
+        const duration = parseInt(next.meeting_duration, 10);
+        if (!isNaN(duration)) {
+          const [hours, minutes] = next.meeting_start_time.split(':').map(Number);
+          if (Number.isFinite(hours) && Number.isFinite(minutes)) {
+            const end = new Date();
+            end.setHours(hours, minutes + duration, 0, 0);
+            next.meeting_end_time = `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
+          }
+        }
+      }
+      return next;
+    });
+  };
+
+  const handleFinalEdit = async () => {
+    if (!selectedAppointment) return;
+    const duration = parseInt(editFormData.meeting_duration, 10);
+    if (!editFormData.client_name.trim() || !editFormData.meeting_date || !editFormData.meeting_start_time || !editFormData.meeting_end_time || isNaN(duration)) {
+      notify.error('Missing Details', 'Name, date, start time, end time, and duration are required.');
+      return;
+    }
+
+    try {
+      const payload = {
+        client_name: editFormData.client_name.trim(),
+        client_company: editFormData.client_company.trim(),
+        client_mobile: editFormData.client_mobile.trim(),
+        meeting_date: editFormData.meeting_date,
+        meeting_day: new Date(editFormData.meeting_date).toLocaleDateString('en-US', { weekday: 'long' }),
+        meeting_start_time: editFormData.meeting_start_time,
+        meeting_end_time: editFormData.meeting_end_time,
+        meeting_duration: duration,
+        meeting_type: editFormData.meeting_type,
+        meeting_venue_area: editFormData.meeting_venue_area.trim(),
+        meeting_agenda: editFormData.meeting_agenda.trim(),
+        bcl_attendee_mobile: editFormData.bcl_attendee_mobile.trim(),
+      };
+
+      const response = await fetch(`/api/meetings/${selectedAppointment.id_main}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Update failed');
+
+      if (calendarConnectionStatus === 'connected' && data.google_event_id) {
+        try {
+          await syncMeetingWithCalendar(data, 'PUT');
+        } catch (googleError) {
+          console.error('Google Calendar update failed:', googleError);
+          notify.warning('Calendar Sync', 'Meeting was updated, but calendar sync failed.');
+        }
+      }
+
+      setAppointments((prev) => prev.map((app) => app.id_main === selectedAppointment.id_main ? { ...app, ...data } : app));
+      setSelectedAppointment((prev) => prev ? { ...prev, ...data } : prev);
+      setEditDialogOpen(false);
+      notify.success('Updated', 'Meeting updated successfully.');
+    } catch (error: any) {
+      notify.error('Update Failed', error.message);
+    }
+  };
+
   const handleCancel = async () => {
     if (!selectedAppointment) {
       notify.error("Error", 'No appointment selected.');
@@ -753,6 +854,29 @@ const Dashboard = () => {
     return appointments;
   }, [appointments, scope, currentUserId, isAdmin]);
 
+  const visibleAppointments = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return scopedAppointments;
+    return scopedAppointments.filter((app) => [
+      app.id_main,
+      app.client_name,
+      app.client_company,
+      app.client_mobile,
+      app.meeting_agenda,
+      app.meeting_venue_area,
+      app.bcl_attendee,
+      app.status,
+      app.badge_status,
+    ].some((value) => String(value ?? '').toLowerCase().includes(query)));
+  }, [scopedAppointments, searchQuery]);
+
+  const canManageAppointment = useCallback((appointment: Appointment | null | undefined) => {
+    if (!appointment) return false;
+    if (isAdmin) return true;
+    if (!currentUserId) return false;
+    return appointment.created_by === currentUserId || parseBclAttendees(appointment.bcl_attendee).includes(currentUserId);
+  }, [currentUserId, isAdmin]);
+
   const appointmentBuckets = useMemo(() => {
     const byStartAsc = (a: Appointment, b: Appointment) =>
       new Date(`${a.meeting_date}T${a.meeting_start_time || '00:00'}`).getTime() -
@@ -763,20 +887,26 @@ const Dashboard = () => {
       new Date(b.booking_date || 0).getTime() - new Date(a.booking_date || 0).getTime();
 
     return {
-      upcoming: scopedAppointments
+      today: visibleAppointments
+        .filter((app) => app.meeting_date === today)
+        .sort(byStartAsc),
+      upcoming: visibleAppointments
         .filter((app) => ['upcoming', 'rescheduled'].includes(checkAppointmentStatus(app).status))
         .sort(byStartAsc),
-      pending: scopedAppointments
+      pending: visibleAppointments
         .filter((app) => checkAppointmentStatus(app).status === 'pending')
         .sort(byStartAsc),
-      canceled: scopedAppointments
+      recurring: visibleAppointments
+        .filter((app) => app.status === 'recurring' || app.meeting_agenda?.toLowerCase().includes('weekly') || app.meeting_agenda?.toLowerCase().includes('recurring'))
+        .sort(byStartAsc),
+      canceled: visibleAppointments
         .filter((app) => app.status === 'canceled')
         .sort(byBookingDesc),
-      completed: scopedAppointments
+      completed: visibleAppointments
         .filter((app) => app.status === 'completed')
         .sort(byMeetingDesc),
     };
-  }, [scopedAppointments]);
+  }, [visibleAppointments, today]);
 
   const activeAppointments = appointmentBuckets[activeTab] || [];
   const totalPages = Math.max(1, Math.ceil(activeAppointments.length / itemsPerPage));
@@ -786,7 +916,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     setCurrentPage(0);
-  }, [activeTab, viewMode, itemsPerPage, scope]);
+  }, [activeTab, viewMode, itemsPerPage, scope, searchQuery]);
 
   useEffect(() => {
     setCurrentPage((page) => Math.min(page, totalPages - 1));
@@ -829,7 +959,7 @@ const Dashboard = () => {
     : 'All Meetings';
 
   const statCards = [
-    { label: scopeLabel, value: scopedAppointments.length, icon: <CalendarDays className="h-4 w-4" />, accent: 'bg-[#0DAA8A]', iconClass: 'bg-[#0DAA8A]/10 text-[#087963]' },
+    { label: scopeLabel, value: visibleAppointments.length, icon: <CalendarDays className="h-4 w-4" />, accent: 'bg-[#0DAA8A]', iconClass: 'bg-[#0DAA8A]/10 text-[#087963]' },
     { label: 'Today', value: totalAppointmentsToday, icon: <Clock className="h-4 w-4" />, accent: 'bg-blue-500', iconClass: 'bg-blue-50 text-blue-600' },
     { label: 'Pending', value: appointmentBuckets.pending.length, icon: <MessageSquare className="h-4 w-4" />, accent: 'bg-amber-500', iconClass: 'bg-amber-50 text-amber-600' },
     { label: 'Synced', value: syncedCount, icon: <Cloud className="h-4 w-4" />, accent: 'bg-blue-500', iconClass: 'bg-blue-50 text-blue-600' },
@@ -1177,6 +1307,15 @@ const Dashboard = () => {
 
       {/* ── Controls bar ── */}
       <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[240px] flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+          <Input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search client, agenda, attendee, venue..."
+            className="h-10 rounded-lg border-slate-200 bg-white pl-9 text-sm shadow-sm focus:border-[#0DAA8A] focus:ring-[#0DAA8A]/20"
+          />
+        </div>
         {/* View toggle */}
         <div className="flex items-center rounded-lg bg-white p-1 shadow-sm ring-1 ring-slate-200">
           <Button
@@ -1227,17 +1366,19 @@ const Dashboard = () => {
         {/* ── Tabs ── */}
         <Tabs defaultValue="upcoming" value={activeTab} onValueChange={setActiveTab} className="overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-slate-200">
           <div className="px-4 pt-4 pb-3 border-b border-slate-100">
-            <TabsList className="grid h-auto grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1 sm:grid-cols-4">
+            <TabsList className="grid h-auto grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1 sm:grid-cols-3 lg:grid-cols-6">
               {[
+                { value: 'today', active: 'bg-blue-600 text-white shadow-sm', counts: appointmentBuckets.today.length },
                 { value: 'upcoming', active: 'bg-[#0DAA8A] text-white shadow-sm', counts: appointmentBuckets.upcoming.length },
                 { value: 'pending', active: 'bg-amber-500 text-white shadow-sm', counts: appointmentBuckets.pending.length },
+                { value: 'recurring', active: 'bg-purple-500 text-white shadow-sm', counts: appointmentBuckets.recurring.length },
                 { value: 'canceled', active: 'bg-red-500 text-white shadow-sm', counts: appointmentBuckets.canceled.length },
                 { value: 'completed', active: 'bg-blue-600 text-white shadow-sm', counts: appointmentBuckets.completed.length },
               ].map(({ value, active, counts }) => (
                 <TabsTrigger
                   key={value}
                   value={value}
-                  className={`text-xs font-medium py-1.5 rounded-md data-[state=active]:shadow-none text-slate-500 data-[state=active]:text-white ${active.includes('#0DAA8A') ? 'data-[state=active]:bg-[#0DAA8A]' : active.includes('amber') ? 'data-[state=active]:bg-amber-500' : active.includes('red') ? 'data-[state=active]:bg-red-500' : 'data-[state=active]:bg-blue-600'}`}
+                  className={`text-xs font-medium py-1.5 rounded-md data-[state=active]:shadow-none text-slate-500 data-[state=active]:text-white ${active.includes('#0DAA8A') ? 'data-[state=active]:bg-[#0DAA8A]' : active.includes('amber') ? 'data-[state=active]:bg-amber-500' : active.includes('purple') ? 'data-[state=active]:bg-purple-500' : active.includes('red') ? 'data-[state=active]:bg-red-500' : 'data-[state=active]:bg-blue-600'}`}
                 >
                   <span className="flex items-center gap-1.5">
                     {value.charAt(0).toUpperCase() + value.slice(1)}
@@ -1250,7 +1391,7 @@ const Dashboard = () => {
           <div className="p-4">
 
             {/* Tab Content Panes */}
-            {(['upcoming', 'pending', 'canceled', 'completed'] as const).map((value) => (
+            {(['today', 'upcoming', 'pending', 'recurring', 'canceled', 'completed'] as const).map((value) => (
               <TabsContent key={value} value={value} className="mt-0">
                 {viewMode === "cards" ? renderCardView(paginatedAppointments) : renderTableView(paginatedAppointments)}
                 {activeAppointments.length > 0 && <Pager />}
@@ -1359,6 +1500,39 @@ const Dashboard = () => {
                     </div>
                   </div>
 
+                  <div className="rounded-lg ring-1 ring-slate-100 overflow-hidden">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border-b border-slate-100">
+                      <div className="w-5 h-5 rounded-md bg-emerald-50 flex items-center justify-center">
+                        <Users className="h-3 w-3 text-emerald-600" />
+                      </div>
+                      <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Participants</span>
+                    </div>
+                    <div className="p-3 flex flex-wrap gap-1.5">
+                      {[selectedAppointment.client_name, ...parseBclAttendees(selectedAppointment.bcl_attendee)].filter(Boolean).map((name, index) => (
+                        <span key={`${name}-${index}`} className="inline-flex items-center gap-1 rounded-lg bg-slate-50 px-2 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-100">
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#0DAA8A]/10 text-[10px] font-bold text-[#087963]">
+                            {String(name).slice(0, 2).toUpperCase()}
+                          </span>
+                          {name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg ring-1 ring-slate-100 overflow-hidden">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border-b border-slate-100">
+                      <div className="w-5 h-5 rounded-md bg-slate-100 flex items-center justify-center">
+                        <History className="h-3 w-3 text-slate-600" />
+                      </div>
+                      <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Activity Timeline</span>
+                    </div>
+                    <div className="p-3 space-y-2 text-xs text-slate-600">
+                      <p>Created on {selectedAppointment.booking_date || 'N/A'} by {selectedAppointment.created_by || 'system'}.</p>
+                      <p>Current state: {checkAppointmentStatus(selectedAppointment).status}.</p>
+                      {selectedAppointment.updated_by && <p>Last updated by {selectedAppointment.updated_by}.</p>}
+                    </div>
+                  </div>
+
                   {selectedAppointment.google_meet_link && (
                     <div className="rounded-lg ring-1 ring-cyan-100 overflow-hidden">
                       <div className="flex items-center gap-2 px-3 py-2 bg-cyan-50 border-b border-cyan-100">
@@ -1380,7 +1554,18 @@ const Dashboard = () => {
             <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:justify-between items-center px-5 py-4 border-t border-slate-100 bg-slate-50/50">
               {/* Wrap action buttons for smaller screens */}
               <div className="flex flex-wrap gap-2 justify-center sm:justify-start w-full sm:w-auto">
-                {selectedAppointment?.status !== 'canceled' && selectedAppointment?.status !== 'completed' && (
+                {canManageAppointment(selectedAppointment) && selectedAppointment?.status !== 'canceled' && selectedAppointment?.status !== 'completed' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => selectedAppointment && openEditDialog(selectedAppointment)}
+                    className="rounded-lg border-slate-300 text-slate-700 hover:bg-slate-50 px-3 py-1.5 text-xs sm:text-sm"
+                  >
+                    <BookOpen className="h-3.5 w-3.5 mr-1 sm:mr-1.5" />
+                    Edit
+                  </Button>
+                )}
+                {canManageAppointment(selectedAppointment) && selectedAppointment?.status !== 'canceled' && selectedAppointment?.status !== 'completed' && (
                   <Button
                     variant="outline"
                     size="sm" // Use sm size consistently
@@ -1401,7 +1586,7 @@ const Dashboard = () => {
                     Reschedule
                   </Button>
                 )}
-                {selectedAppointment?.badge_status !== 'Confirmed' && selectedAppointment?.status !== 'canceled' && selectedAppointment?.status !== 'completed' && (
+                {canManageAppointment(selectedAppointment) && selectedAppointment?.badge_status !== 'Confirmed' && selectedAppointment?.status !== 'canceled' && selectedAppointment?.status !== 'completed' && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -1412,7 +1597,7 @@ const Dashboard = () => {
                     Confirm
                   </Button>
                 )}
-                {selectedAppointment?.status !== 'canceled' && selectedAppointment?.status !== 'completed' && (
+                {canManageAppointment(selectedAppointment) && selectedAppointment?.status !== 'canceled' && selectedAppointment?.status !== 'completed' && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -1423,7 +1608,7 @@ const Dashboard = () => {
                     Cancel Mtg
                   </Button>
                 )}
-                {selectedAppointment?.status !== 'completed' && selectedAppointment?.status !== 'canceled' && (
+                {canManageAppointment(selectedAppointment) && selectedAppointment?.status !== 'completed' && selectedAppointment?.status !== 'canceled' && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -1434,7 +1619,18 @@ const Dashboard = () => {
                     Mark Done
                   </Button>
                 )}
-                {calendarConnectionStatus === 'connected' && selectedAppointment?.status !== 'canceled' && (
+                {canManageAppointment(selectedAppointment) && selectedAppointment?.status !== 'completed' && selectedAppointment?.status !== 'canceled' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => notify.info('Reminder queued', 'Email, SMS, WhatsApp, and push reminders are represented as UI placeholders.')}
+                    className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 px-3 py-1.5 text-xs sm:text-sm"
+                  >
+                    <Send className="h-3.5 w-3.5 mr-1 sm:mr-1.5" />
+                    Send Reminder
+                  </Button>
+                )}
+                {canManageAppointment(selectedAppointment) && calendarConnectionStatus === 'connected' && selectedAppointment?.status !== 'canceled' && (
                   selectedAppointment?.google_event_id ? (
                     <Button
                       variant="outline"
@@ -1463,15 +1659,22 @@ const Dashboard = () => {
                     </Button>
                   )
                 )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setDeleteDialogOpen(true)}
-                  className="border-red-400 text-red-800 hover:bg-red-50 px-3 py-1.5 text-xs sm:text-sm"
-                >
-                  <Trash2 className="h-3.5 w-3.5 mr-1 sm:mr-1.5" />
-                  Delete Permanently
-                </Button>
+                {canManageAppointment(selectedAppointment) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDeleteDialogOpen(true)}
+                    className="border-red-400 text-red-800 hover:bg-red-50 px-3 py-1.5 text-xs sm:text-sm"
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-1 sm:mr-1.5" />
+                    Delete Permanently
+                  </Button>
+                )}
+                {!canManageAppointment(selectedAppointment) && (
+                  <span className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-500">
+                    View only for your role
+                  </span>
+                )}
                 {(selectedAppointment?.status === 'completed' || selectedAppointment?.status === 'canceled') && (
                   <span className="text-xs sm:text-sm text-gray-500 italic px-3 py-1.5">
                     This meeting is {selectedAppointment.status}.
@@ -1487,6 +1690,81 @@ const Dashboard = () => {
               >
                 Close
               </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={isEditDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent className="max-w-sm sm:max-w-2xl rounded-lg p-0 overflow-hidden bg-white">
+            <DialogHeader className="px-5 pt-5 pb-4 border-b border-slate-100">
+              <DialogTitle className="text-base font-bold text-slate-900">Edit Meeting</DialogTitle>
+              <DialogDescription className="text-xs text-slate-500">
+                Update the meeting details and save them to the booking database.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid max-h-[65vh] grid-cols-1 gap-4 overflow-y-auto p-5 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Client Name</Label>
+                <Input name="client_name" value={editFormData.client_name} onChange={handleEditInputChange} className="h-9 rounded-lg text-xs" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Company</Label>
+                <Input name="client_company" value={editFormData.client_company} onChange={handleEditInputChange} className="h-9 rounded-lg text-xs" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Mobile</Label>
+                <Input name="client_mobile" value={editFormData.client_mobile} onChange={handleEditInputChange} className="h-9 rounded-lg text-xs" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Date</Label>
+                <Input name="meeting_date" type="date" value={editFormData.meeting_date} onChange={handleEditInputChange} className="h-9 rounded-lg text-xs" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Start Time</Label>
+                <Input name="meeting_start_time" type="time" value={editFormData.meeting_start_time} onChange={handleEditInputChange} className="h-9 rounded-lg text-xs" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Duration</Label>
+                <Select value={editFormData.meeting_duration} onValueChange={(value) => handleEditInputChange({ target: { name: 'meeting_duration', value } })}>
+                  <SelectTrigger className="h-9 rounded-lg text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {[15, 30, 45, 60, 90, 120, 180, 240].map((minutes) => (
+                      <SelectItem key={minutes} value={String(minutes)}>{minutes} minutes</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">End Time</Label>
+                <Input name="meeting_end_time" type="time" value={editFormData.meeting_end_time} onChange={handleEditInputChange} className="h-9 rounded-lg text-xs" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Type</Label>
+                <Select value={editFormData.meeting_type} onValueChange={(value) => handleEditInputChange({ target: { name: 'meeting_type', value } })}>
+                  <SelectTrigger className="h-9 rounded-lg text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="virtual">Virtual</SelectItem>
+                    <SelectItem value="inPerson">Physical</SelectItem>
+                    <SelectItem value="physical">Physical</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label className="text-xs">Venue</Label>
+                <Input name="meeting_venue_area" value={editFormData.meeting_venue_area} onChange={handleEditInputChange} className="h-9 rounded-lg text-xs" />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label className="text-xs">Agenda / Notes</Label>
+                <Input name="meeting_agenda" value={editFormData.meeting_agenda} onChange={handleEditInputChange} className="h-9 rounded-lg text-xs" />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label className="text-xs">BCL Attendee Mobile</Label>
+                <Input name="bcl_attendee_mobile" value={editFormData.bcl_attendee_mobile} onChange={handleEditInputChange} className="h-9 rounded-lg text-xs" />
+              </div>
+            </div>
+            <DialogFooter className="px-5 py-4 border-t border-slate-100 bg-slate-50/50 flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setEditDialogOpen(false)} className="flex-1 rounded-lg border-slate-200 text-xs h-8">Cancel</Button>
+              <Button size="sm" onClick={handleFinalEdit} className="flex-1 rounded-lg bg-[#0DAA8A] hover:bg-[#0B9579] text-white text-xs h-8">Save Changes</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -1552,6 +1830,33 @@ const Dashboard = () => {
                   className="h-9 rounded-lg bg-slate-50 border-slate-200 text-xs text-slate-500 cursor-default"
                 />
               </div>
+
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-700">Availability</span>
+                  <Badge variant="outline" className="border-amber-200 bg-amber-50 text-[10px] text-amber-700">Conflict scan UI</Badge>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {['09:00', '11:00', '14:00', '15:30', '16:00', '17:00'].map((slot) => {
+                    const conflict = slot === '11:00';
+                    return (
+                      <button
+                        key={slot}
+                        type="button"
+                        onClick={() => !conflict && handleRescheduleInputChange({ target: { name: 'dateTimeLocal', value: `${rescheduleFormData.meetingDate || today}T${slot}` } })}
+                        className={`rounded-lg px-2 py-2 text-xs font-medium ring-1 transition ${
+                          conflict
+                            ? 'cursor-not-allowed bg-red-50 text-red-500 ring-red-100'
+                            : 'bg-white text-slate-700 ring-slate-200 hover:bg-[#0DAA8A]/10 hover:text-[#087963]'
+                        }`}
+                      >
+                        {slot}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-[11px] text-slate-500">Suggested open slots are selectable; red slots show detected conflicts.</p>
+              </div>
             </div>
 
             <DialogFooter className="px-5 py-4 border-t border-slate-100 bg-slate-50/50 flex gap-2">
@@ -1598,6 +1903,23 @@ const Dashboard = () => {
         </AlertDialog>
       </div> {/* End Container */}
     </div> // End Main Div
+  );
+};
+
+const Dashboard = () => {
+  return (
+    <React.Suspense fallback={
+      <div className="flex min-h-[60vh] items-center justify-center bg-slate-50">
+        <div className="rounded-lg border border-slate-200 bg-white px-6 py-5 text-center shadow-sm">
+          <div className="flex items-center justify-center gap-2">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-800" />
+            <span className="text-sm text-slate-600">Loading Dashboard...</span>
+          </div>
+        </div>
+      </div>
+    }>
+      <DashboardContent />
+    </React.Suspense>
   );
 };
 

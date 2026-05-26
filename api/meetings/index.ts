@@ -106,7 +106,7 @@ function timeToMinutes(time: string) {
 }
 
 /** Enrich meetings with resolved attendee names from scanner_users. */
-async function enrichWithAttendeeNames(meetings: any[]): Promise<any[]> {
+export async function enrichWithAttendeeNames(meetings: any[]): Promise<any[]> {
   // Collect all unique UUIDs from bcl_attendee arrays
   const allIds = new Set<string>();
   for (const m of meetings) {
@@ -119,7 +119,7 @@ async function enrichWithAttendeeNames(meetings: any[]): Promise<any[]> {
   const { data: users } = await supabase
     .from("scanner_users")
     .select("id, first_name, last_name, username")
-    .in("id", [...allIds]);
+    .in("id", Array.from(allIds));
 
   const nameMap: Record<string, string> = {};
   for (const u of users ?? []) {
@@ -220,7 +220,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json(data, { status: 201 });
+    const [enriched] = await enrichWithAttendeeNames([data]);
+    return NextResponse.json(enriched ?? data, { status: 201 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || "Failed to create meeting" }, { status: 500 });
   }
