@@ -18,11 +18,18 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  applicationName: 'BCL APPOINTMENTS',
+  applicationName: 'BookSmart',
   manifest: "/manifest.json",
-  title: 'BCL APPOINTMENTS',
+  title: 'BookSmart — Time Well Meet.',
   description: 'Streamlined appointment scheduling for professionals',
   keywords: ['appointments', 'meeting scheduler', 'professional calendar'],
+  icons: {
+    icon: [
+      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+    ],
+    apple: '/apple-touch-icon.png',
+  },
 }
 
 export const viewport: Viewport = {

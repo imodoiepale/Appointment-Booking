@@ -1,8 +1,8 @@
 {
     "id":"1",
-    "description":"BCL MEETINGS MODULE FOR SCHEDULING APPOINTMENTS",
-    "name": "BCL MEETINGS MODULE",
-    "short_name": "BCL MEETINGS",
+    "description":"BookSmart — Time Well Meet.",
+    "name": "BookSmart",
+    "short_name": "BookSmart",
     "icons": [
       {
         "src": "/windows11/SmallTile.scale-100.png",
