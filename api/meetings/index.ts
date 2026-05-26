@@ -8,6 +8,7 @@ const supabase = createClient(
 
 const ACTIVE_STATUSES = ["upcoming", "rescheduled"];
 const ADMIN_ROLES = new Set(["admin", "super_admin", "administrator"]);
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function toInteger(value: unknown, fallback = 0) {
   const parsed = typeof value === "number" ? value : parseInt(String(value ?? ""), 10);
@@ -31,21 +32,39 @@ function escapeOrValue(value: string) {
   return value.replace(/[(),]/g, " ").trim();
 }
 
+/** Normalise bcl_attendee to a plain JS array of strings before DB write. */
+function normaliseBclAttendee(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw.map(String).filter(Boolean);
+  if (typeof raw === "string" && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean);
+    } catch {
+      // plain string value (legacy name or UUID)
+      return [raw.trim()];
+    }
+  }
+  return [];
+}
+
 function applyUserScope(query: any, request: NextRequest) {
   const user = getMobileUser(request);
   if (!user.id || isAdminRole(user.role)) return query;
 
+  // UUID-based: exact match on created_by and JSON containment on bcl_attendee
+  // Legacy: email match on created_by/updated_by, name ilike on bcl_attendee
   const clauses = [
+    user.id ? `created_by.eq.${user.id}` : "",
+    user.id ? `bcl_attendee.cs.["${user.id}"]` : "",
     user.email ? `created_by.eq.${escapeOrValue(user.email)}` : "",
     user.email ? `updated_by.eq.${escapeOrValue(user.email)}` : "",
-    user.name ? `bcl_attendee.ilike.%${escapeOrValue(user.name)}%` : "",
   ].filter(Boolean);
 
   return clauses.length > 0 ? query.or(clauses.join(",")) : query;
 }
 
 function toMeetingPayload(body: Record<string, any>, request?: NextRequest) {
-  const user = request ? getMobileUser(request) : { email: "", name: "" };
+  const user = request ? getMobileUser(request) : { id: "", email: "", name: "" };
   const meetingDate = body.meeting_date ?? body.meetingDate;
   const meetingStartTime = body.meeting_start_time ?? body.meetingStartTime;
   const meetingEndTime = body.meeting_end_time ?? body.meetingEndTime;
@@ -62,7 +81,7 @@ function toMeetingPayload(body: Record<string, any>, request?: NextRequest) {
     client_name: body.client_name ?? body.clientName,
     client_company: body.client_company ?? body.clientCompany ?? "",
     client_mobile: body.client_mobile ?? body.clientMobile ?? "",
-    bcl_attendee: body.bcl_attendee ?? body.bclAttendee ?? "",
+    bcl_attendee: normaliseBclAttendee(body.bcl_attendee ?? body.bclAttendee),
     bcl_attendee_mobile: body.bcl_attendee_mobile ?? body.bclAttendeeMobile ?? "",
     meeting_agenda: body.meeting_agenda ?? body.meetingAgenda ?? body.description ?? "",
     meeting_duration: duration,
@@ -73,7 +92,7 @@ function toMeetingPayload(body: Record<string, any>, request?: NextRequest) {
     meeting_slot_end_time: body.meeting_slot_end_time ?? body.meetingSlotEndTime ?? meetingEndTime,
     badge_status: body.badge_status ?? body.badgeStatus ?? "Open",
     status: body.status ?? "upcoming",
-    created_by: body.created_by ?? body.createdBy ?? user.email ?? user.name ?? null,
+    created_by: body.created_by ?? body.createdBy ?? user.id || user.email || user.name || null,
     updated_by: body.updated_by ?? body.updatedBy ?? null,
     google_event_id: body.google_event_id ?? null,
     google_meet_link: body.google_meet_link ?? null,
@@ -84,6 +103,40 @@ function timeToMinutes(time: string) {
   const [hours, minutes] = time.split(":").map(Number);
   if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
   return hours * 60 + minutes;
+}
+
+/** Enrich meetings with resolved attendee names from scanner_users. */
+async function enrichWithAttendeeNames(meetings: any[]): Promise<any[]> {
+  // Collect all unique UUIDs from bcl_attendee arrays
+  const allIds = new Set<string>();
+  for (const m of meetings) {
+    const ids = normaliseBclAttendee(m.bcl_attendee);
+    ids.filter((v) => UUID_RE.test(v)).forEach((v) => allIds.add(v));
+  }
+
+  if (allIds.size === 0) return meetings;
+
+  const { data: users } = await supabase
+    .from("scanner_users")
+    .select("id, first_name, last_name, username")
+    .in("id", [...allIds]);
+
+  const nameMap: Record<string, string> = {};
+  for (const u of users ?? []) {
+    nameMap[u.id] =
+      [u.first_name, u.last_name].filter(Boolean).join(" ") || u.username || u.id;
+  }
+
+  return meetings.map((m) => {
+    const ids = normaliseBclAttendee(m.bcl_attendee);
+    const info = ids.map((id) => ({ id, name: nameMap[id] ?? id }));
+    return {
+      ...m,
+      bcl_attendees_info: info,
+      // Keep legacy single-name field for backward compat (first attendee)
+      bcl_attendee_name: info[0]?.name ?? null,
+    };
+  });
 }
 
 export async function GET(request: NextRequest) {
@@ -110,7 +163,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json(data ?? []);
+    const enriched = await enrichWithAttendeeNames(data ?? []);
+    return NextResponse.json(enriched);
   } catch (error: any) {
     return NextResponse.json({ error: error.message || "Failed to fetch meetings" }, { status: 500 });
   }

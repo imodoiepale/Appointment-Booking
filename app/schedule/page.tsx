@@ -1,26 +1,24 @@
-/* eslint-disable react/no-unescaped-entities */
 // @ts-nocheck
 "use client"
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
-
-// ShadCN UI components
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast"; // Corrected import path
-import { Toaster } from "@/components/ui/toaster"; // Ensure Toaster is imported
+import { useToast } from "@/hooks/use-toast";
+import { Toaster } from "@/components/ui/toaster";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea"; // Import Textarea if needed for Agenda 'Other'
-
-// Icons
-import { Calendar, Clock, Mic, MicOff, Building, User, Phone, Mail, MapPin, Check, ChevronRight, ChevronLeft, Loader2, Info } from 'lucide-react'; // Added Check, Chevrons, Loader2, Info
+import { Textarea } from "@/components/ui/textarea";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { Calendar, Clock, Mic, MicOff, Building, User, Phone, Mail, MapPin, Check, ChevronRight, ChevronLeft, Loader2, Info, X } from 'lucide-react';
 
 const supabaseUrl = 'https://zyszsqgdlrpnunkegipk.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5c3pzcWdkbHJwbnVua2VnaXBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDgzMjc4OTQsImV4cCI6MjAyMzkwMzg5NH0.fK_zR8wR6Lg8HeK7KBTTnyF0zoyYBqjkeWeTKqi32ws';
@@ -45,7 +43,6 @@ const BookingScheduler = () => {
     const [showOtherAgendaInput, setShowOtherAgendaInput] = useState(false); // State for other agenda
     const [formStatus, setFormStatus] = useState('idle'); // idle, submitting, success, error
     const [invalidFields, setInvalidFields] = useState<string[]>([]); // Explicitly typed
-
     const initialFormData = {
         bookingDate: '',
         bookingDay: '',
@@ -59,7 +56,8 @@ const BookingScheduler = () => {
         clientMobile: '',
         clientEmail: '',
         companyType: '', // existing | new
-        bclAttendee: '',
+        bclAttendees: [],      // array of selected UUIDs
+        bclAttendeeNames: [],  // parallel array of display names
         bclAttendeeMobile: '+254700298298', // Default BCL mobile
         meetingAgenda: '', // Can be selected or 'Other'
         otherMeetingAgenda: '', // For custom agenda input
@@ -70,9 +68,11 @@ const BookingScheduler = () => {
         meetingSlotStartTime: '', // HH:MM format (calculated)
         meetingSlotEndTime: '', // HH:MM format (calculated)
     };
-
     const [formData, setFormData] = useState(initialFormData);
-
+    const [bclAttendees, setBclAttendees] = useState<{ id: string; displayName: string }[]>([]);
+    const [loadingBclAttendees, setLoadingBclAttendees] = useState(true);
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+    const [attendeePickerOpen, setAttendeePickerOpen] = useState(false);
 
     const toggleListening = () => {
         if (!browserSupportsSpeechRecognition) {
@@ -106,6 +106,32 @@ const BookingScheduler = () => {
     }, [toast]);
 
 
+    const fetchBclAttendees = useCallback(async () => {
+        setLoadingBclAttendees(true);
+        try {
+            const res = await fetch('/api/users/bcl-attendees');
+            if (!res.ok) throw new Error('Failed to load attendees');
+            const data = await res.json();
+            setBclAttendees(data);
+        } catch (error: any) {
+            console.error('Error fetching BCL attendees:', error.message);
+            toast({ variant: "destructive", title: "Error", description: "Could not load BCL attendee list." });
+        } finally {
+            setLoadingBclAttendees(false);
+        }
+    }, [toast]);
+
+    const fetchCurrentUser = useCallback(async () => {
+        try {
+            const res = await fetch('/api/users/me');
+            if (!res.ok) return;
+            const data = await res.json();
+            setCurrentUserId(data.id ?? null);
+        } catch {
+            // Not critical — created_by will be null
+        }
+    }, []);
+
     // --- Effects ---
     useEffect(() => {
         // Initialize form with current date
@@ -116,7 +142,9 @@ const BookingScheduler = () => {
             bookingDay: currentDate.toLocaleDateString('en-US', { weekday: 'long' }),
         }));
         fetchCompanies();
-    }, [fetchCompanies]); // Added fetchCompanies as a dependency
+        fetchBclAttendees();
+        fetchCurrentUser();
+    }, [fetchCompanies, fetchBclAttendees, fetchCurrentUser]);
 
     useEffect(() => {
         // Reset validation errors when data changes
@@ -193,6 +221,22 @@ const BookingScheduler = () => {
             }));
             setShowOtherClientCompanyInput(value === 'new');
         }
+    };
+
+    const toggleAttendee = (id: string, displayName: string, checked: boolean) => {
+        setFormData((prev) => {
+            const ids = prev.bclAttendees as string[];
+            const names = prev.bclAttendeeNames as string[];
+            if (checked) {
+                return { ...prev, bclAttendees: [...ids, id], bclAttendeeNames: [...names, displayName] };
+            }
+            const idx = ids.indexOf(id);
+            return {
+                ...prev,
+                bclAttendees: ids.filter((_, i) => i !== idx),
+                bclAttendeeNames: names.filter((_, i) => i !== idx),
+            };
+        });
     };
 
     const handleSelectChange = (name: string, value: string) => {
@@ -325,7 +369,7 @@ const BookingScheduler = () => {
     const validateStep = (stepIndex: number): boolean => {
         const fieldsToValidate: { [key: number]: string[] } = {
             0: ['meetingDate', 'meetingType', 'meetingVenueArea'],
-            1: ['clientName', 'companyType', 'clientMobile', 'bclAttendee'], // Base client fields
+            1: ['clientName', 'companyType', 'clientMobile', 'bclAttendees'], // Base client fields
             2: ['meetingStartTime', 'meetingDuration', 'meetingAgenda', 'venueDistance'],
         };
 
@@ -351,7 +395,8 @@ const BookingScheduler = () => {
 
         const currentInvalidFields = requiredFields.filter(field => {
             const value = formData[field as keyof typeof formData];
-            return !value || value.trim() === '';
+            if (field === 'bclAttendees') return !Array.isArray(value) || value.length === 0;
+            return !value || (typeof value === 'string' && value.trim() === '');
         });
 
         setInvalidFields(currentInvalidFields);
@@ -486,8 +531,9 @@ const BookingScheduler = () => {
                     client_company: dataToSubmit.clientCompany, // Use the final company name
                     client_mobile: dataToSubmit.clientMobile,
                     // client_email: dataToSubmit.clientEmail, // Add if email is in your DB schema
-                    bcl_attendee: dataToSubmit.bclAttendee,
+                    bcl_attendee: dataToSubmit.bclAttendees,      // JSON array of attendee UUIDs
                     bcl_attendee_mobile: dataToSubmit.bclAttendeeMobile,
+                    created_by: currentUserId,
                     meeting_agenda: dataToSubmit.meetingAgenda, // Use the final agenda
                     meeting_duration: parseInt(dataToSubmit.meetingDuration), // Ensure integer
                     venue_distance: parseInt(dataToSubmit.venueDistance), // Ensure integer
@@ -550,7 +596,7 @@ const BookingScheduler = () => {
                             meeting_type: dataToSubmit.meetingType,
                             meeting_venue_area: dataToSubmit.meetingVenueArea,
                             meeting_agenda: dataToSubmit.meetingAgenda,
-                            bcl_attendee: dataToSubmit.bclAttendee,
+                            bcl_attendee: (dataToSubmit.bclAttendeeNames as string[]).join(', ') || '',
                             bcl_attendee_mobile: dataToSubmit.bclAttendeeMobile,
                             venue_distance: parseInt(dataToSubmit.venueDistance),
                             meeting_slot_start_time: dataToSubmit.meetingSlotStartTime,
@@ -582,7 +628,9 @@ const BookingScheduler = () => {
                     ...initialFormData, // Reset all fields first
                     bookingDate: currentDate.toISOString().split('T')[0],
                     bookingDay: currentDate.toLocaleDateString('en-US', { weekday: 'long' }),
-                    bclAttendeeMobile: '+254700505275', // Keep default BCL mobile
+                    bclAttendees: [],
+                    bclAttendeeNames: [],
+                    bclAttendeeMobile: '+254700298298',
                     venueDistance: '10', // Reset travel time default
                 }));
                 setActiveStep(0);
@@ -924,20 +972,57 @@ const BookingScheduler = () => {
                                             {renderInputField('clientMobile', 'Client Mobile *', { icon: Phone, isInvalid: invalidFields.includes('clientMobile'), type: 'tel' })}
                                             {renderInputField('clientEmail', 'Client Email', { icon: Mail, type: 'email' })} {/* Optional? */}
 
-                                            {renderSelectField('bclAttendee', 'BCL Attendee *', {
-                                                placeholder: 'Select BCL Attendee',
-                                                items: [
-                                                    { value: 'Sandip', label: 'Sandip' },
-                                                    { value: 'Tushar', label: 'Tushar' },
-                                                    { value: 'Samarth', label: 'Samarth' },
-                                                    { value: 'James', label: 'James' },
-                                                    { value: 'Lynne', label: 'Lynne' },
-                                                    { value: 'John', label: 'John' },
-                                                ],
-                                                icon: User,
-                                                isInvalid: invalidFields.includes('bclAttendee'),
-                                                onValueChange: (value) => handleSelectChange('bclAttendee', value)
-                                            })}
+                                            {/* BCL Attendee multi-select */}
+                                            <div className="space-y-1.5">
+                                                <Label className={`text-xs font-semibold uppercase tracking-wide ${invalidFields.includes('bclAttendees') ? 'text-red-600' : 'text-slate-500'}`}>BCL Attendee(s) *</Label>
+                                                {loadingBclAttendees ? (
+                                                    <Button variant="outline" disabled className="h-11 w-full justify-start rounded-lg border-slate-200 bg-slate-50 font-normal text-slate-500">
+                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading attendees...
+                                                    </Button>
+                                                ) : (
+                                                    <Popover open={attendeePickerOpen} onOpenChange={setAttendeePickerOpen}>
+                                                        <PopoverTrigger asChild>
+                                                            <Button
+                                                                variant="outline"
+                                                                className={`h-auto min-h-[44px] w-full justify-start rounded-lg text-sm font-normal ${invalidFields.includes('bclAttendees') ? 'border-red-500 text-red-600' : 'border-slate-200'}`}
+                                                            >
+                                                                <User className="mr-2 h-4 w-4 shrink-0 text-slate-400" />
+                                                                {formData.bclAttendees.length === 0 ? (
+                                                                    <span className="text-slate-400">Select BCL Attendee(s)</span>
+                                                                ) : (
+                                                                    <div className="flex flex-wrap gap-1">
+                                                                        {(formData.bclAttendeeNames as string[]).map((name, i) => (
+                                                                            <Badge key={i} variant="secondary" className="flex items-center gap-1 rounded-md text-xs">
+                                                                                {name}
+                                                                                <X className="h-3 w-3 cursor-pointer" onClick={(e) => { e.stopPropagation(); toggleAttendee((formData.bclAttendees as string[])[i], name, false); }} />
+                                                                            </Badge>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </Button>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-72 p-2" align="start">
+                                                            <p className="mb-2 px-1 text-xs font-semibold text-slate-500 uppercase tracking-wide">Select Attendees</p>
+                                                            <div className="max-h-60 overflow-y-auto space-y-1">
+                                                                {bclAttendees.map((a) => {
+                                                                    const isSelected = (formData.bclAttendees as string[]).includes(a.id);
+                                                                    return (
+                                                                        <div key={a.id} className="flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-slate-50 cursor-pointer" onClick={() => toggleAttendee(a.id, a.displayName, !isSelected)}>
+                                                                            <Checkbox
+                                                                                checked={isSelected}
+                                                                                onCheckedChange={(checked) => toggleAttendee(a.id, a.displayName, !!checked)}
+                                                                                onClick={(e) => e.stopPropagation()}
+                                                                            />
+                                                                            <span className="text-sm text-slate-800">{a.displayName}</span>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </PopoverContent>
+                                                    </Popover>
+                                                )}
+                                                {invalidFields.includes('bclAttendees') && <p className="text-xs text-red-500 mt-1">Please select at least one BCL attendee.</p>}
+                                            </div>
                                             {renderInputField('bclAttendeeMobile', 'BCL Attendee Mobile', { readOnly: true, icon: Phone })}
                                         </div>
                                     </div>
@@ -1043,7 +1128,7 @@ const BookingScheduler = () => {
                                             <ConfirmationItem label="Type" value={formData.meetingType === 'inPerson' ? 'In Person' : 'Virtual'} />
                                             <ConfirmationItem label="Venue" value={formData.meetingVenueArea === 'Other' ? formData.otherMeetingVenueArea : formData.meetingVenueArea} />
                                             <ConfirmationItem label="Agenda" value={formData.meetingAgenda === 'Other' ? formData.otherMeetingAgenda : formData.meetingAgenda} />
-                                            <ConfirmationItem label="BCL Attendee" value={formData.bclAttendee} />
+                                            <ConfirmationItem label="BCL Attendee(s)" value={(formData.bclAttendeeNames as string[]).join(', ') || '—'} />
                                             <ConfirmationItem label="Travel Time (Each Way)" value={`${formData.venueDistance} min`} />
                                             <ConfirmationItem label="Calendar Slot" value={`${formData.meetingSlotStartTime || '--:--'} - ${formData.meetingSlotEndTime || '--:--'}`} />
                                         </div>

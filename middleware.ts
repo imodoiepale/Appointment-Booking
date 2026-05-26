@@ -12,6 +12,7 @@ const PUBLIC_PATHS = [
   "/api/auth/google",          // Google Calendar OAuth flow
   "/api/meetings",             // Mobile app meeting fetch/manage API
   "/api/companies",            // Mobile app company dropdown API
+  "/api/users/bcl-attendees",  // Mobile app attendee dropdown API
   "/api/meeting-notifications",
   "/api/auto-sync-calendar",
   "/api/sync-to-calendar",

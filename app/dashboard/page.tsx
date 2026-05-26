@@ -1,8 +1,9 @@
 // @ts-nocheck
 "use client"
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ChangeEvent } from 'react';
+import { useSearchParams } from 'next/navigation';
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,13 +18,28 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, Clock, Mic, MicOff, UserPlus, Building, MapPin, CheckCircle, XCircle, RefreshCw, MessageSquare, Table2, LayoutGrid, Link as LinkIcon, Phone, Video, Trash2, Loader2, CloudOff, Cloud, ShieldCheck, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, Users, CalendarDays, AlertTriangle } from 'lucide-react';
+import { Calendar, Clock, Mic, MicOff, UserPlus, Building, MapPin, CheckCircle, XCircle, RefreshCw, MessageSquare, Table2, LayoutGrid, Link as LinkIcon, Phone, Video, Trash2, Loader2, CloudOff, Cloud, ShieldCheck, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, Users, CalendarDays, AlertTriangle, User, BookOpen } from 'lucide-react';
 import supabase from '@/utils/supabaseClient';
 import type { Appointment, AuthUser, CalendarConnectionStatus } from '@/components/dashboard/types';
 import AppointmentCard from './components/appointment-card';
 import { formatTime } from './format';
 
+const ADMIN_ROLES = new Set(['admin', 'super_admin', 'administrator']);
+
+/** Return the ids from a bcl_attendee value that may be a JSON array or legacy string. */
+function parseBclAttendees(value: any): string[] {
+  if (Array.isArray(value)) return value.map(String);
+  if (typeof value === 'string' && value.trim()) {
+    try { const p = JSON.parse(value); if (Array.isArray(p)) return p.map(String); } catch {}
+    return [value.trim()];
+  }
+  return [];
+}
+
 const Dashboard = () => {
+  const searchParams = useSearchParams();
+  const scope = searchParams.get('scope') ?? 'all'; // 'all' | 'assigned' | 'created'
+
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
@@ -34,6 +50,8 @@ const Dashboard = () => {
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [syncingMeetingId, setSyncingMeetingId] = useState<number | null>(null);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [itemsPerPage, setItemsPerPage] = useState(12);
   const { toast } = useToast();
@@ -269,6 +287,16 @@ const Dashboard = () => {
         setCurrentUser(json.authenticated && json.user ? json.user : null);
       } catch {
         setCurrentUser(null);
+      }
+      try {
+        const meRes = await fetch('/api/users/me');
+        if (meRes.ok) {
+          const me = await meRes.json();
+          setCurrentUserId(me.id ?? null);
+          setIsAdmin(ADMIN_ROLES.has((me.role ?? '').toLowerCase()));
+        }
+      } catch {
+        // non-critical
       }
     };
 
@@ -716,6 +744,15 @@ const Dashboard = () => {
       (appointment.status === 'upcoming' || appointment.status === 'rescheduled' || checkAppointmentStatus(appointment).status === 'pending')
   ).length;
 
+  /** Filter the full appointments list according to the current scope. */
+  const scopedAppointments = useMemo(() => {
+    // Admins always see everything; 'all' scope also shows everything
+    if (isAdmin || scope === 'all' || !currentUserId) return appointments;
+    if (scope === 'created') return appointments.filter((a) => a.created_by === currentUserId);
+    if (scope === 'assigned') return appointments.filter((a) => parseBclAttendees(a.bcl_attendee).includes(currentUserId));
+    return appointments;
+  }, [appointments, scope, currentUserId, isAdmin]);
+
   const appointmentBuckets = useMemo(() => {
     const byStartAsc = (a: Appointment, b: Appointment) =>
       new Date(`${a.meeting_date}T${a.meeting_start_time || '00:00'}`).getTime() -
@@ -726,20 +763,20 @@ const Dashboard = () => {
       new Date(b.booking_date || 0).getTime() - new Date(a.booking_date || 0).getTime();
 
     return {
-      upcoming: appointments
+      upcoming: scopedAppointments
         .filter((app) => ['upcoming', 'rescheduled'].includes(checkAppointmentStatus(app).status))
         .sort(byStartAsc),
-      pending: appointments
+      pending: scopedAppointments
         .filter((app) => checkAppointmentStatus(app).status === 'pending')
         .sort(byStartAsc),
-      canceled: appointments
+      canceled: scopedAppointments
         .filter((app) => app.status === 'canceled')
         .sort(byBookingDesc),
-      completed: appointments
+      completed: scopedAppointments
         .filter((app) => app.status === 'completed')
         .sort(byMeetingDesc),
     };
-  }, [appointments]);
+  }, [scopedAppointments]);
 
   const activeAppointments = appointmentBuckets[activeTab] || [];
   const totalPages = Math.max(1, Math.ceil(activeAppointments.length / itemsPerPage));
@@ -749,7 +786,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     setCurrentPage(0);
-  }, [activeTab, viewMode, itemsPerPage]);
+  }, [activeTab, viewMode, itemsPerPage, scope]);
 
   useEffect(() => {
     setCurrentPage((page) => Math.min(page, totalPages - 1));
@@ -785,9 +822,14 @@ const Dashboard = () => {
 
   const currentUserDisplay = currentUser?.displayName || currentUser?.email || currentUser?.username || 'Authenticated user';
   const currentUserRole = currentUser?.role?.replace(/_/g, ' ') || 'User';
-  const syncedCount = appointments.filter((appointment) => appointment.google_event_id).length;
+  const syncedCount = scopedAppointments.filter((appointment) => appointment.google_event_id).length;
+
+  const scopeLabel = scope === 'assigned' ? 'Assigned to Me'
+    : scope === 'created' ? 'Created by Me'
+    : 'All Meetings';
+
   const statCards = [
-    { label: 'Total Meetings', value: appointments.length, icon: <CalendarDays className="h-4 w-4" />, accent: 'bg-[#0DAA8A]', iconClass: 'bg-[#0DAA8A]/10 text-[#087963]' },
+    { label: scopeLabel, value: scopedAppointments.length, icon: <CalendarDays className="h-4 w-4" />, accent: 'bg-[#0DAA8A]', iconClass: 'bg-[#0DAA8A]/10 text-[#087963]' },
     { label: 'Today', value: totalAppointmentsToday, icon: <Clock className="h-4 w-4" />, accent: 'bg-blue-500', iconClass: 'bg-blue-50 text-blue-600' },
     { label: 'Pending', value: appointmentBuckets.pending.length, icon: <MessageSquare className="h-4 w-4" />, accent: 'bg-amber-500', iconClass: 'bg-amber-50 text-amber-600' },
     { label: 'Synced', value: syncedCount, icon: <Cloud className="h-4 w-4" />, accent: 'bg-blue-500', iconClass: 'bg-blue-50 text-blue-600' },
@@ -1101,6 +1143,37 @@ const Dashboard = () => {
           </Tooltip>
         </TooltipProvider>
       </div> */}
+
+      {/* ── Scope selector ── */}
+      <div className="flex flex-wrap items-center gap-2">
+        {[
+          { value: 'all', label: 'All Meetings', icon: <CalendarDays className="h-3.5 w-3.5" />, show: isAdmin },
+          { value: 'assigned', label: 'Assigned to Me', icon: <User className="h-3.5 w-3.5" />, show: true },
+          { value: 'created', label: 'Created by Me', icon: <BookOpen className="h-3.5 w-3.5" />, show: true },
+        ]
+          .filter((s) => s.show)
+          .map((s) => (
+            <a
+              key={s.value}
+              href={s.value === 'all' ? '/' : `/?scope=${s.value}`}
+              className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ring-1 ${
+                scope === s.value || (s.value === 'all' && scope === 'all')
+                  ? 'bg-blue-600 text-white ring-blue-600 shadow-sm shadow-blue-600/20'
+                  : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              {s.icon}
+              {s.label}
+              <span className={`ml-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                scope === s.value ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-500'
+              }`}>
+                {s.value === 'all' ? appointments.length
+                  : s.value === 'created' ? appointments.filter(a => a.created_by === currentUserId).length
+                  : appointments.filter(a => parseBclAttendees(a.bcl_attendee).includes(currentUserId)).length}
+              </span>
+            </a>
+          ))}
+      </div>
 
       {/* ── Controls bar ── */}
       <div className="flex flex-wrap items-center gap-2">
