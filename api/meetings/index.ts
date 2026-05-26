@@ -92,7 +92,7 @@ function toMeetingPayload(body: Record<string, any>, request?: NextRequest) {
     meeting_slot_end_time: body.meeting_slot_end_time ?? body.meetingSlotEndTime ?? meetingEndTime,
     badge_status: body.badge_status ?? body.badgeStatus ?? "Open",
     status: body.status ?? "upcoming",
-    created_by: body.created_by ?? body.createdBy ?? user.id || user.email || user.name || null,
+    created_by: body.created_by ?? body.createdBy ?? (user.id || user.email || user.name || null),
     updated_by: body.updated_by ?? body.updatedBy ?? null,
     google_event_id: body.google_event_id ?? null,
     google_meet_link: body.google_meet_link ?? null,
