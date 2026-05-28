@@ -110,7 +110,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8">
+    <div className="mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight text-slate-950">Settings</h1>
         <p className="mt-1 text-sm text-slate-500">
@@ -120,8 +120,8 @@ export default function SettingsPage() {
 
       {/* Profile card */}
       <section className="mb-5">
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="h-16 bg-gradient-to-r from-blue-600 to-blue-700" />
+        <div className="premium-surface overflow-hidden rounded-2xl">
+          <div className="h-16 bg-gradient-to-r from-indigo-600 via-teal-500 to-slate-950" />
           <div className="px-5 pb-5">
             <div className="-mt-8 flex items-end justify-between">
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl border-4 border-white bg-blue-600 text-xl font-bold text-white shadow-sm">
@@ -154,10 +154,12 @@ export default function SettingsPage() {
         </div>
       </section>
 
+      <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+
       {/* Google Calendar */}
-      <section className="mb-5">
+      <section>
         <SectionHeader icon={Calendar} title="Google Calendar" />
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="premium-panel rounded-2xl">
           <div className="flex items-center justify-between p-4">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50">
@@ -209,9 +211,9 @@ export default function SettingsPage() {
       </section>
 
       {/* Notification preferences */}
-      <section className="mb-5">
+      <section>
         <SectionHeader icon={Bell} title="Notifications" />
-        <div className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="premium-panel divide-y divide-slate-100 overflow-hidden rounded-2xl">
           <NotifToggle
             icon={Bell}
             iconBg="bg-blue-50"
@@ -243,9 +245,9 @@ export default function SettingsPage() {
       </section>
 
       {/* Channel preferences */}
-      <section className="mb-5">
+      <section>
         <SectionHeader icon={MessageSquare} title="Notification Channels" />
-        <div className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="premium-panel divide-y divide-slate-100 overflow-hidden rounded-2xl">
           <NotifToggle
             icon={MessageSquare}
             iconBg="bg-green-50"
@@ -277,9 +279,9 @@ export default function SettingsPage() {
       </section>
 
       {/* Appearance */}
-      <section className="mb-5">
+      <section>
         <SectionHeader icon={Sun} title="Appearance" />
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="premium-panel overflow-hidden rounded-2xl">
           <div className="p-4">
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
               Theme
@@ -309,18 +311,18 @@ export default function SettingsPage() {
       </section>
 
       {/* Security */}
-      <section className="mb-5">
+      <section>
         <SectionHeader icon={Shield} title="Security" />
-        <div className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="premium-panel divide-y divide-slate-100 overflow-hidden rounded-2xl">
           <SettingsRow icon={Lock} label="Change password" />
           <SettingsRow icon={Shield} label="Active sessions" />
         </div>
       </section>
 
       {/* About */}
-      <section className="mb-8">
+      <section>
         <SectionHeader icon={Info} title="About" />
-        <div className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="premium-panel divide-y divide-slate-100 overflow-hidden rounded-2xl">
           <div className="flex items-center justify-between px-4 py-3">
             <p className="text-sm text-slate-700">App name</p>
             <p className="text-sm font-medium text-slate-950">BCL Meetings</p>
@@ -335,11 +337,12 @@ export default function SettingsPage() {
           </div>
         </div>
       </section>
+      </div>
 
       {/* Sign out */}
       <Button
         variant="outline"
-        className="w-full gap-2 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+        className="mt-5 w-full gap-2 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
         onClick={handleLogout}
       >
         <LogOut className="h-4 w-4" />

@@ -3,8 +3,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 // Remove direct Supabase import as we'll use the client
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, add, isSameDay, isBefore, parseISO, getHours, getMinutes, isWithinInterval, format as formatDate } from 'date-fns';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, Trash2, Info, Loader2, Check, Video, MapPin, Building, User, Phone, Mail, PlusCircle, ExternalLink, MoreHorizontal, MessageSquare, UserPlus, CheckCircle, XCircle, LinkIcon, RefreshCw } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, add, startOfWeek, isSameDay, isBefore, parseISO, getHours, getMinutes, isWithinInterval, format as formatDate } from 'date-fns';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, Trash2, Info, Loader2, Check, Video, MapPin, Building, User, Phone, Mail, PlusCircle, ExternalLink, MoreHorizontal, MessageSquare, UserPlus, CheckCircle, XCircle, LinkIcon, RefreshCw, Building2, FileText, Quote, Menu, Settings, Search, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -358,732 +358,455 @@ const CalendarView = () => {
     );
   };
 
+  const calendarDays = React.useMemo(() => {
+    const monthStart = startOfMonth(currentDate);
+    const calStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+    return Array.from({ length: 42 }, (_, i) => add(calStart, { days: i }));
+  }, [currentDate]);
+
   return (
-    // Use TooltipProvider at the root for any tooltips within
     <TooltipProvider>
-      <div className="flex flex-col lg:flex-row gap-6 p-4 md:p-6">
+      <div className="flex h-screen bg-white font-sans antialiased text-slate-900 overflow-hidden">
 
-        {/* Sidebar: Calendar and Upcoming Meetings */}
-        <div className="w-full lg:w-80 xl:w-96 flex-shrink-0 space-y-6">
-          <Card className="overflow-hidden shadow-sm border-gray-200">
-            <CardHeader className="bg-gradient-to-r from-blue-50 to-teal-50 px-4 py-3 border-b">
-              <CardTitle className="text-lg text-blue-700">Calendar</CardTitle>
-            </CardHeader>
-            <CardContent className="p-3">
-              {/* Shadcn Calendar Component */}
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={handleDateSelect} // Use the safe handler
-                month={currentDate}       // Control the displayed month
-                onMonthChange={setCurrentDate} // Allow user to navigate months
-                className="rounded-md border"
-                components={{
-                  DayContent: DayContent // Use custom DayContent
-                }}
-              />
-            </CardContent>
-          </Card>
+        {/* ── LEFT ICON NAV ── */}
+        <nav className="w-[68px] shrink-0 bg-white border-r border-slate-100 flex flex-col items-center pt-5 pb-4 gap-1 z-10">
+          <div className="h-9 w-9 rounded-xl bg-orange-500 flex items-center justify-center mb-5 shadow-md shadow-orange-200">
+            <CalendarIcon className="h-[18px] w-[18px] text-white" />
+          </div>
+          {([
+            { icon: Building2, label: 'Dashboard' },
+            { icon: FileText, label: 'Documents' },
+            { icon: Building, label: 'Projects' },
+            { icon: CalendarIcon, label: 'Calendar', active: true },
+            { icon: Menu, label: 'More' },
+          ] as const).map(({ icon: Icon, label, active }: { icon: any, label: string, active?: boolean }) => (
+            <Tooltip key={label}>
+              <TooltipTrigger asChild>
+                <button className={cn(
+                  "h-10 w-10 rounded-xl flex items-center justify-center transition-colors",
+                  active ? "bg-orange-50 text-orange-500" : "text-slate-400 hover:bg-slate-50 hover:text-slate-700"
+                )}>
+                  <Icon className="h-5 w-5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="text-xs">{label}</TooltipContent>
+            </Tooltip>
+          ))}
+          <div className="flex-1" />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button className="h-10 w-10 rounded-xl flex items-center justify-center text-slate-400 hover:bg-slate-50 hover:text-slate-700 transition-colors">
+                <Settings className="h-5 w-5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="text-xs">Settings</TooltipContent>
+          </Tooltip>
+          <Avatar className="h-8 w-8 mt-2">
+            <AvatarFallback className="bg-slate-200 text-slate-600 text-xs font-bold">U</AvatarFallback>
+          </Avatar>
+        </nav>
 
-          <Card className="overflow-hidden shadow-sm border-gray-200">
-            <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50 px-4 py-3 border-b">
-              <CardTitle className="text-lg text-blue-700">Upcoming Meetings</CardTitle>
-              <CardDescription>Next 7 days</CardDescription>
-            </CardHeader>
-            <CardContent className="p-3 max-h-[300px] overflow-y-auto">
-              {upcomingMeetings.length > 0 ? (
-                <div className="space-y-2">
-                  {upcomingMeetings.slice(0, 10).map(meeting => ( // Show max 10 upcoming
-                    <div
-                      key={meeting.id_main}
-                      onClick={() => {
-                        handleDateSelect(parseISO(meeting.meeting_date)); // Navigate to meeting date
-                        // Optionally open details directly: setSelectedMeeting(meeting);
-                      }}
-                      className="p-2 text-xs border rounded-md cursor-pointer hover:bg-gray-100 transition-colors"
-                    >
-                      <p className="font-medium truncate text-gray-800">{meeting.client_name}</p>
-                      <div className="flex justify-between items-center mt-1 text-gray-600">
-                        <p>{formatDateSafe(meeting.meeting_date, 'EEE, dd MMM')}</p>
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
-                          {formatTime(meeting.meeting_start_time)}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-gray-500 text-center py-4">No upcoming meetings found.</p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+        {/* ── MAIN CALENDAR CONTENT ── */}
+        <div className="flex-1 flex flex-col overflow-hidden bg-white min-w-0">
 
-        {/* Main Content Area: Header, Tabs (Timeline/Table) */}
-        <div className="flex-1 space-y-6 min-w-0"> {/* min-w-0 prevents flex item overflow */}
-          {/* Header and Date Navigation */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-800">
-                Schedule for: {format(selectedDate, 'EEEE, dd MMMM yyyy')}
-              </h1>
-              {hasMeetingConflicts(meetingsForSelectedDate) && (
-                <Badge variant="destructive" className="mt-1">
-                  <Info className="h-3 w-3 mr-1" /> Potential Conflicts
-                </Badge>
-              )}
+          {/* Top Bar */}
+          <div className="flex items-center justify-between px-6 h-[60px] border-b border-slate-100 shrink-0">
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost" size="icon"
+                onClick={() => setCurrentDate(prev => add(prev, { months: -1 }))}
+                className="h-8 w-8 rounded-lg text-slate-500 hover:text-slate-900"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <h2 className="text-sm font-bold text-slate-900 w-[148px] text-center select-none">
+                {format(currentDate, 'MMMM  yyyy')}
+              </h2>
+              <Button
+                variant="ghost" size="icon"
+                onClick={() => setCurrentDate(prev => add(prev, { months: 1 }))}
+                className="h-8 w-8 rounded-lg text-slate-500 hover:text-slate-900"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
-            <div className="flex items-center space-x-2 flex-shrink-0">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon" onClick={() => changeDay(-1)}>
-                    <ChevronLeft className="h-4 w-4" />
-                    <span className="sr-only">Previous Day</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Previous Day</TooltipContent>
-              </Tooltip>
-              <Button variant="outline" size="sm" onClick={goToToday}>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={goToToday}
+                className="h-9 px-4 text-xs font-semibold rounded-lg border-slate-200 text-slate-600 hover:bg-slate-50"
+              >
                 Today
               </Button>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon" onClick={() => changeDay(1)}>
-                    <ChevronRight className="h-4 w-4" />
-                    <span className="sr-only">Next Day</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Next Day</TooltipContent>
-              </Tooltip>
+              <Button
+                variant="outline"
+                className="h-9 px-4 text-xs font-semibold rounded-lg border-slate-200 text-slate-600 hover:bg-slate-50"
+              >
+                Request Approval
+              </Button>
+              <Button className="h-9 px-4 text-xs font-semibold rounded-lg bg-orange-500 hover:bg-orange-600 text-white shadow-sm">
+                <PlusCircle className="mr-1.5 h-3.5 w-3.5" /> Add event
+              </Button>
             </div>
           </div>
 
-          {/* Tabs for switching between Timeline and Table view */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="mb-4 grid w-full grid-cols-2 md:w-auto md:inline-flex">
-              <TabsTrigger value="timeline" className="flex items-center justify-center gap-2">
-                <Clock className="h-4 w-4" />
-                <span className="hidden sm:inline">Timeline View</span>
-                <span className="sm:hidden">Timeline</span>
-              </TabsTrigger>
-              <TabsTrigger value="table" className="flex items-center justify-center gap-2">
-                <CalendarIcon className="h-4 w-4" />
-                <span className="hidden sm:inline">Meetings on {format(selectedDate, 'dd/MM/yyyy')}</span>
-                <span className="sm:hidden">List View</span>
-              </TabsTrigger>
-            </TabsList>
+          {/* Day-of-week header */}
+          <div className="grid grid-cols-7 border-b border-slate-100 shrink-0">
+            {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map((d) => (
+              <div key={d} className="py-3 text-center text-[11px] font-bold text-slate-400 tracking-widest">
+                {d}
+              </div>
+            ))}
+          </div>
 
-            {/* Timeline View Content */}
-            <TabsContent value="timeline">
-              <Card className="border border-gray-200 shadow-sm overflow-hidden">
-                {/* Use CardHeader for consistency if needed, or just dive into content */}
-                {/* Removed header as title is now above tabs */}
-                <CardContent className="p-0">
-                  {/* Fixed height container for scrolling */}
-                  <div className="h-[60vh] md:h-[70vh] overflow-y-auto relative">
-                    {loading ? (
-                      <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-50">
-                        <Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto mb-2" />
-                        <span className="text-blue-600 font-medium">Loading schedule...</span>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-[55px_1fr] sm:grid-cols-[60px_1fr]">
-                        {/* Time Labels Column (Sticky) */}
-                        <div className="border-r bg-gray-50/70 sticky top-0 z-20 h-full">
-                          {timeSlots.map((slot, index) => (
-                            <div
-                              key={slot}
-                              className={cn(
-                                "h-16 px-3 flex items-center justify-end text-xs font-medium text-gray-500",
-                                index !== 0 ? 'border-t border-gray-200' : '',
-                                "whitespace-nowrap" // Prevent wrapping
-                              )}
-                            >
-                              <span className="truncate">{formatTime(slot)}</span>
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* Meeting Slots Area */}
-                        <div className="relative">
-                          {/* Background Grid Lines */}
-                          {timeSlots.map((slot, index) => (
-                            <div
-                              key={slot}
-                              className={cn(
-                                "h-16", // Height matches time slot labels
-                                index !== 0 ? 'border-t border-gray-100' : '', // Horizontal lines
-                                index % 2 === 0 ? 'bg-gray-50/30' : '' // Alternate row shading
-                              )}
-                            />
-                          ))}
-
-                          {/* Current Time Indicator */}
-                          {isSameDay(selectedDate, new Date()) && (
-                            <div
-                              className="absolute left-[-2px] right-0 border-t-2 border-red-500 z-30 pointer-events-none" // Ensure above meetings
-                              style={{
-                                // Calculate position based on current time (7am = 0)
-                                top: `${Math.max(0, (getHours(new Date()) - 7) * 2 + getMinutes(new Date()) / 30) * 4}rem`,
-                              }}
-                            >
-                              <div className="absolute -left-1.5 -top-[5px] w-3 h-3 rounded-full bg-red-500 border-2 border-white"></div>
-                              {/* Optionally add text label */}
-                              {/* <span className="absolute right-2 -top-2.5 text-xs text-red-600 bg-white px-1 rounded">Now</span> */}
-                            </div>
-                          )}
-
-                          {/* Render Meetings */}
-                          {meetingsForSelectedDate.map((meeting, meetingIndex) => {
-                            // Instead of finding exact match, find closest time slot
-                            const startSlotIndex = findClosestTimeSlot(meeting.meeting_start_time);
-
-                            const durationSlots = getMeetingDurationInSlots(meeting);
-                            const heightInRem = durationSlots * 4; // 4rem per 30-min slot (16 * 4 = 64px)
-
-                            // --- Overlap Calculation ---
-                            // Find meetings that visually overlap with this one
-                            const overlappingMeetings = meetingsForSelectedDate.filter(m =>
-                              m.id_main !== meeting.id_main && meetingsOverlap(m, meeting)
-                            );
-                            const overlapGroup: Meeting[] = [meeting, ...overlappingMeetings].sort((a, b) => a.meeting_start_time.localeCompare(b.meeting_start_time) || a.id_main - b.id_main);
-                            const totalInGroup = overlapGroup.length;
-                            const positionIndex = overlapGroup.findIndex(m => m.id_main === meeting.id_main); // 0-based index within the overlap group
-
-                            const widthPercentage = totalInGroup > 1 ? (100 / totalInGroup) - 1 : 98; // Leave small gap (1% each side approx)
-                            const leftPercentage = totalInGroup > 1 ? positionIndex * (100 / totalInGroup) + 1 : 1; // Start slightly indented
-
-                            const isVirtual = meeting.meeting_type === 'virtual';
-                            const bgColor = isVirtual ? 'bg-blue-100/80 hover:bg-blue-200/80 border-blue-400' : 'bg-teal-100/70 hover:bg-teal-200/70 border-teal-400';
-                            const textColor = isVirtual ? 'text-blue-800' : 'text-teal-900';
-
-                            return (
-                              <div
-                                key={meeting.id_main}
-                                className={cn(
-                                  `absolute rounded-md overflow-hidden border-l-4 shadow-sm cursor-pointer transition-all duration-150 ease-in-out z-10`, // Base styles, z-10 for meetings
-                                  bgColor, textColor
-                                )}
-                                style={{
-                                  top: `${startSlotIndex * 4}rem`, // 4rem = 64px = h-16
-                                  height: `${heightInRem}rem`,
-                                  left: `${leftPercentage}%`,
-                                  width: `${widthPercentage}%`,
-                                }}
-                                onClick={() => setSelectedMeeting(meeting)}
-                              >
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <div className="flex flex-col h-full p-0.5 xs:p-1 sm:p-2">
-                                      <p className="font-semibold text-[10px] xs:text-xs sm:text-sm truncate leading-tight">{meeting.client_name}</p>
-                                      <p className="text-[8px] xs:text-[10px] sm:text-xs opacity-80 truncate leading-tight">{meeting.client_company}</p>
-                                      {durationSlots > 1 && ( // Only show time if more than 1 slot high
-                                        <p className="text-[8px] xs:text-[10px] sm:text-xs mt-0.5 sm:mt-1 font-medium opacity-90 leading-tight">
-                                          {formatTime(meeting.meeting_start_time)} - {formatTime(meeting.meeting_end_time)}
-                                        </p>
-                                      )}
-                                      {durationSlots > 2 && ( // Show location/type if tall enough
-                                        <div className="text-[8px] xs:text-[10px] sm:text-xs mt-auto pt-0.5 sm:pt-1 opacity-80 truncate flex items-center gap-0.5 sm:gap-1">
-                                          {isVirtual ? <Video className="h-2 w-2 xs:h-2.5 xs:w-2.5 sm:h-3 sm:w-3 flex-shrink-0" /> : <MapPin className="h-2 w-2 xs:h-2.5 xs:w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />}
-                                          <span className="truncate">{isVirtual ? 'Virtual Meeting' : meeting.meeting_venue || meeting.meeting_venue_area}</span>
-
-                                          {/* Add Join Button for virtual meetings */}
-                                          {isVirtual && meeting.meeting_venue && meeting.meeting_venue.startsWith('http') && (
-                                            <Button
-                                              variant="ghost"
-                                              size="icon"
-                                              className="h-4 w-4 xs:h-5 xs:w-5 ml-auto p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-100"
-                                              onClick={(e) => {
-                                                e.stopPropagation(); // Prevent opening the details dialog
-                                                window.open(meeting.meeting_venue, '_blank', 'noopener,noreferrer');
-                                              }}
-                                            >
-                                              <ExternalLink className="h-2.5 w-2.5 xs:h-3 xs:w-3 sm:h-3.5 sm:w-3.5" />
-                                              <span className="sr-only">Join Meeting</span>
-                                            </Button>
-                                          )}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="right" align="start">
-                                    <p className="font-medium">{meeting.client_name} ({meeting.client_company})</p>
-                                    <p>{formatTime(meeting.meeting_start_time)} - {formatTime(meeting.meeting_end_time)}</p>
-                                    <p>{meeting.meeting_venue}</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </div>
-                            );
-                          })}
-                          {/* Render message if no meetings */}
-                          {meetingsForSelectedDate.length === 0 && !loading && (
-                            <div className="absolute inset-0 flex items-center justify-center text-gray-500">
-                              <p>No meetings scheduled for this day.</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Table View Content */}
-            <TabsContent value="table">
-              <Card className="border border-gray-200 shadow-sm">
-                <CardHeader className="px-6 py-4 border-b">
-                  <CardTitle className="text-lg">
-                    <span className="hidden sm:inline">Meetings on {format(selectedDate, 'dd/MM/yyyy')}</span>
-                    <span className="sm:hidden">Meetings Today</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-10 text-center">#</TableHead>
-                          <TableHead className="hidden md:table-cell">Date</TableHead>
-                          <TableHead>Time</TableHead>
-                          <TableHead>Client</TableHead>
-                          <TableHead className="hidden sm:table-cell">Company</TableHead>
-                          <TableHead className="hidden lg:table-cell">Venue</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {loading ? (
-                          <TableRow>
-                            <TableCell colSpan={7} className="h-24 text-center">
-                              <Loader2 className="h-6 w-6 animate-spin text-blue-500 mx-auto mb-2" />
-                              <span className="text-blue-600 font-medium">Loading meetings...</span>
-                            </TableCell>
-                          </TableRow>
-                        ) : meetingsForSelectedDate.length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={7} className="h-24 text-center">
-                              <p className="text-gray-500">No meetings scheduled for {format(selectedDate, 'EEEE, dd MMMM yyyy')}</p>
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          meetingsForSelectedDate.map((meeting, index) => (
-                            <TableRow key={meeting.id_main} className="cursor-pointer hover:bg-gray-50 h-10" onClick={() => setSelectedMeeting(meeting)}>
-                              <TableCell className="font-medium text-center text-gray-500 py-1">{index + 1}</TableCell>
-                              <TableCell className="font-medium py-1 hidden md:table-cell">{formatDateSafe(meeting.meeting_date, 'dd/MM/yyyy')}</TableCell>
-                              <TableCell className="py-1">
-                                <div className="flex flex-col">
-                                  <span className="font-medium">{formatTime(meeting.meeting_start_time)}</span>
-                                  <span className="text-xs text-gray-500">{formatTime(meeting.meeting_end_time)}</span>
-                                </div>
-                              </TableCell>
-                              <TableCell className="py-1">
-                                <div className="flex flex-col">
-                                  <span className="font-medium">{meeting.client_name}</span>
-                                  <span className="text-xs text-gray-500 sm:hidden">{meeting.client_company}</span>
-                                </div>
-                              </TableCell>
-                              <TableCell className="py-1 hidden sm:table-cell">{meeting.client_company}</TableCell>
-                              <TableCell className="py-1 hidden lg:table-cell">
-                                <div className="flex items-center gap-1">
-                                  {meeting.meeting_type === 'virtual' ?
-                                    <Video className="h-3.5 w-3.5 text-blue-600 shrink-0" /> :
-                                    <MapPin className="h-3.5 w-3.5 text-teal-600 shrink-0" />
-                                  }
-                                  <span className="truncate max-w-[150px]">
-                                    {meeting.meeting_type === 'virtual' ? 'Virtual Meeting' : meeting.meeting_venue || meeting.meeting_venue_area}
-                                  </span>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <div className="flex items-center justify-end space-x-1">
-                                  {meeting.meeting_type === 'virtual' && meeting.meeting_venue && meeting.meeting_venue.startsWith('http') && (
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 text-blue-600 hover:bg-blue-50"
-                                      onClick={(e) => {
-                                        e.stopPropagation(); // Prevent opening the details dialog
-                                        window.open(meeting.meeting_venue, '_blank');
-                                      }}
-                                    >
-                                      <ExternalLink className="h-4 w-4" />
-                                      <span className="sr-only">Join Meeting</span>
-                                    </Button>
-                                  )}
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                                        <MoreHorizontal className="h-4 w-4" />
-                                        <span className="sr-only">Open menu</span>
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                      <DropdownMenuItem onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSelectedMeeting(meeting);
-                                      }}>
-                                        View Details
-                                      </DropdownMenuItem>
-                                      <DropdownMenuSeparator />
-                                      <DropdownMenuItem onClick={(e) => {
-                                        e.stopPropagation();
-                                        setDeletingMeeting(meeting);
-                                      }} className="text-red-600">
-                                        Delete Meeting
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))
+          {/* Monthly grid */}
+          <div className="flex-1 overflow-y-auto">
+            {loading ? (
+              <div className="flex items-center justify-center h-full">
+                <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-7" style={{ gridAutoRows: 'minmax(108px, auto)' }}>
+                {calendarDays.map((day, idx) => {
+                  const dateStr = format(day, 'yyyy-MM-dd');
+                  const dayMeetings = allMeetings.filter(m => m.meeting_date === dateStr);
+                  const isCurrentMonth = day.getMonth() === currentDate.getMonth();
+                  const isToday = isSameDay(day, new Date());
+                  const isSelected = isSameDay(day, selectedDate);
+                  return (
+                    <div
+                      key={idx}
+                      onClick={() => handleDateSelect(day)}
+                      className={cn(
+                        "p-2 border-b border-r border-slate-100 cursor-pointer transition-colors hover:bg-slate-50/70",
+                        !isCurrentMonth && "bg-slate-50/40",
+                        isSelected && !isToday && "bg-indigo-50/30",
+                        idx % 7 === 6 && "border-r-0"
+                      )}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className={cn(
+                          "h-7 w-7 flex items-center justify-center rounded-full text-sm font-bold transition-colors",
+                          !isCurrentMonth && "text-slate-300",
+                          isCurrentMonth && !isToday && !isSelected && "text-slate-700",
+                          isToday && "bg-orange-500 text-white shadow-sm",
+                          isSelected && !isToday && "bg-indigo-600 text-white"
+                        )}>
+                          {format(day, 'd')}
+                        </span>
+                        {dayMeetings.length > 0 && isCurrentMonth && (
+                          <span className="text-[9px] font-bold text-slate-300 tabular-nums">{dayMeetings.length}</span>
                         )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+                      </div>
+                      <div className="space-y-0.5">
+                        {dayMeetings.slice(0, 2).map((meeting) => (
+                          <div
+                            key={meeting.id_main}
+                            onClick={(e) => { e.stopPropagation(); setSelectedMeeting(meeting); }}
+                            className={cn(
+                              "flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold truncate hover:opacity-80 transition-opacity",
+                              meeting.meeting_type === 'virtual'
+                                ? "bg-blue-100 text-blue-700"
+                                : "bg-teal-100 text-teal-700"
+                            )}
+                          >
+                            <span className="font-bold shrink-0 text-[9px] tabular-nums">{meeting.meeting_start_time}</span>
+                            <span className="truncate">{meeting.client_name}</span>
+                          </div>
+                        ))}
+                        {dayMeetings.length > 2 && (
+                          <p className="text-[10px] text-slate-400 font-semibold px-1 pt-0.5">
+                            {dayMeetings.length - 2} more
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Meeting Details Dialog */}
-        {selectedMeeting && (
-          <Dialog open={!!selectedMeeting} onOpenChange={(open) => !open && setSelectedMeeting(null)}>
-            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-              <DialogHeader className="pb-2 border-b">
-                <DialogTitle className="text-lg font-semibold flex items-center gap-2">
-                  {selectedMeeting.meeting_type === 'virtual' ?
-                    <Video className="h-5 w-5 text-blue-600" /> :
-                    <MapPin className="h-5 w-5 text-teal-600" />
-                  }
-                  Meeting Details
-                </DialogTitle>
-                <DialogDescription className="text-sm">
-                  {selectedMeeting.meeting_type === 'virtual' ? 'Virtual Meeting' : 'In-Person Meeting'} with {selectedMeeting.client_name}
-                </DialogDescription>
-              </DialogHeader>
+        {/* ── RIGHT PANEL ── */}
+        <div className="w-[280px] shrink-0 bg-white border-l border-slate-100 flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto">
 
-              {/* Two-column layout for details, similar to dashboard */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
-                {/* Column 1 */}
-                <div className="space-y-3 sm:space-y-4">
-                  {/* Client Info Card */}
-                  <Card className="border-gray-200 shadow-sm">
-                    <CardHeader className="pb-1 pt-2 px-3 sm:pb-2 sm:pt-3 sm:px-4">
-                      <CardTitle className="text-sm sm:text-base font-semibold text-gray-700 flex items-center">
-                        <User className="h-3.5 w-3.5 mr-1.5 sm:h-4 sm:w-4 sm:mr-2 text-blue-600" />
-                        Client Information
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="px-3 pb-2 sm:px-4 sm:pb-3">
-                      <div className="grid grid-cols-1 gap-y-2 sm:gap-y-2.5">
-                        <div className="space-y-0.5">
-                          <h4 className="text-xs font-medium text-gray-500">Name</h4>
-                          <p className="text-sm font-medium">{selectedMeeting.client_name}</p>
-                        </div>
-                        <div className="space-y-0.5">
-                          <h4 className="text-xs font-medium text-gray-500">Company</h4>
-                          <p className="text-sm">{selectedMeeting.client_company || 'N/A'}</p>
-                        </div>
-                        {selectedMeeting.client_email && (
-                          <div className="space-y-0.5">
-                            <h4 className="text-xs font-medium text-gray-500">Email</h4>
-                            <p className="text-sm flex items-center">
-                              <Mail className="h-3.5 w-3.5 mr-1.5 text-gray-400" />
-                              <a href={`mailto:${selectedMeeting.client_email}`} className="text-blue-600 hover:underline">
-                                {selectedMeeting.client_email}
-                              </a>
-                            </p>
-                          </div>
-                        )}
-                        {selectedMeeting.client_mobile && (
-                          <div className="space-y-0.5">
-                            <h4 className="text-xs font-medium text-gray-500">Mobile</h4>
-                            <p className="text-sm flex items-center">
-                              <Phone className="h-3.5 w-3.5 mr-1.5 text-gray-400" />
-                              <a href={`tel:${selectedMeeting.client_mobile}`} className="text-blue-600 hover:underline">
-                                {selectedMeeting.client_mobile}
-                              </a>
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Meeting Details Card */}
-                  <Card className="border-gray-200 shadow-sm">
-                    <CardHeader className="pb-1 pt-2 px-3 sm:pb-2 sm:pt-3 sm:px-4">
-                      <CardTitle className="text-sm sm:text-base font-semibold text-gray-700 flex items-center">
-                        <CalendarIcon className="h-3.5 w-3.5 mr-1.5 sm:h-4 sm:w-4 sm:mr-2 text-blue-600" />
-                        Meeting Details
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="px-3 pb-2 sm:px-4 sm:pb-3">
-                      <div className="grid grid-cols-2 gap-x-3 gap-y-2 sm:gap-x-4 sm:gap-y-2.5">
-                        <div className="space-y-0.5">
-                          <h4 className="text-xs font-medium text-gray-500">Date</h4>
-                          <p className="text-sm">{formatDateSafe(selectedMeeting.meeting_date, 'EEE, dd MMM yyyy')}</p>
-                        </div>
-                        <div className="space-y-0.5">
-                          <h4 className="text-xs font-medium text-gray-500">Day</h4>
-                          <p className="text-sm">{formatDateSafe(selectedMeeting.meeting_date, 'EEEE')}</p>
-                        </div>
-                        <div className="space-y-0.5">
-                          <h4 className="text-xs font-medium text-gray-500">Start</h4>
-                          <p className="text-sm flex items-center">
-                            <Clock className="h-3.5 w-3.5 mr-1.5 text-gray-400" />
-                            {formatTime(selectedMeeting.meeting_start_time)}
-                          </p>
-                        </div>
-                        <div className="space-y-0.5">
-                          <h4 className="text-xs font-medium text-gray-500">End</h4>
-                          <p className="text-sm">{formatTime(selectedMeeting.meeting_end_time)}</p>
-                        </div>
-                        <div className="space-y-0.5">
-                          <h4 className="text-xs font-medium text-gray-500">Duration</h4>
-                          <p className="text-sm">{selectedMeeting.meeting_duration || '?'} min</p>
-                        </div>
-                        <div className="space-y-0.5">
-                          <h4 className="text-xs font-medium text-gray-500">Status</h4>
-                          <div className="flex items-center">
-                            <Badge className={`text-xs ${getBadgeStatusColor(selectedMeeting.status || 'pending')}`}>
-                              {selectedMeeting.status ? selectedMeeting.status.charAt(0).toUpperCase() + selectedMeeting.status.slice(1) : 'Pending'}
-                            </Badge>
-                          </div>
-                        </div>
-                        {/* Span venue across columns for better fit */}
-                        <div className="col-span-2">
-                          <h4 className="text-xs font-medium text-gray-500">Type</h4>
-                          <p className="text-sm">{selectedMeeting.meeting_type === 'virtual' ? 'Virtual Meeting' : 'In-Person Meeting'}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Column 2 */}
-                <div className="space-y-3 sm:space-y-4">
-                  {/* Agenda Card */}
-                  <Card className="border-gray-200 shadow-sm">
-                    <CardHeader className="pb-1 pt-2 px-3 sm:pb-2 sm:pt-3 sm:px-4">
-                      <CardTitle className="text-sm sm:text-base font-semibold text-gray-700 flex items-center">
-                        <MessageSquare className="h-3.5 w-3.5 mr-1.5 sm:h-4 sm:w-4 sm:mr-2 text-purple-600" />
-                        Agenda
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="px-3 pb-2 sm:px-4 sm:pb-3">
-                      <div className="bg-gray-50 p-2 rounded-md border border-gray-200 text-xs sm:text-sm text-gray-700 max-h-24 overflow-y-auto">
-                        <p>{selectedMeeting.meeting_agenda || 'No agenda provided.'}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* BCL Attendee Card */}
-                  {selectedMeeting.bcl_attendee && (
-                    <Card className="border-gray-200 shadow-sm">
-                      <CardHeader className="pb-1 pt-2 px-3 sm:pb-2 sm:pt-3 sm:px-4">
-                        <CardTitle className="text-sm sm:text-base font-semibold text-gray-700 flex items-center">
-                          <UserPlus className="h-3.5 w-3.5 mr-1.5 sm:h-4 sm:w-4 sm:mr-2 text-orange-600" />
-                          BCL Attendee
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-2 px-3 pb-2 sm:space-y-2.5 sm:px-4 sm:pb-3">
-                        <div className="space-y-0.5">
-                          <h4 className="text-xs font-medium text-gray-500">Name</h4>
-                          <p className="text-sm">{selectedMeeting.bcl_attendee}</p>
-                        </div>
-                        {selectedMeeting.bcl_attendee_mobile && (
-                          <div className="space-y-0.5">
-                            <h4 className="text-xs font-medium text-gray-500">Mobile</h4>
-                            <p className="text-sm flex items-center">
-                              <Phone className="h-3.5 w-3.5 mr-1.5 text-gray-400" />
-                              <a href={`tel:${selectedMeeting.bcl_attendee_mobile}`} className="text-blue-600 hover:underline">
-                                {selectedMeeting.bcl_attendee_mobile}
-                              </a>
-                            </p>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  )}
-
-                  {/* Meeting Link Card */}
-                  {selectedMeeting.meeting_type === 'virtual' && selectedMeeting.meeting_venue && (
-                    <Card className="border-gray-200 shadow-sm">
-                      <CardHeader className="pb-1 pt-2 px-3 sm:pb-2 sm:pt-3 sm:px-4">
-                        <CardTitle className="text-sm sm:text-base font-semibold text-gray-700 flex items-center">
-                          <LinkIcon className="h-3.5 w-3.5 mr-1.5 sm:h-4 sm:w-4 sm:mr-2 text-cyan-600" />
-                          Meeting Link
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="px-3 pb-2 sm:px-4 sm:pb-3">
-                        <div className="flex items-center flex-wrap gap-2">
-                          {selectedMeeting.meeting_venue.startsWith('http') ? (
-                            <>
-                              <a
-                                href={selectedMeeting.meeting_venue}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-sm text-blue-600 hover:underline break-all" // Changed from truncate to break-all
-                                onClick={(e) => {
-                                  // This allows the link to be clicked directly
-                                  e.stopPropagation();
-                                }}
-                              >
-                                {selectedMeeting.meeting_venue}
-                              </a>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="bg-blue-50 text-blue-700 hover:text-blue-800 hover:bg-blue-100 border-blue-200"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  window.open(selectedMeeting.meeting_venue, '_blank', 'noopener,noreferrer');
-                                }}
-                              >
-                                <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-                                Join Meeting
-                              </Button>
-                            </>
-                          ) : (
-                            <p className="text-sm text-gray-600 truncate flex-1">
-                              {selectedMeeting.meeting_venue || 'No meeting link provided'}
-                            </p>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
+            {/* Task List */}
+            <div className="p-5 border-b border-slate-100">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold text-slate-900">Task List</h3>
+                <button className="text-xs text-orange-500 font-semibold hover:text-orange-600 transition-colors">View all</button>
               </div>
+              <div className="space-y-4">
+                {upcomingMeetings.slice(0, 3).map((meeting) => (
+                  <div
+                    key={meeting.id_main}
+                    className="flex items-center gap-3 cursor-pointer group"
+                    onClick={() => setSelectedMeeting(meeting)}
+                  >
+                    <span className="text-xs font-bold text-slate-500 tabular-nums shrink-0 w-12">{formatTime(meeting.meeting_start_time)}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-slate-900 group-hover:text-orange-500 transition-colors truncate">{meeting.client_name}</p>
+                      <p className="text-[10px] text-slate-400 truncate">{meeting.client_company || meeting.meeting_venue_area}</p>
+                    </div>
+                    <Badge className={cn(
+                      "text-[8px] font-black uppercase px-2 py-0.5 rounded border-0 shrink-0",
+                      meeting.meeting_type === 'virtual' ? "bg-orange-100 text-orange-700" : "bg-emerald-100 text-emerald-700"
+                    )}>
+                      {meeting.meeting_type === 'virtual' ? 'TEAM' : 'SITE'}
+                    </Badge>
+                  </div>
+                ))}
+                {upcomingMeetings.length === 0 && (
+                  <p className="text-xs text-slate-400 italic text-center py-2">No upcoming meetings</p>
+                )}
+              </div>
+            </div>
 
-              {/* Footer Actions */}
-              <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:justify-between items-center mt-4 pt-3 sm:mt-5 sm:pt-4 border-t">
-                {/* Action buttons */}
-                <div className="flex flex-wrap gap-2 justify-center sm:justify-start w-full sm:w-auto">
-                  {selectedMeeting.status !== 'canceled' && selectedMeeting.status !== 'completed' && (
-                    <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          // Reschedule logic would go here
-                          // setRescheduleDialogOpen(true);
-                        }}
-                        className="border-blue-300 text-blue-700 hover:bg-blue-50 px-3 py-1.5 text-xs sm:text-sm"
-                      >
-                        <RefreshCw className="h-3.5 w-3.5 mr-1 sm:mr-1.5" />
-                        Reschedule
-                      </Button>
+            {/* Contracts */}
+            <div className="p-5 border-b border-slate-100">
+              <h3 className="text-sm font-bold text-slate-900 mb-4">Contracts</h3>
+              <div className="space-y-3">
+                {sortedMeetingsForTable.slice(0, 4).map((meeting) => (
+                  <div key={meeting.id_main} className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-lg bg-orange-50 border border-orange-100 flex items-center justify-center shrink-0">
+                      <FileText className="h-4 w-4 text-orange-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-slate-900 truncate">{meeting.meeting_agenda || `Meeting – ${meeting.client_name}`}</p>
+                      <p className="text-[10px] text-slate-400 truncate">{meeting.client_company || 'Client'} • {formatDateSafe(meeting.meeting_date, 'dd.MM.yyyy')}</p>
+                    </div>
+                    <button
+                      onClick={() => setSelectedMeeting(meeting)}
+                      className="text-[10px] font-bold text-slate-600 border border-slate-200 rounded px-2.5 py-1 hover:bg-slate-50 transition-colors shrink-0"
+                    >
+                      Open
+                    </button>
+                  </div>
+                ))}
+                {sortedMeetingsForTable.length === 0 && (
+                  <p className="text-xs text-slate-400 italic text-center py-2">No records</p>
+                )}
+              </div>
+            </div>
 
-                      {selectedMeeting.status !== 'confirmed' && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            // Confirm meeting logic would go here
-                          }}
-                          className="border-blue-300 text-blue-700 hover:bg-blue-50 px-3 py-1.5 text-xs sm:text-sm"
-                        >
-                          <CheckCircle className="h-3.5 w-3.5 mr-1 sm:mr-1.5" />
-                          Confirm
-                        </Button>
-                      )}
+            {/* Pinned Message */}
+            <div className="p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold text-slate-900">Pinned message</h3>
+                <button className="text-xs text-orange-500 font-semibold hover:text-orange-600 transition-colors">View all</button>
+              </div>
+              <div className="space-y-5">
+                {upcomingMeetings.slice(0, 2).map((meeting) => (
+                  <div key={meeting.id_main} className="flex gap-3">
+                    <Avatar className="h-8 w-8 shrink-0">
+                      <AvatarFallback className="bg-slate-200 text-slate-600 text-[10px] font-black">
+                        {String(meeting.bcl_attendee || 'BC').slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-bold text-slate-900">{meeting.bcl_attendee || 'BCL Team'}</span>
+                        <span className="text-[10px] text-slate-400">{formatDateSafe(meeting.meeting_date, 'dd.MM.yyyy')}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 leading-relaxed">
+                        {meeting.meeting_agenda || `Upcoming meeting with ${meeting.client_name}.`}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                {upcomingMeetings.length === 0 && (
+                  <p className="text-xs text-slate-400 italic text-center py-2">No pinned messages</p>
+                )}
+              </div>
+            </div>
 
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          // Cancel meeting logic would go here
-                        }}
-                        className="border-red-300 text-red-700 hover:bg-red-50 px-3 py-1.5 text-xs sm:text-sm"
-                      >
-                        <XCircle className="h-3.5 w-3.5 mr-1 sm:mr-1.5" />
-                        Cancel Mtg
-                      </Button>
+          </div>
+        </div>
 
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          // Mark as completed logic would go here
-                        }}
-                        className="border-purple-300 text-purple-700 hover:bg-purple-50 px-3 py-1.5 text-xs sm:text-sm"
-                      >
-                        <CheckCircle className="h-3.5 w-3.5 mr-1 sm:mr-1.5" />
-                        Mark Done
-                      </Button>
-                    </>
-                  )}
+        {/* ── MEETING DETAILS DIALOG ── */}
+        <Dialog open={!!selectedMeeting} onOpenChange={(open) => !open && setSelectedMeeting(null)}>
+          <DialogContent className="max-w-4xl p-0 overflow-hidden bg-white border-none shadow-2xl rounded-[2.5rem]">
+            {selectedMeeting && (
+              <>
+                {/* HEADER HERO */}
+                <div className="relative border-b border-slate-100 bg-white px-10 pt-10 pb-8">
+                  <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 text-[11px] font-black ring-1 ring-indigo-100">MTG</span>
+                        <span className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Record • #{selectedMeeting.id_main}</span>
+                      </div>
+                      <DialogTitle className="text-4xl font-black text-slate-900 tracking-tight leading-none">
+                        {selectedMeeting.client_name}
+                      </DialogTitle>
+                      <div className="flex flex-wrap items-center gap-5 text-sm font-bold text-slate-500">
+                        <div className="flex items-center gap-2"><Building className="h-4 w-4" />{selectedMeeting.client_company || 'Independent Client'}</div>
+                        <div className="h-1 w-1 rounded-full bg-slate-300" />
+                        <div className="flex items-center gap-2 text-indigo-600">
+                          {selectedMeeting.meeting_type === 'virtual' ? <Video className="h-4 w-4" /> : <MapPin className="h-4 w-4" />}
+                          <span className="capitalize tracking-tight font-black">{selectedMeeting.meeting_type} Engagement</span>
+                        </div>
+                      </div>
+                    </div>
 
-                  {(selectedMeeting.status === 'completed' || selectedMeeting.status === 'canceled') && (
-                    <span className="text-xs sm:text-sm text-gray-500 italic px-3 py-1.5">
-                      This meeting is {selectedMeeting.status}.
-                    </span>
-                  )}
-
-                  {/* Delete Meeting Button with AlertDialog */}
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="border-red-300 bg-red-50 text-red-700 hover:bg-red-100 px-3 py-1.5 text-xs sm:text-sm"
-                      >
-                        <Trash2 className="h-3.5 w-3.5 mr-1 sm:mr-1.5" />
-                        Delete
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Meeting</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to delete this meeting with <span className="font-semibold">{selectedMeeting.client_name}</span> on {format(new Date(selectedMeeting.meeting_date), 'MMMM d, yyyy')} at {selectedMeeting.meeting_start_time}?
-                          <br />
-                          <br />
-                          This action cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => {
-                            setDeletingMeeting(selectedMeeting);
-                            deleteMeeting();
-                          }}
-                          className="bg-red-600 hover:bg-red-700 text-white"
-                          disabled={isDeleting}
-                        >
-                          {isDeleting ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Deleting...
-                            </>
-                          ) : (
-                            "Delete Meeting"
-                          )}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                    <div className="flex items-center gap-2">
+                      <Badge className={cn("px-4 py-1.5 rounded-lg border-none font-black text-[10px] uppercase tracking-widest shadow-sm", getBadgeStatusColor(selectedMeeting.status || 'pending'))}>
+                        {selectedMeeting.status || 'Scheduled'}
+                      </Badge>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Close button */}
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setSelectedMeeting(null)}
-                  className="w-full sm:w-auto mt-2 sm:mt-0 px-3 py-1.5 text-xs sm:text-sm"
-                >
-                  Close
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        )}
+                {/* CONTENT GRID */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 bg-white">
+                  <div className="lg:col-span-7 p-10 space-y-10 overflow-y-auto max-h-[60vh] scrollbar-hide">
+
+                    {/* LOGISTICS HERO */}
+                    <div className="grid grid-cols-3 gap-5 p-1.5 bg-slate-50/80 rounded-3xl border border-slate-100 shadow-inner">
+                      <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+                        <p className="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Date</p>
+                        <p className="text-sm font-black text-slate-900">{formatDateSafe(selectedMeeting.meeting_date, 'MMM dd, yyyy')}</p>
+                      </div>
+                      <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+                        <p className="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Time</p>
+                        <p className="text-sm font-black text-slate-900">{formatTime(selectedMeeting.meeting_start_time)}</p>
+                      </div>
+                      <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+                        <p className="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Duration</p>
+                        <p className="text-sm font-black text-slate-900">{selectedMeeting.meeting_duration || '?'}m</p>
+                      </div>
+                    </div>
+
+                    <section className="space-y-4">
+                      <h3 className="flex items-center gap-2 text-[11px] font-black text-slate-900 uppercase tracking-[0.2em]"><FileText className="h-4 w-4 text-slate-400" /> Agenda & Context</h3>
+                      <div className="relative p-6 rounded-3xl bg-indigo-50/40 border border-indigo-100/50">
+                        <Quote className="absolute top-6 right-6 h-10 w-10 text-indigo-100/40" />
+                        <p className="text-slate-700 leading-relaxed text-sm italic font-medium relative z-10 pr-10">
+                          {selectedMeeting.meeting_agenda || 'No specific agenda has been outlined for this discussion.'}
+                        </p>
+                      </div>
+                    </section>
+
+                    <section className="space-y-4">
+                      <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.2em]">Stakeholders</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {[
+                          { name: selectedMeeting.bcl_attendee, role: 'Lead Consultant', type: 'internal' },
+                          { name: selectedMeeting.client_name, role: 'Client Executive', type: 'external' }
+                        ].map((person, i) => (
+                          <div key={i} className="flex items-center gap-4 p-5 rounded-2xl bg-white border border-slate-100 hover:shadow-md transition-all group">
+                            <div className={cn("h-12 w-12 rounded-2xl flex items-center justify-center text-xs font-black ring-2 ring-inset transition-transform group-hover:scale-110",
+                              person.type === 'internal' ? 'bg-slate-900 text-white ring-slate-800' : 'bg-indigo-100 text-indigo-600 ring-indigo-200')}>
+                              {String(person.name || "??").slice(0, 2).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="text-sm font-black text-slate-900 tracking-tight">{person.name || 'Team Member'}</p>
+                              <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{person.role}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  </div>
+
+                  {/* DIALOG SIDEBAR */}
+                  <div className="lg:col-span-5 bg-slate-50/50 p-10 border-l border-slate-100 space-y-8 overflow-y-auto max-h-[60vh] scrollbar-hide">
+                    <section className="space-y-4">
+                      <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Connectivity</h3>
+                      {selectedMeeting.meeting_type === 'virtual' && selectedMeeting.meeting_venue ? (
+                        <a
+                          href={selectedMeeting.meeting_venue}
+                          target="_blank"
+                          className="flex flex-col items-center justify-center gap-4 p-8 rounded-3xl bg-white border-2 border-dashed border-indigo-200 hover:border-indigo-500 hover:bg-indigo-50/50 transition-all group shadow-sm"
+                        >
+                          <div className="h-14 w-14 rounded-2xl bg-indigo-100 flex items-center justify-center group-hover:scale-110 transition-all shadow-sm">
+                            <Video className="h-7 w-7 text-indigo-600" />
+                          </div>
+                          <div className="text-center">
+                            <p className="text-sm font-black text-indigo-600">Join Video Session</p>
+                            <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">Google Meet Encrypted Link</p>
+                          </div>
+                        </a>
+                      ) : (
+                        <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Location</p>
+                          <div className="flex items-start gap-3">
+                            <MapPin className="h-4 w-4 text-emerald-500 mt-0.5" />
+                            <p className="text-sm font-bold text-slate-800 leading-tight">{selectedMeeting.meeting_venue || selectedMeeting.meeting_venue_area || 'Venue details pending'}</p>
+                          </div>
+                        </div>
+                      )}
+                    </section>
+
+                    <section className="space-y-4">
+                      <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Quick Contacts</h3>
+                      <div className="space-y-2">
+                        {[
+                          { label: 'Client', value: selectedMeeting.client_mobile },
+                          { label: 'Consultant', value: selectedMeeting.bcl_attendee_mobile }
+                        ].map((contact, i) => (
+                          <div key={i} className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-all">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{contact.label}</span>
+                            <a href={`tel:${contact.value}`} className="text-xs font-black text-slate-900 hover:text-indigo-600 transition-colors tabular-nums">{contact.value || 'N/A'}</a>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  </div>
+                </div>
+
+                {/* FOOTER ACTION BAR */}
+                <DialogFooter className="px-10 py-6 bg-white border-t border-slate-100 flex items-center justify-between gap-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button variant="outline" className="h-12 rounded-2xl px-6 text-[11px] font-black uppercase tracking-widest border-slate-200 hover:bg-slate-50 transition-all">
+                      <RefreshCw className="mr-2 h-4 w-4" /> Reschedule
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => { setDeletingMeeting(selectedMeeting); }}
+                      className="h-12 rounded-2xl px-6 text-[11px] font-black uppercase tracking-widest border-rose-100 text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-all"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" /> Delete Meeting
+                    </Button>
+                  </div>
+                  <Button variant="ghost" onClick={() => setSelectedMeeting(null)} className="text-[11px] font-black text-slate-400 hover:text-slate-900 uppercase tracking-[0.2em] transition-colors">
+                    Close Details
+                  </Button>
+                </DialogFooter>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* --- 4. ALERT DIALOGS --- */}
+        <AlertDialog open={!!deletingMeeting} onOpenChange={(open) => !open && setDeletingMeeting(null)}>
+          <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl p-10 max-w-md">
+            <AlertDialogHeader>
+              <div className="h-16 w-16 bg-rose-50 text-rose-600 rounded-3xl flex items-center justify-center mb-6 mx-auto">
+                <Trash2 className="h-8 w-8" />
+              </div>
+              <AlertDialogTitle className="text-2xl font-black text-center text-slate-900 tracking-tight">Confirm Deletion</AlertDialogTitle>
+              <AlertDialogDescription className="text-center text-slate-500 font-medium pt-2">
+                Are you sure you want to remove the booking for <span className="font-black text-slate-900 underline decoration-rose-200 underline-offset-4">{deletingMeeting?.client_name}</span>?
+                <br /><br />
+                This action is irreversible and will remove all associated notes.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="flex-col sm:flex-row gap-3 mt-8">
+              <AlertDialogCancel className="h-12 rounded-2xl font-black text-[11px] uppercase tracking-widest border-slate-200 hover:bg-slate-50 m-0 flex-1">Keep Record</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={deleteMeeting}
+                disabled={isDeleting}
+                className="h-12 rounded-2xl font-black text-[11px] uppercase tracking-widest bg-rose-600 text-white hover:bg-rose-700 m-0 flex-1 shadow-lg shadow-rose-100"
+              >
+                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Yes, Delete Permanently'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
       </div>
     </TooltipProvider>
   );

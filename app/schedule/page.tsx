@@ -779,7 +779,7 @@ const BookingScheduler = () => {
 
     // --- Main Return ---
     return (
-        <div className="min-h-screen bg-slate-50 px-3 py-4 sm:px-5 lg:px-8">
+        <div className="min-h-screen px-3 py-4 sm:px-5 lg:px-8">
             <Toaster />
 
             {/* Voice control indicator */}
@@ -806,11 +806,11 @@ const BookingScheduler = () => {
             </div> */}
 
             <div className="mx-auto max-w-6xl">
-                <Card className="overflow-hidden rounded-lg border-slate-200 bg-white shadow-sm">
-                    <CardHeader className="border-b border-slate-100 bg-white p-4 sm:p-6">
+                <Card className="premium-surface overflow-hidden rounded-2xl">
+                    <CardHeader className="border-b border-slate-200/70 bg-white/80 p-4 sm:p-6">
                         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                             <div>
-                                <div className="mb-3 inline-flex items-center gap-2 rounded-lg bg-[#0DAA8A]/10 px-2.5 py-1 text-xs font-semibold text-[#087963] ring-1 ring-[#0DAA8A]/15">
+                                <div className="premium-pill mb-3">
                                     <Calendar className="h-3.5 w-3.5" />
                                     Booksmart Scheduler
                                 </div>
@@ -835,7 +835,7 @@ const BookingScheduler = () => {
                     </CardHeader>
 
                     {/* Progress & Step Indicator Section */}
-                    <div className="border-b border-slate-100 bg-slate-50/70 px-4 pb-3 pt-4 sm:px-6">
+                    <div className="border-b border-slate-200/70 bg-slate-50/75 px-4 pb-3 pt-4 sm:px-6">
                         {/* Step indicators */}
                         <div className="mb-1 flex items-center justify-between overflow-x-auto pb-1">
                             {steps.map((step, index) => (

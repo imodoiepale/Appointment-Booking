@@ -97,7 +97,7 @@ export default function NotificationsPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8">
+    <div className="mx-auto max-w-5xl px-4 py-8">
       {/* Header */}
       <div className="mb-6 flex items-start justify-between">
         <div>
@@ -137,8 +137,8 @@ export default function NotificationsPage() {
 
       {/* Stats row */}
       {notifications.length > 0 && (
-        <div className="mb-5 flex gap-3">
-          <div className="flex flex-1 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+        <div className="mb-5 grid gap-3 sm:grid-cols-3">
+          <div className="premium-panel flex items-center gap-3 rounded-xl px-4 py-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600/10">
               <Bell className="h-4 w-4 text-blue-600" />
             </div>
@@ -147,7 +147,7 @@ export default function NotificationsPage() {
               <p className="text-lg font-semibold text-slate-950">{notifications.length}</p>
             </div>
           </div>
-          <div className="flex flex-1 items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 shadow-sm">
+          <div className="flex items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 shadow-sm">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600/15">
               <Bell className="h-4 w-4 text-blue-600" />
             </div>
@@ -156,7 +156,7 @@ export default function NotificationsPage() {
               <p className="text-lg font-semibold text-blue-700">{unreadCount}</p>
             </div>
           </div>
-          <div className="flex flex-1 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <div className="premium-panel flex items-center gap-3 rounded-xl px-4 py-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100">
               <Calendar className="h-4 w-4 text-slate-500" />
             </div>
@@ -171,7 +171,7 @@ export default function NotificationsPage() {
       )}
 
       {/* Filter tabs */}
-      <div className="mb-4 flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+      <div className="mb-4 flex items-center gap-1 rounded-xl border border-slate-200/80 bg-white/90 p-1 shadow-sm">
         <Filter className="ml-2 h-3.5 w-3.5 flex-shrink-0 text-slate-400" />
         {tabs.map((tab) => (
           <button
@@ -179,7 +179,7 @@ export default function NotificationsPage() {
             onClick={() => setActiveFilter(tab.key)}
             className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all ${
               activeFilter === tab.key
-                ? "bg-blue-600 text-white shadow-sm shadow-blue-600/20"
+                ? "bg-slate-950 text-white shadow-sm shadow-slate-950/10"
                 : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
             }`}
           >
@@ -200,7 +200,7 @@ export default function NotificationsPage() {
       </div>
 
       {/* Notification list */}
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="premium-surface overflow-hidden rounded-xl">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
@@ -221,7 +221,7 @@ export default function NotificationsPage() {
               <div
                 key={n.id}
                 onClick={() => handleClick(n)}
-                className={`group flex items-start gap-3 p-4 transition-colors hover:bg-slate-50 ${
+                className={`group flex items-start gap-3 px-4 py-3 transition-colors hover:bg-slate-50 ${
                   n.link ? "cursor-pointer" : "cursor-default"
                 } ${!n.read ? "bg-blue-50/40" : ""}`}
               >
@@ -246,7 +246,7 @@ export default function NotificationsPage() {
                 {/* Content */}
                 <div className="min-w-0 flex-1">
                   <p
-                    className={`text-sm ${
+                    className={`text-xs ${
                       !n.read
                         ? "font-semibold text-slate-950"
                         : "font-medium text-slate-700"
@@ -254,10 +254,10 @@ export default function NotificationsPage() {
                   >
                     {n.title}
                   </p>
-                  <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">
+                  <p className="mt-0.5 line-clamp-2 text-[11px] text-slate-500">
                     {n.message}
                   </p>
-                  <p className="mt-1.5 text-[11px] text-slate-400">
+                  <p className="mt-1 text-[10px] text-slate-400">
                     {formatTimestamp(n.timestamp)}
                   </p>
                 </div>
