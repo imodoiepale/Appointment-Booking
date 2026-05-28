@@ -46,8 +46,8 @@ export default function LandingPage() {
             <Image
               src="/logo.png"
               alt="BCL Meetings"
-              width={130}
-              height={40}
+              width={90}
+              height={28}
               className="object-contain dark:brightness-90"
               priority
             />
@@ -78,8 +78,8 @@ export default function LandingPage() {
             <Image
               src="/logo.png"
               alt="BCL Meetings"
-              width={220}
-              height={68}
+              width={160}
+              height={50}
               className="object-contain dark:brightness-90"
               priority
             />
@@ -148,8 +148,8 @@ export default function LandingPage() {
               <Image
                 src="/logo.png"
                 alt="BCL Meetings"
-                width={110}
-                height={34}
+                width={80}
+                height={25}
                 className="object-contain dark:brightness-90"
               />
               <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed">
