@@ -1,8 +1,9 @@
+import Image from "next/image";
 import Link from "next/link";
-import { Calendar, Clock, Users, CheckCircle, ArrowRight, CalendarDays, MapPin, Phone, Mail } from "lucide-react";
+import { Clock, Users, CheckCircle, ArrowRight, CalendarDays, MapPin, Phone, Mail } from "lucide-react";
 
 export const metadata = {
-  title: "BookSmart — Time Well Meet.",
+  title: "BCL Meetings — Time Well Meet.",
   description:
     "Streamlined appointment scheduling for BookSmart Consultancy Limited professionals. Schedule, manage, and sync meetings with Google Calendar.",
 };
@@ -40,12 +41,16 @@ export default function LandingPage() {
 
       {/* Nav */}
       <header className="border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-500">
-              <Calendar className="h-4 w-4 text-white" />
-            </div>
-            <span className="text-lg font-bold tracking-tight">BookSmart</span>
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
+          <div className="flex items-center gap-2">
+            <Image
+              src="/logo.png"
+              alt="BCL Meetings"
+              width={130}
+              height={40}
+              className="object-contain dark:brightness-90"
+              priority
+            />
           </div>
           <nav className="hidden items-center gap-6 text-sm text-slate-500 dark:text-slate-400 sm:flex">
             <Link href="/privacy" className="hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
@@ -57,7 +62,7 @@ export default function LandingPage() {
           </nav>
           <Link
             href="/login"
-            className="rounded-lg bg-teal-500 px-4 py-2 text-sm font-medium text-white hover:bg-teal-400 transition-colors"
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 transition-colors"
           >
             Sign In
           </Link>
@@ -65,23 +70,37 @@ export default function LandingPage() {
       </header>
 
       {/* Hero */}
-      <section className="flex-1 flex flex-col items-center justify-center px-6 py-24 text-center">
-        <div className="mx-auto max-w-3xl">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-teal-500/30 bg-teal-500/10 px-4 py-1.5 text-sm text-teal-600 dark:text-teal-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-teal-500 dark:bg-teal-400" />
-            Professional Meeting Scheduling
+      <section className="flex-1 flex flex-col items-center justify-center px-6 py-20 text-center">
+        <div className="mx-auto max-w-3xl flex flex-col items-center">
+
+          {/* Logo mark */}
+          <div className="mb-8">
+            <Image
+              src="/logo.png"
+              alt="BCL Meetings"
+              width={220}
+              height={68}
+              className="object-contain dark:brightness-90"
+              priority
+            />
           </div>
-          <h1 className="mb-6 text-5xl font-bold tracking-tight leading-tight sm:text-6xl">
+
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-1.5 text-sm text-blue-600 dark:text-blue-400">
+            <span className="h-1.5 w-1.5 rounded-full bg-blue-500 dark:bg-blue-400" />
+            BCL Meetings — Professional Scheduling
+          </div>
+
+          <h1 className="mb-5 text-5xl font-bold tracking-tight leading-tight sm:text-6xl">
             Time Well Meet.
           </h1>
           <p className="mb-10 text-lg text-slate-500 dark:text-slate-400 leading-relaxed max-w-xl mx-auto">
-            BookSmart helps your team schedule, manage, and track appointments
+            BCL Meetings helps your team schedule, manage, and track appointments
             — with seamless Google Calendar integration and real-time notifications.
           </p>
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Link
               href="/login"
-              className="flex items-center gap-2 rounded-lg bg-teal-500 px-6 py-3 text-sm font-semibold text-white hover:bg-teal-400 transition-colors"
+              className="flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-500 transition-colors"
             >
               Get Started
               <ArrowRight className="h-4 w-4" />
@@ -108,8 +127,8 @@ export default function LandingPage() {
                 key={title}
                 className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6"
               >
-                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-teal-500/10 dark:bg-teal-500/15">
-                  <Icon className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10 dark:bg-blue-500/15">
+                  <Icon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 </div>
                 <h3 className="mb-2 font-semibold">{title}</h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">{description}</p>
@@ -126,12 +145,13 @@ export default function LandingPage() {
 
             {/* Brand */}
             <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded bg-teal-500">
-                  <Calendar className="h-3.5 w-3.5 text-white" />
-                </div>
-                <span className="font-semibold text-slate-900 dark:text-slate-100">BookSmart</span>
-              </div>
+              <Image
+                src="/logo.png"
+                alt="BCL Meetings"
+                width={110}
+                height={34}
+                className="object-contain dark:brightness-90"
+              />
               <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed">
                 BookSmart Consultancy Limited — professional meeting scheduling platform.
               </p>
@@ -140,18 +160,18 @@ export default function LandingPage() {
             {/* Contact */}
             <div className="flex flex-col gap-2.5 text-sm text-slate-500 dark:text-slate-400">
               <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-teal-500 shrink-0" />
+                <MapPin className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
                 <span>Parklands, Nairobi, Kenya</span>
               </div>
               <div className="flex items-center gap-2">
-                <Phone className="h-4 w-4 text-teal-500 shrink-0" />
-                <a href="tel:+254700298298" className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
+                <Phone className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                <a href="tel:+254700298298" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                   +254 700 298 298
                 </a>
               </div>
               <div className="flex items-center gap-2">
-                <Mail className="h-4 w-4 text-teal-500 shrink-0" />
-                <a href="mailto:info@booksmartconsult.com" className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
+                <Mail className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                <a href="mailto:info@booksmartconsult.com" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                   info@booksmartconsult.com
                 </a>
               </div>
@@ -159,13 +179,13 @@ export default function LandingPage() {
 
             {/* Links */}
             <div className="flex flex-col gap-2.5 text-sm">
-              <Link href="/privacy" className="text-slate-500 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
+              <Link href="/privacy" className="text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                 Privacy Policy
               </Link>
-              <Link href="/terms" className="text-slate-500 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
+              <Link href="/terms" className="text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                 Terms of Service
               </Link>
-              <Link href="/login" className="text-slate-500 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
+              <Link href="/login" className="text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                 Sign In
               </Link>
             </div>

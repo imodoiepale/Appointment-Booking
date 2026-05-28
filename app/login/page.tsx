@@ -13,7 +13,7 @@ export default function LoginPage() {
             <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 shadow-lg shadow-blue-600/25">
               <Calendar className="h-5 w-5" />
             </div>
-            <h1 className="mt-8 text-3xl font-bold tracking-tight">BCL Appointments</h1>
+            <h1 className="mt-8 text-3xl font-bold tracking-tight">BCL Meetings</h1>
             <p className="mt-3 max-w-sm text-sm leading-6 text-slate-300">
               A focused workspace for booked meetings, confirmations, reschedules, and calendar sync.
             </p>

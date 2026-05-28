@@ -2,8 +2,8 @@ import { ShieldCheck } from "lucide-react";
 import Link from "next/link";
 
 export const metadata = {
-  title: "Privacy Policy — BookSmart",
-  description: "Privacy Policy for BookSmart meeting scheduling application.",
+  title: "Privacy Policy — BCL Meetings",
+  description: "Privacy Policy for BCL Meetings scheduling application by BookSmart Consultancy Limited.",
 };
 
 export default function PrivacyPage() {
@@ -13,12 +13,12 @@ export default function PrivacyPage() {
 
         {/* Header */}
         <div className="mb-10 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-600">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600">
             <ShieldCheck className="h-5 w-5 text-white" />
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Privacy Policy</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">BookSmart — meetings.booksmartportals.com</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">BCL Meetings — meetings.booksmartportals.com</p>
           </div>
         </div>
 
@@ -31,11 +31,11 @@ export default function PrivacyPage() {
           <section>
             <h2 className="mb-2 text-base font-semibold text-slate-900 dark:text-white">1. Overview</h2>
             <p>
-              BookSmart ("we", "our", or "the app") is a meeting scheduling and calendar
+              BCL Meetings ("we", "our", or "the app") is a meeting scheduling and calendar
               management tool operated by BookSmart Consultancy Limited. This Privacy Policy
               explains how we collect, use, and protect your information when you use our
               application at{" "}
-              <span className="text-teal-600 dark:text-teal-400">meetings.booksmartportals.com</span>.
+              <span className="text-blue-600 dark:text-blue-400">meetings.booksmartportals.com</span>.
             </p>
           </section>
 
@@ -81,7 +81,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="mb-2 text-base font-semibold text-slate-900 dark:text-white">4. Google API Data Usage</h2>
             <p>
-              BookSmart uses the Google Calendar API solely to create, update, and delete
+              BCL Meetings uses the Google Calendar API solely to create, update, and delete
               calendar events that you explicitly initiate within the app. We do not read
               your existing calendar events, share your Google data with third parties, or
               use it for advertising purposes.
@@ -92,7 +92,7 @@ export default function PrivacyPage() {
                 href="https://developers.google.com/terms/api-services-user-data-policy"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-teal-600 dark:text-teal-400 underline underline-offset-2"
+                className="text-blue-600 dark:text-blue-400 underline underline-offset-2"
               >
                 Google API Services User Data Policy
               </a>
@@ -143,7 +143,7 @@ export default function PrivacyPage() {
             </ul>
             <p className="mt-2">
               To exercise any of these rights, contact us at{" "}
-              <a href="mailto:info@booksmartconsult.com" className="text-teal-600 dark:text-teal-400 underline underline-offset-2">
+              <a href="mailto:info@booksmartconsult.com" className="text-blue-600 dark:text-blue-400 underline underline-offset-2">
                 info@booksmartconsult.com
               </a>
               .
@@ -171,11 +171,11 @@ export default function PrivacyPage() {
             <h2 className="mb-2 text-base font-semibold text-slate-900 dark:text-white">10. Contact</h2>
             <p>
               For privacy-related questions, contact us at{" "}
-              <a href="mailto:info@booksmartconsult.com" className="text-teal-600 dark:text-teal-400 underline underline-offset-2">
+              <a href="mailto:info@booksmartconsult.com" className="text-blue-600 dark:text-blue-400 underline underline-offset-2">
                 info@booksmartconsult.com
               </a>
               {" "}or call{" "}
-              <a href="tel:+254700298298" className="text-teal-600 dark:text-teal-400 underline underline-offset-2">
+              <a href="tel:+254700298298" className="text-blue-600 dark:text-blue-400 underline underline-offset-2">
                 +254 700 298 298
               </a>
               . BookSmart Consultancy Limited, Parklands, Nairobi, Kenya.
@@ -186,8 +186,8 @@ export default function PrivacyPage() {
 
         {/* Footer nav */}
         <div className="mt-12 flex gap-6 border-t border-slate-200 dark:border-white/10 pt-6 text-sm text-slate-400 dark:text-slate-500">
-          <Link href="/" className="hover:text-teal-600 dark:hover:text-teal-400">Home</Link>
-          <Link href="/terms" className="hover:text-teal-600 dark:hover:text-teal-400">Terms of Service</Link>
+          <Link href="/" className="hover:text-blue-600 dark:hover:text-blue-400">Home</Link>
+          <Link href="/terms" className="hover:text-blue-600 dark:hover:text-blue-400">Terms of Service</Link>
         </div>
 
       </div>

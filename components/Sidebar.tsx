@@ -16,6 +16,8 @@ import {
     LayoutDashboard,
     ChevronDown,
     ChevronRight,
+    Bell,
+    Settings,
 } from 'lucide-react';
 
 const Sidebar = () => {
@@ -29,9 +31,11 @@ const Sidebar = () => {
     const toggleSidebar = () => setExpanded(!expanded);
 
     const topNavigation = [
-        { name: 'All Meetings', href: '/', icon: LayoutDashboard },
+        { name: 'All Meetings', href: '/dashboard', icon: LayoutDashboard },
         { name: 'Calendar View', href: '/calendar', icon: CalendarDays },
         { name: 'Schedule Meeting', href: '/schedule', icon: PlusCircle },
+        { name: 'Notifications', href: '/notifications', icon: Bell },
+        { name: 'Settings', href: '/settings', icon: Settings },
         { name: 'Help', href: '/help', icon: HelpCircle },
     ];
 
@@ -56,7 +60,7 @@ const Sidebar = () => {
         pathname === '/' && currentScope === scope;
 
     const isNavActive = (href: string) => {
-        if (href === '/') return pathname === '/' && !searchParams.get('scope');
+        if (href === '/dashboard') return pathname === '/dashboard' && !searchParams.get('scope');
         return pathname === href;
     };
 
@@ -81,7 +85,7 @@ const Sidebar = () => {
                                 <Calendar size={20} />
                             </div>
                             <div className="min-w-0">
-                                <h1 className="truncate text-base font-bold text-slate-950">BCL Appointments</h1>
+                                <h1 className="truncate text-base font-bold text-slate-950">BCL Meetings</h1>
                                 <p className="text-xs text-slate-500">Meetings control center</p>
                             </div>
                         </div>
@@ -152,7 +156,7 @@ const Sidebar = () => {
                             className="flex w-full items-center justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition-colors hover:bg-blue-700"
                         >
                             <PlusCircle size={18} className="mr-2" />
-                            New Appointment
+                            New Meeting
                         </Link>
                         <div className="mt-3 flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
                             <CalendarDays className="h-4 w-4 text-blue-600" />

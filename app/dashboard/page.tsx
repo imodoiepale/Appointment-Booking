@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, Clock, Mic, MicOff, UserPlus, Building, MapPin, CheckCircle, XCircle, RefreshCw, MessageSquare, Table2, LayoutGrid, Link as LinkIcon, Phone, Video, Trash2, Loader2, CloudOff, Cloud, ShieldCheck, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, Users, CalendarDays, AlertTriangle, User, BookOpen, Search, Send, History } from 'lucide-react';
+import { Calendar, Clock, Mic, MicOff, UserPlus, Building, MapPin, CheckCircle, XCircle, RefreshCw, MessageSquare, Table2, LayoutGrid, Link as LinkIcon, Phone, Video, Trash2, Loader2, CloudOff, Cloud, ShieldCheck, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, Users, CalendarDays, AlertTriangle, User, BookOpen, Search, Send, History, Bell } from 'lucide-react';
 import supabase from '@/utils/supabaseClient';
 import type { Appointment, AuthUser, CalendarConnectionStatus } from '@/components/dashboard/types';
 import AppointmentCard from './components/appointment-card';
@@ -60,7 +60,7 @@ const DashboardContent = () => {
 
   const notify = {
     success: (title: string, desc?: string) => toast({
-      title: <span className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-teal-500 flex-shrink-0" /><span className="font-semibold text-teal-800">{title}</span></span>,
+      title: <span className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-blue-500 flex-shrink-0" /><span className="font-semibold text-blue-800">{title}</span></span>,
       description: desc,
       className: 'border-l-4 border-teal-500 bg-white',
     }),
@@ -796,7 +796,7 @@ const DashboardContent = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'upcoming': return 'bg-[#0DAA8A]/10 text-[#087963] border-[#0DAA8A]/20';
+      case 'upcoming': return 'bg-blue-600/10 text-blue-700 border-blue-600/20';
       case 'rescheduled': return 'bg-purple-100 text-purple-700 border-purple-300';
       case 'pending': return 'bg-yellow-100 text-yellow-700 border-yellow-300';
       case 'canceled': return 'bg-red-100 text-red-700 border-red-300';
@@ -819,7 +819,7 @@ const DashboardContent = () => {
 
   const getBadgeStatusColor = (badgeStatus: string) => {
     switch (badgeStatus) {
-      case 'Open': return 'bg-[#0DAA8A]/10 text-[#087963] border-[#0DAA8A]/20';
+      case 'Open': return 'bg-blue-600/10 text-blue-700 border-blue-600/20';
       case 'Confirmed': return 'bg-blue-100 text-blue-700 border-blue-300';
       case 'Tentative': return 'bg-yellow-100 text-yellow-700 border-yellow-300';
       case 'Rejected': return 'bg-red-100 text-red-700 border-red-300';
@@ -928,7 +928,7 @@ const DashboardContent = () => {
       <div className="flex min-h-[60vh] items-center justify-center bg-slate-50">
         <div className="rounded-lg border border-slate-200 bg-white px-6 py-5 text-center shadow-sm">
           <div className="flex items-center justify-center gap-2">
-            <Loader2 className="h-5 w-5 animate-spin text-teal-600" />
+            <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
             <div className="h-2 w-2 rounded-full bg-blue-500" />
             <div className="h-2 w-2 rounded-full bg-blue-500" />
           </div>
@@ -939,7 +939,7 @@ const DashboardContent = () => {
   }
 
   const calendarStatusBadgeClass = calendarConnectionStatus === 'connected'
-    ? 'bg-[#0DAA8A]/10 text-[#087963] border-[#0DAA8A]/30'
+    ? 'bg-blue-600/10 text-blue-700 border-blue-600/30'
     : calendarConnectionStatus === 'disconnected'
       ? 'bg-red-100 text-red-700 border-red-300'
       : 'bg-yellow-100 text-yellow-700 border-yellow-300';
@@ -959,7 +959,7 @@ const DashboardContent = () => {
     : 'All Meetings';
 
   const statCards = [
-    { label: scopeLabel, value: visibleAppointments.length, icon: <CalendarDays className="h-4 w-4" />, accent: 'bg-[#0DAA8A]', iconClass: 'bg-[#0DAA8A]/10 text-[#087963]' },
+    { label: scopeLabel, value: visibleAppointments.length, icon: <CalendarDays className="h-4 w-4" />, accent: 'bg-blue-600', iconClass: 'bg-blue-600/10 text-blue-700' },
     { label: 'Today', value: totalAppointmentsToday, icon: <Clock className="h-4 w-4" />, accent: 'bg-blue-500', iconClass: 'bg-blue-50 text-blue-600' },
     { label: 'Pending', value: appointmentBuckets.pending.length, icon: <MessageSquare className="h-4 w-4" />, accent: 'bg-amber-500', iconClass: 'bg-amber-50 text-amber-600' },
     { label: 'Synced', value: syncedCount, icon: <Cloud className="h-4 w-4" />, accent: 'bg-blue-500', iconClass: 'bg-blue-50 text-blue-600' },
@@ -976,7 +976,7 @@ const DashboardContent = () => {
         <div className="flex items-center gap-2">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Rows</span>
           <Select value={String(itemsPerPage)} onValueChange={(value) => setItemsPerPage(Number(value))}>
-            <SelectTrigger className="h-8 w-20 rounded-lg border-slate-200 text-xs focus:ring-[#0DAA8A]/20">
+            <SelectTrigger className="h-8 w-20 rounded-lg border-slate-200 text-xs focus:ring-blue-600/20">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -1024,6 +1024,19 @@ const DashboardContent = () => {
     </div>
   );
 
+  const TimelineEntry = ({ dot, label, detail, isLast }: { dot: string; label: string; detail: string; isLast?: boolean }) => (
+    <div className="flex gap-3">
+      <div className="flex flex-col items-center">
+        <div className={`h-2 w-2 rounded-full ${dot} mt-1 ring-2 ring-white flex-shrink-0`} />
+        {!isLast && <div className="mt-1 w-px flex-1 bg-slate-200 min-h-[20px]" />}
+      </div>
+      <div className={`pb-3 min-w-0 ${isLast ? '' : ''}`}>
+        <p className="text-xs font-medium text-slate-800">{label}</p>
+        {detail && <p className="mt-0.5 text-[11px] text-slate-500">{detail}</p>}
+      </div>
+    </div>
+  );
+
   // --- TABLE VIEW (Mobile Adjustments) ---
   const renderTableView = (filteredAppointments) => (
     <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
@@ -1058,7 +1071,7 @@ const DashboardContent = () => {
               return (
                 <TableRow
                   key={appointment.id_main}
-                  className="cursor-pointer border-slate-100 hover:bg-[#0DAA8A]/5"
+                  className="cursor-pointer border-slate-100 hover:bg-blue-600/5"
                   onClick={() => setSelectedAppointment(appointment)}
                 >
                   <TableCell className="px-3 py-2 text-xs font-medium text-slate-400">{currentPage * itemsPerPage + index + 1}</TableCell>
@@ -1177,15 +1190,15 @@ const DashboardContent = () => {
 
       {/* ── Page Header ── */}
       <Card className="overflow-hidden rounded-lg border-slate-200 bg-white shadow-sm">
-        <div className="h-1 w-full bg-[#0DAA8A]" />
+        <div className="h-1 w-full bg-blue-600" />
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-5 sm:p-6">
           <div>
-            <Badge className="mb-3 rounded-lg bg-[#0DAA8A]/10 text-[#087963] hover:bg-[#0DAA8A]/10">BCL Meetings</Badge>
+            <Badge className="mb-3 rounded-lg bg-blue-600/10 text-blue-700 hover:bg-blue-600/10">BCL Meetings</Badge>
             <h1 className="text-3xl font-bold text-slate-950 tracking-tight md:text-4xl">Meeting Dashboard</h1>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               <p className="text-sm text-slate-500">Review appointments, pending actions, and calendar sync.</p>
               {currentUser && (
-                <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#0DAA8A]/10 px-2.5 py-1 text-xs font-medium text-[#087963] ring-1 ring-[#0DAA8A]/15">
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600/10 px-2.5 py-1 text-xs font-medium text-blue-700 ring-1 ring-blue-600/15">
                   <ShieldCheck className="h-3.5 w-3.5" />
                   {currentUserDisplay}
                   <span className="hidden sm:inline text-[#0DAA8A]">({currentUserRole})</span>
@@ -1226,7 +1239,7 @@ const DashboardContent = () => {
               <Button
                 onClick={() => window.open('/api/auth/google', '_blank')}
                 size="sm"
-                className="h-9 gap-1.5 rounded-lg bg-[#0DAA8A] hover:bg-[#0B9579] text-white text-xs"
+                className="h-9 gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs"
               >
                 <Calendar className="w-3.5 h-3.5" />
                 Connect Google Calendar
@@ -1313,7 +1326,7 @@ const DashboardContent = () => {
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder="Search client, agenda, attendee, venue..."
-            className="h-10 rounded-lg border-slate-200 bg-white pl-9 text-sm shadow-sm focus:border-[#0DAA8A] focus:ring-[#0DAA8A]/20"
+            className="h-10 rounded-lg border-slate-200 bg-white pl-9 text-sm shadow-sm focus:border-blue-600 focus:ring-blue-600/20"
           />
         </div>
         {/* View toggle */}
@@ -1322,7 +1335,7 @@ const DashboardContent = () => {
             variant="ghost"
             size="sm"
             onClick={() => setViewMode("cards")}
-            className={`h-8 rounded-md px-3 text-xs gap-1.5 ${viewMode === "cards" ? "bg-[#0DAA8A] text-white hover:bg-[#0B9579]" : "text-slate-500 hover:bg-slate-50"}`}
+            className={`h-8 rounded-md px-3 text-xs gap-1.5 ${viewMode === "cards" ? "bg-blue-600 text-white hover:bg-blue-700" : "text-slate-500 hover:bg-slate-50"}`}
           >
             <LayoutGrid className="h-3.5 w-3.5" />
             Cards
@@ -1331,7 +1344,7 @@ const DashboardContent = () => {
             variant="ghost"
             size="sm"
             onClick={() => setViewMode("table")}
-            className={`h-8 rounded-md px-3 text-xs gap-1.5 ${viewMode === "table" ? "bg-[#0DAA8A] text-white hover:bg-[#0B9579]" : "text-slate-500 hover:bg-slate-50"}`}
+            className={`h-8 rounded-md px-3 text-xs gap-1.5 ${viewMode === "table" ? "bg-blue-600 text-white hover:bg-blue-700" : "text-slate-500 hover:bg-slate-50"}`}
           >
             <Table2 className="h-3.5 w-3.5" />
             Table
@@ -1340,8 +1353,8 @@ const DashboardContent = () => {
 
         {/* Today's meetings stat */}
         <div className="flex items-center gap-2 rounded-lg bg-white px-3 py-1.5 shadow-sm ring-1 ring-slate-200">
-          <div className="w-6 h-6 rounded-md bg-[#0DAA8A]/10 flex items-center justify-center">
-            <Calendar className="h-3.5 w-3.5 text-[#087963]" />
+          <div className="w-6 h-6 rounded-md bg-blue-600/10 flex items-center justify-center">
+            <Calendar className="h-3.5 w-3.5 text-blue-700" />
           </div>
           <div>
             <p className="text-[10px] text-slate-400 leading-none">Today</p>
@@ -1369,7 +1382,7 @@ const DashboardContent = () => {
             <TabsList className="grid h-auto grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1 sm:grid-cols-3 lg:grid-cols-6">
               {[
                 { value: 'today', active: 'bg-blue-600 text-white shadow-sm', counts: appointmentBuckets.today.length },
-                { value: 'upcoming', active: 'bg-[#0DAA8A] text-white shadow-sm', counts: appointmentBuckets.upcoming.length },
+                { value: 'upcoming', active: 'bg-blue-600 text-white shadow-sm', counts: appointmentBuckets.upcoming.length },
                 { value: 'pending', active: 'bg-amber-500 text-white shadow-sm', counts: appointmentBuckets.pending.length },
                 { value: 'recurring', active: 'bg-purple-500 text-white shadow-sm', counts: appointmentBuckets.recurring.length },
                 { value: 'canceled', active: 'bg-red-500 text-white shadow-sm', counts: appointmentBuckets.canceled.length },
@@ -1378,7 +1391,7 @@ const DashboardContent = () => {
                 <TabsTrigger
                   key={value}
                   value={value}
-                  className={`text-xs font-medium py-1.5 rounded-md data-[state=active]:shadow-none text-slate-500 data-[state=active]:text-white ${active.includes('#0DAA8A') ? 'data-[state=active]:bg-[#0DAA8A]' : active.includes('amber') ? 'data-[state=active]:bg-amber-500' : active.includes('purple') ? 'data-[state=active]:bg-purple-500' : active.includes('red') ? 'data-[state=active]:bg-red-500' : 'data-[state=active]:bg-blue-600'}`}
+                  className={`text-xs font-medium py-1.5 rounded-md data-[state=active]:shadow-none text-slate-500 data-[state=active]:text-white ${active.includes('#0DAA8A') ? 'data-[state=active]:bg-blue-600' : active.includes('amber') ? 'data-[state=active]:bg-amber-500' : active.includes('purple') ? 'data-[state=active]:bg-purple-500' : active.includes('red') ? 'data-[state=active]:bg-red-500' : 'data-[state=active]:bg-blue-600'}`}
                 >
                   <span className="flex items-center gap-1.5">
                     {value.charAt(0).toUpperCase() + value.slice(1)}
@@ -1440,8 +1453,8 @@ const DashboardContent = () => {
                 <div className="space-y-3">
                   <div className="rounded-lg ring-1 ring-slate-100 overflow-hidden">
                     <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border-b border-slate-100">
-                      <div className="w-5 h-5 rounded-md bg-teal-50 flex items-center justify-center">
-                        <UserPlus className="h-3 w-3 text-teal-600" />
+                      <div className="w-5 h-5 rounded-md bg-blue-50 flex items-center justify-center">
+                        <UserPlus className="h-3 w-3 text-blue-600" />
                       </div>
                       <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Client</span>
                     </div>
@@ -1502,19 +1515,35 @@ const DashboardContent = () => {
 
                   <div className="rounded-lg ring-1 ring-slate-100 overflow-hidden">
                     <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border-b border-slate-100">
-                      <div className="w-5 h-5 rounded-md bg-emerald-50 flex items-center justify-center">
-                        <Users className="h-3 w-3 text-emerald-600" />
+                      <div className="w-5 h-5 rounded-md bg-blue-50 flex items-center justify-center">
+                        <Users className="h-3 w-3 text-blue-600" />
                       </div>
                       <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Participants</span>
                     </div>
-                    <div className="p-3 flex flex-wrap gap-1.5">
-                      {[selectedAppointment.client_name, ...parseBclAttendees(selectedAppointment.bcl_attendee)].filter(Boolean).map((name, index) => (
-                        <span key={`${name}-${index}`} className="inline-flex items-center gap-1 rounded-lg bg-slate-50 px-2 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-100">
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#0DAA8A]/10 text-[10px] font-bold text-[#087963]">
-                            {String(name).slice(0, 2).toUpperCase()}
-                          </span>
-                          {name}
-                        </span>
+                    <div className="p-3 space-y-1.5">
+                      {/* Client */}
+                      {selectedAppointment.client_name && (
+                        <div className="flex items-center justify-between rounded-lg bg-slate-50 px-2.5 py-1.5 ring-1 ring-slate-100">
+                          <div className="flex items-center gap-2">
+                            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600/10 text-[10px] font-bold text-blue-700">
+                              {String(selectedAppointment.client_name).slice(0, 2).toUpperCase()}
+                            </span>
+                            <span className="text-xs font-medium text-slate-700">{selectedAppointment.client_name}</span>
+                          </div>
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Client</span>
+                        </div>
+                      )}
+                      {/* BCL attendees */}
+                      {parseBclAttendees(selectedAppointment.bcl_attendee).filter(Boolean).map((name, index) => (
+                        <div key={`${name}-${index}`} className="flex items-center justify-between rounded-lg bg-slate-50 px-2.5 py-1.5 ring-1 ring-slate-100">
+                          <div className="flex items-center gap-2">
+                            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600/10 text-[10px] font-bold text-blue-700">
+                              {String(name).slice(0, 2).toUpperCase()}
+                            </span>
+                            <span className="text-xs font-medium text-slate-700">{name}</span>
+                          </div>
+                          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">BCL Staff</span>
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -1526,20 +1555,71 @@ const DashboardContent = () => {
                       </div>
                       <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Activity Timeline</span>
                     </div>
-                    <div className="p-3 space-y-2 text-xs text-slate-600">
-                      <p>Created on {selectedAppointment.booking_date || 'N/A'} by {selectedAppointment.created_by || 'system'}.</p>
-                      <p>Current state: {checkAppointmentStatus(selectedAppointment).status}.</p>
-                      {selectedAppointment.updated_by && <p>Last updated by {selectedAppointment.updated_by}.</p>}
+                    <div className="p-3">
+                      <div className="relative space-y-0">
+                        {/* Created */}
+                        <TimelineEntry
+                          dot="bg-blue-600"
+                          label="Meeting created"
+                          detail={`Booked on ${selectedAppointment.booking_date || 'N/A'}${selectedAppointment.created_by ? ` by ${selectedAppointment.created_by}` : ''}`}
+                          isLast={!selectedAppointment.updated_by && checkAppointmentStatus(selectedAppointment).status === 'upcoming'}
+                        />
+                        {/* Status entries */}
+                        {selectedAppointment.badge_status && selectedAppointment.badge_status !== 'Pending' && (
+                          <TimelineEntry
+                            dot="bg-blue-400"
+                            label={`Marked as ${selectedAppointment.badge_status}`}
+                            detail="Status updated"
+                            isLast={!selectedAppointment.updated_by}
+                          />
+                        )}
+                        {/* Rescheduled */}
+                        {selectedAppointment.status === 'rescheduled' && (
+                          <TimelineEntry
+                            dot="bg-amber-500"
+                            label="Rescheduled"
+                            detail={`New date: ${selectedAppointment.meeting_date || 'N/A'}`}
+                            isLast={!selectedAppointment.updated_by}
+                          />
+                        )}
+                        {/* Cancelled */}
+                        {selectedAppointment.status === 'canceled' && (
+                          <TimelineEntry
+                            dot="bg-red-500"
+                            label="Meeting cancelled"
+                            detail={selectedAppointment.updated_by ? `By ${selectedAppointment.updated_by}` : ''}
+                            isLast
+                          />
+                        )}
+                        {/* Completed */}
+                        {selectedAppointment.status === 'completed' && (
+                          <TimelineEntry
+                            dot="bg-green-500"
+                            label="Meeting completed"
+                            detail={selectedAppointment.updated_by ? `Marked by ${selectedAppointment.updated_by}` : ''}
+                            isLast
+                          />
+                        )}
+                        {/* Last updated (only for non-terminal states) */}
+                        {selectedAppointment.updated_by && selectedAppointment.status !== 'canceled' && selectedAppointment.status !== 'completed' && (
+                          <TimelineEntry
+                            dot="bg-slate-400"
+                            label="Last updated"
+                            detail={`By ${selectedAppointment.updated_by}`}
+                            isLast
+                          />
+                        )}
+                      </div>
                     </div>
                   </div>
 
                   {selectedAppointment.google_meet_link && (
-                    <div className="rounded-lg ring-1 ring-cyan-100 overflow-hidden">
-                      <div className="flex items-center gap-2 px-3 py-2 bg-cyan-50 border-b border-cyan-100">
-                        <div className="w-5 h-5 rounded-md bg-cyan-100 flex items-center justify-center">
-                          <Video className="h-3 w-3 text-cyan-600" />
+                    <div className="rounded-lg ring-1 ring-blue-100 overflow-hidden">
+                      <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border-b border-blue-100">
+                        <div className="w-5 h-5 rounded-md bg-blue-100 flex items-center justify-center">
+                          <Video className="h-3 w-3 text-blue-600" />
                         </div>
-                        <span className="text-xs font-semibold text-cyan-700 uppercase tracking-wide">Google Meet</span>
+                        <span className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Google Meet</span>
                       </div>
                       <div className="p-3">
                         {renderAppointmentDetailItem('Link', selectedAppointment.google_meet_link, null, true)}
@@ -1580,7 +1660,7 @@ const DashboardContent = () => {
                       });
                       setRescheduleDialogOpen(true);
                     }}
-                    className="rounded-lg border-teal-200 text-teal-700 hover:bg-teal-50 px-3 py-1.5 text-xs sm:text-sm"
+                    className="rounded-lg border-blue-200 text-blue-700 hover:bg-blue-50 px-3 py-1.5 text-xs sm:text-sm"
                   >
                     <RefreshCw className="h-3.5 w-3.5 mr-1 sm:mr-1.5" />
                     Reschedule
@@ -1650,7 +1730,7 @@ const DashboardContent = () => {
                       size="sm"
                       onClick={() => handleSyncMeeting(selectedAppointment)}
                       disabled={syncingMeetingId === selectedAppointment?.id_main}
-                      className="border-cyan-300 text-cyan-700 hover:bg-cyan-50 px-3 py-1.5 text-xs sm:text-sm"
+                      className="border-blue-300 text-blue-700 hover:bg-blue-50 px-3 py-1.5 text-xs sm:text-sm"
                     >
                       {syncingMeetingId === selectedAppointment?.id_main
                         ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />Syncing...</>
@@ -1761,10 +1841,44 @@ const DashboardContent = () => {
                 <Label className="text-xs">BCL Attendee Mobile</Label>
                 <Input name="bcl_attendee_mobile" value={editFormData.bcl_attendee_mobile} onChange={handleEditInputChange} className="h-9 rounded-lg text-xs" />
               </div>
+
+              {/* Reminder settings */}
+              <div className="sm:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
+                <p className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                  <Bell className="h-3.5 w-3.5 text-blue-600" />
+                  Reminder Settings
+                </p>
+                <p className="text-[11px] text-slate-400">Choose how participants should be notified about this meeting.</p>
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  {[
+                    { key: 'whatsapp', label: 'WhatsApp', color: 'text-green-700 bg-green-50 border-green-200' },
+                    { key: 'email', label: 'Email', color: 'text-blue-700 bg-blue-50 border-blue-200' },
+                    { key: 'sms', label: 'SMS', color: 'text-slate-700 bg-slate-100 border-slate-200' },
+                  ].map(({ key, label, color }) => (
+                    <label key={key} className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-[11px] font-medium transition-all ${color}`}>
+                      <input type="checkbox" className="h-3 w-3 accent-blue-600" defaultChecked={key === 'email'} />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 pt-1">
+                  <p className="text-[11px] text-slate-500 flex-1">Reminder timing</p>
+                  <Select defaultValue="30">
+                    <SelectTrigger className="h-7 w-32 rounded-lg text-[11px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="5">5 min before</SelectItem>
+                      <SelectItem value="15">15 min before</SelectItem>
+                      <SelectItem value="30">30 min before</SelectItem>
+                      <SelectItem value="60">1 hour before</SelectItem>
+                      <SelectItem value="1440">1 day before</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
             <DialogFooter className="px-5 py-4 border-t border-slate-100 bg-slate-50/50 flex gap-2">
               <Button variant="outline" size="sm" onClick={() => setEditDialogOpen(false)} className="flex-1 rounded-lg border-slate-200 text-xs h-8">Cancel</Button>
-              <Button size="sm" onClick={handleFinalEdit} className="flex-1 rounded-lg bg-[#0DAA8A] hover:bg-[#0B9579] text-white text-xs h-8">Save Changes</Button>
+              <Button size="sm" onClick={handleFinalEdit} className="flex-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs h-8">Save Changes</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -1774,8 +1888,8 @@ const DashboardContent = () => {
           <DialogContent className="max-w-xs sm:max-w-sm rounded-lg p-0 overflow-hidden bg-white">
             <DialogHeader className="px-5 pt-5 pb-4 border-b border-slate-100">
               <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <div className="w-6 h-6 rounded-md bg-teal-50 flex items-center justify-center">
-                  <RefreshCw className="h-3.5 w-3.5 text-teal-600" />
+                <div className="w-6 h-6 rounded-md bg-blue-50 flex items-center justify-center">
+                  <RefreshCw className="h-3.5 w-3.5 text-blue-600" />
                 </div>
                 Reschedule Meeting
               </DialogTitle>
@@ -1796,7 +1910,7 @@ const DashboardContent = () => {
                     value={rescheduleFormData.dateTimeLocal}
                     onChange={handleRescheduleInputChange}
                     min={new Date().toISOString().slice(0, 16)}
-                    className="pl-9 h-9 rounded-lg border-slate-200 text-xs focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                    className="pl-9 h-9 rounded-lg border-slate-200 text-xs focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
                   />
                 </div>
               </div>
@@ -1847,7 +1961,7 @@ const DashboardContent = () => {
                         className={`rounded-lg px-2 py-2 text-xs font-medium ring-1 transition ${
                           conflict
                             ? 'cursor-not-allowed bg-red-50 text-red-500 ring-red-100'
-                            : 'bg-white text-slate-700 ring-slate-200 hover:bg-[#0DAA8A]/10 hover:text-[#087963]'
+                            : 'bg-white text-slate-700 ring-slate-200 hover:bg-blue-600/10 hover:text-blue-700'
                         }`}
                       >
                         {slot}
@@ -1871,7 +1985,7 @@ const DashboardContent = () => {
               <Button
                 onClick={handleFinalReschedule}
                 size="sm"
-                className="flex-1 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs h-8"
+                className="flex-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs h-8"
                 disabled={!rescheduleFormData.meetingEndTime}
               >
                 Confirm Reschedule

@@ -29,7 +29,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </Suspense>
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <Header />
-          <main className="flex-1 overflow-y-auto bg-[radial-gradient(circle_at_top_left,rgba(13,170,138,0.10),transparent_32%),linear-gradient(180deg,#f8fafc_0%,#eef2f7_100%)]">
+          <main className="flex-1 overflow-y-auto bg-[radial-gradient(circle_at_top_left,rgba(37,99,235,0.07),transparent_32%),linear-gradient(180deg,#f8fafc_0%,#eef2f7_100%)]">
             {children}
           </main>
         </div>

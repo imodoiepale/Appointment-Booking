@@ -81,7 +81,7 @@ export function LoginForm() {
         else            window.localStorage.removeItem(REMEMBERED_LOGIN_KEY);
       } catch { /* ignore */ }
 
-      window.location.replace("/");
+      window.location.replace("/dashboard");
     } catch (submitError) {
       setError(toFriendlyLoginMessage(submitError));
     } finally {
