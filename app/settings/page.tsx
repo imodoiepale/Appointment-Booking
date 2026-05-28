@@ -70,13 +70,13 @@ export default function SettingsPage() {
     fetch("/api/users/me")
       .then((r) => r.json())
       .then((data) => setUser(data || {}))
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoadingUser(false));
 
     fetch("/api/auth/google/status")
       .then((r) => r.json())
       .then((data) => setCalStatus(data || { connected: false }))
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoadingCal(false));
   }, []);
 
@@ -110,253 +110,260 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-950">Settings</h1>
-        <p className="mt-1 text-sm text-slate-500">
+    <div className="mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-950">Settings</h1>
+        <p className="mt-2 text-base text-slate-500">
           Manage your account, integrations, and preferences.
         </p>
       </div>
 
-      {/* Profile card */}
-      <section className="mb-5">
-        <div className="premium-surface overflow-hidden rounded-2xl">
-          <div className="h-16 bg-gradient-to-r from-indigo-600 via-teal-500 to-slate-950" />
-          <div className="px-5 pb-5">
-            <div className="-mt-8 flex items-end justify-between">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl border-4 border-white bg-blue-600 text-xl font-bold text-white shadow-sm">
-                {loadingUser ? "…" : initials}
-              </div>
-              {user.role && (
-                <Badge className="mb-1 border-blue-200 bg-blue-50 text-blue-700">
-                  {roleLabel(user.role)}
-                </Badge>
-              )}
-            </div>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10">
 
-            <div className="mt-3">
-              <p className="text-lg font-semibold text-slate-950">
-                {loadingUser ? "Loading…" : displayName}
-              </p>
-              {user.email && (
-                <p className="mt-0.5 flex items-center gap-1.5 text-sm text-slate-500">
-                  <Mail className="h-3.5 w-3.5" />
-                  {user.email}
-                </p>
-              )}
-              {user.username && (
-                <p className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-400">
-                  <User className="h-3 w-3" />@{user.username}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
+        {/* === LEFT COLUMN (Profile, Appearance, Security, About) === */}
+        <div className="flex flex-col gap-8 lg:col-span-5 xl:col-span-4">
 
-      <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+          {/* Profile card */}
+          <section>
+            <div className="premium-surface overflow-hidden rounded-2xl border border-slate-100 shadow-sm">
+              <div className="h-20 bg-gradient-to-r from-indigo-600 via-teal-500 to-slate-950" />
+              <div className="px-5 pb-6">
+                <div className="-mt-10 flex items-end justify-between">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-2xl border-4 border-white bg-blue-600 text-2xl font-bold text-white shadow-sm">
+                    {loadingUser ? "…" : initials}
+                  </div>
+                  {user.role && (
+                    <Badge className="mb-2 border-blue-200 bg-blue-50 px-3 py-1 text-sm text-blue-700">
+                      {roleLabel(user.role)}
+                    </Badge>
+                  )}
+                </div>
 
-      {/* Google Calendar */}
-      <section>
-        <SectionHeader icon={Calendar} title="Google Calendar" />
-        <div className="premium-panel rounded-2xl">
-          <div className="flex items-center justify-between p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50">
-                <Calendar className="h-4 w-4 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-slate-900">Calendar sync</p>
-                {loadingCal ? (
-                  <p className="text-xs text-slate-400">Checking status…</p>
-                ) : calStatus.connected ? (
-                  <p className="flex items-center gap-1 text-xs text-blue-600">
-                    <CheckCircle className="h-3 w-3" />
-                    Connected{calStatus.email ? ` · ${calStatus.email}` : ""}
+                <div className="mt-4">
+                  <p className="text-xl font-bold text-slate-950">
+                    {loadingUser ? "Loading…" : displayName}
                   </p>
-                ) : (
-                  <p className="flex items-center gap-1 text-xs text-slate-500">
-                    <XCircle className="h-3 w-3" />
-                    Not connected
-                  </p>
-                )}
+                  {user.email && (
+                    <p className="mt-1 flex items-center gap-2 text-sm text-slate-500">
+                      <Mail className="h-4 w-4" />
+                      {user.email}
+                    </p>
+                  )}
+                  {user.username && (
+                    <p className="mt-1 flex items-center gap-2 text-sm text-slate-400">
+                      <User className="h-4 w-4" />@{user.username}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
-            {!loadingCal &&
-              (calStatus.connected ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCalDisconnect}
-                  className="border-red-200 text-red-600 hover:bg-red-50"
-                >
-                  Disconnect
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  onClick={handleCalConnect}
-                  className="bg-blue-600 text-white hover:bg-blue-700"
-                >
-                  Connect
-                </Button>
-              ))}
-          </div>
-          <div className="border-t border-slate-100 px-4 py-3">
-            <p className="text-xs text-slate-400">
-              Meetings you create are automatically synced to your Google Calendar when connected.
-            </p>
-          </div>
-        </div>
-      </section>
+          </section>
 
-      {/* Notification preferences */}
-      <section>
-        <SectionHeader icon={Bell} title="Notifications" />
-        <div className="premium-panel divide-y divide-slate-100 overflow-hidden rounded-2xl">
-          <NotifToggle
-            icon={Bell}
-            iconBg="bg-blue-50"
-            iconColor="text-blue-600"
-            label="Meeting reminders"
-            description="Get reminded 30 min before a meeting"
-            checked={notifPrefs.meetingReminders}
-            onChange={(v) => setNotifPrefs((p) => ({ ...p, meetingReminders: v }))}
-          />
-          <NotifToggle
-            icon={Info}
-            iconBg="bg-slate-100"
-            iconColor="text-slate-500"
-            label="Meeting updates"
-            description="Notified when a meeting is edited or rescheduled"
-            checked={notifPrefs.meetingUpdates}
-            onChange={(v) => setNotifPrefs((p) => ({ ...p, meetingUpdates: v }))}
-          />
-          <NotifToggle
-            icon={XCircle}
-            iconBg="bg-red-50"
-            iconColor="text-red-500"
-            label="Cancellations"
-            description="Alerts when a meeting is cancelled"
-            checked={notifPrefs.cancellations}
-            onChange={(v) => setNotifPrefs((p) => ({ ...p, cancellations: v }))}
-          />
-        </div>
-      </section>
-
-      {/* Channel preferences */}
-      <section>
-        <SectionHeader icon={MessageSquare} title="Notification Channels" />
-        <div className="premium-panel divide-y divide-slate-100 overflow-hidden rounded-2xl">
-          <NotifToggle
-            icon={MessageSquare}
-            iconBg="bg-green-50"
-            iconColor="text-green-600"
-            label="WhatsApp"
-            description="Receive meeting alerts via WhatsApp"
-            checked={notifPrefs.whatsapp}
-            onChange={(v) => setNotifPrefs((p) => ({ ...p, whatsapp: v }))}
-          />
-          <NotifToggle
-            icon={Mail}
-            iconBg="bg-blue-50"
-            iconColor="text-blue-600"
-            label="Email"
-            description="Receive meeting alerts via email"
-            checked={notifPrefs.email}
-            onChange={(v) => setNotifPrefs((p) => ({ ...p, email: v }))}
-          />
-          <NotifToggle
-            icon={Smartphone}
-            iconBg="bg-slate-100"
-            iconColor="text-slate-500"
-            label="SMS"
-            description="Receive meeting alerts via SMS"
-            checked={notifPrefs.sms}
-            onChange={(v) => setNotifPrefs((p) => ({ ...p, sms: v }))}
-          />
-        </div>
-      </section>
-
-      {/* Appearance */}
-      <section>
-        <SectionHeader icon={Sun} title="Appearance" />
-        <div className="premium-panel overflow-hidden rounded-2xl">
-          <div className="p-4">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Theme
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              {(["light", "dark", "system"] as const).map((t) => {
-                const Icon = t === "light" ? Sun : t === "dark" ? Moon : Monitor;
-                const active = theme === t;
-                return (
-                  <button
-                    key={t}
-                    onClick={() => setTheme(t)}
-                    className={`flex flex-col items-center gap-2 rounded-xl border p-3 text-xs font-medium transition-all ${
-                      active
-                        ? "border-blue-600 bg-blue-600/5 text-blue-600 ring-1 ring-blue-600/20"
-                        : "border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700"
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span className="capitalize">{t}</span>
-                  </button>
-                );
-              })}
+          {/* Appearance */}
+          <section>
+            <SectionHeader icon={Sun} title="Appearance" />
+            <div className="premium-panel overflow-hidden rounded-2xl border border-slate-100 shadow-sm">
+              <div className="p-4">
+                <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Theme
+                </p>
+                <div className="grid grid-cols-3 gap-3">
+                  {(["light", "dark", "system"] as const).map((t) => {
+                    const Icon = t === "light" ? Sun : t === "dark" ? Moon : Monitor;
+                    const active = theme === t;
+                    return (
+                      <button
+                        key={t}
+                        onClick={() => setTheme(t)}
+                        className={`flex flex-col items-center gap-2 rounded-xl border p-4 text-sm font-medium transition-all ${active
+                            ? "border-blue-600 bg-blue-600/5 text-blue-600 ring-1 ring-blue-600/20"
+                            : "border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700"
+                          }`}
+                      >
+                        <Icon className="h-5 w-5" />
+                        <span className="capitalize">{t}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      </section>
+          </section>
 
-      {/* Security */}
-      <section>
-        <SectionHeader icon={Shield} title="Security" />
-        <div className="premium-panel divide-y divide-slate-100 overflow-hidden rounded-2xl">
-          <SettingsRow icon={Lock} label="Change password" />
-          <SettingsRow icon={Shield} label="Active sessions" />
-        </div>
-      </section>
+          {/* Security */}
+          <section>
+            <SectionHeader icon={Shield} title="Security" />
+            <div className="premium-panel divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-100 shadow-sm">
+              <SettingsRow icon={Lock} label="Change password" />
+              <SettingsRow icon={Shield} label="Active sessions" />
+            </div>
+          </section>
 
-      {/* About */}
-      <section>
-        <SectionHeader icon={Info} title="About" />
-        <div className="premium-panel divide-y divide-slate-100 overflow-hidden rounded-2xl">
-          <div className="flex items-center justify-between px-4 py-3">
-            <p className="text-sm text-slate-700">App name</p>
-            <p className="text-sm font-medium text-slate-950">BCL Meetings</p>
-          </div>
-          <div className="flex items-center justify-between px-4 py-3">
-            <p className="text-sm text-slate-700">Version</p>
-            <p className="text-sm font-medium text-slate-950">v1.0.0</p>
-          </div>
-          <div className="flex items-center justify-between px-4 py-3">
-            <p className="text-sm text-slate-700">Organisation</p>
-            <p className="text-sm font-medium text-slate-950">Booksmart Consult Limited</p>
-          </div>
+          {/* About */}
+          <section>
+            <SectionHeader icon={Info} title="About" />
+            <div className="premium-panel divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-100 shadow-sm">
+              <div className="flex items-center justify-between px-5 py-4">
+                <p className="text-sm text-slate-700">App name</p>
+                <p className="text-sm font-medium text-slate-950">BCL Meetings</p>
+              </div>
+              <div className="flex items-center justify-between px-5 py-4">
+                <p className="text-sm text-slate-700">Version</p>
+                <p className="text-sm font-medium text-slate-950">v1.0.0</p>
+              </div>
+              <div className="flex items-center justify-between px-5 py-4">
+                <p className="text-sm text-slate-700">Organisation</p>
+                <p className="text-sm font-medium text-slate-950">Booksmart Consult Limited</p>
+              </div>
+            </div>
+          </section>
+
+          {/* Sign out */}
+          <Button
+            variant="outline"
+            className="w-full gap-2 border-red-200 bg-white py-6 text-red-600 shadow-sm transition-colors hover:bg-red-50 hover:text-red-700"
+            onClick={handleLogout}
+          >
+            <LogOut className="h-5 w-5" />
+            Sign out
+          </Button>
         </div>
-      </section>
+
+        {/* === RIGHT COLUMN (Integrations, Notifications, Channels) === */}
+        <div className="flex flex-col gap-8 lg:col-span-7 xl:col-span-8">
+
+          {/* Google Calendar */}
+          <section>
+            <SectionHeader icon={Calendar} title="Integrations" />
+            <div className="premium-panel overflow-hidden rounded-2xl border border-slate-100 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50">
+                    <Calendar className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-base font-semibold text-slate-900">Google Calendar Sync</p>
+                    {loadingCal ? (
+                      <p className="mt-1 text-sm text-slate-400">Checking status…</p>
+                    ) : calStatus.connected ? (
+                      <p className="mt-1 flex items-center gap-1.5 text-sm text-blue-600 font-medium">
+                        <CheckCircle className="h-4 w-4" />
+                        Connected{calStatus.email ? ` · ${calStatus.email}` : ""}
+                      </p>
+                    ) : (
+                      <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-500">
+                        <XCircle className="h-4 w-4" />
+                        Not connected
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {!loadingCal &&
+                  (calStatus.connected ? (
+                    <Button
+                      variant="outline"
+                      onClick={handleCalDisconnect}
+                      className="border-red-200 text-red-600 hover:bg-red-50"
+                    >
+                      Disconnect
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handleCalConnect}
+                      className="bg-blue-600 text-white hover:bg-blue-700"
+                    >
+                      Connect Calendar
+                    </Button>
+                  ))}
+              </div>
+              <div className="border-t border-slate-100 bg-slate-50/50 px-6 py-4">
+                <p className="text-sm text-slate-500">
+                  Meetings you create are automatically synced to your Google Calendar when connected.
+                  This helps prevent double-bookings.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* Notification preferences */}
+          <section>
+            <SectionHeader icon={Bell} title="Notifications" />
+            <div className="premium-panel divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-100 shadow-sm">
+              <NotifToggle
+                icon={Bell}
+                iconBg="bg-blue-50"
+                iconColor="text-blue-600"
+                label="Meeting reminders"
+                description="Get reminded 30 minutes before a meeting is scheduled to start."
+                checked={notifPrefs.meetingReminders}
+                onChange={(v) => setNotifPrefs((p) => ({ ...p, meetingReminders: v }))}
+              />
+              <NotifToggle
+                icon={Info}
+                iconBg="bg-slate-100"
+                iconColor="text-slate-500"
+                label="Meeting updates"
+                description="Get notified whenever a meeting is edited, updated, or rescheduled."
+                checked={notifPrefs.meetingUpdates}
+                onChange={(v) => setNotifPrefs((p) => ({ ...p, meetingUpdates: v }))}
+              />
+              <NotifToggle
+                icon={XCircle}
+                iconBg="bg-red-50"
+                iconColor="text-red-500"
+                label="Cancellations"
+                description="Receive an immediate alert when an upcoming meeting is cancelled."
+                checked={notifPrefs.cancellations}
+                onChange={(v) => setNotifPrefs((p) => ({ ...p, cancellations: v }))}
+              />
+            </div>
+          </section>
+
+          {/* Channel preferences */}
+          <section>
+            <SectionHeader icon={MessageSquare} title="Notification Channels" />
+            <div className="premium-panel divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-100 shadow-sm">
+              <NotifToggle
+                icon={MessageSquare}
+                iconBg="bg-green-50"
+                iconColor="text-green-600"
+                label="WhatsApp Alerts"
+                description="Receive meeting alerts and updates instantly via WhatsApp."
+                checked={notifPrefs.whatsapp}
+                onChange={(v) => setNotifPrefs((p) => ({ ...p, whatsapp: v }))}
+              />
+              <NotifToggle
+                icon={Mail}
+                iconBg="bg-blue-50"
+                iconColor="text-blue-600"
+                label="Email Notifications"
+                description="Receive detailed meeting invites and alerts via your registered email."
+                checked={notifPrefs.email}
+                onChange={(v) => setNotifPrefs((p) => ({ ...p, email: v }))}
+              />
+              <NotifToggle
+                icon={Smartphone}
+                iconBg="bg-slate-100"
+                iconColor="text-slate-500"
+                label="SMS Texts"
+                description="Receive standard text messages for urgent meeting alerts."
+                checked={notifPrefs.sms}
+                onChange={(v) => setNotifPrefs((p) => ({ ...p, sms: v }))}
+              />
+            </div>
+          </section>
+
+        </div>
       </div>
-
-      {/* Sign out */}
-      <Button
-        variant="outline"
-        className="mt-5 w-full gap-2 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
-        onClick={handleLogout}
-      >
-        <LogOut className="h-4 w-4" />
-        Sign out
-      </Button>
     </div>
   );
 }
 
 function SectionHeader({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
   return (
-    <div className="mb-2 flex items-center gap-2 px-1">
-      <Icon className="h-3.5 w-3.5 text-slate-400" />
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{title}</p>
+    <div className="mb-3 flex items-center gap-2 px-1">
+      <Icon className="h-4 w-4 text-slate-400" />
+      <p className="text-xs font-bold uppercase tracking-widest text-slate-400">{title}</p>
     </div>
   );
 }
@@ -379,27 +386,29 @@ function NotifToggle({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <div className="flex items-center gap-3 px-4 py-3">
-      <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${iconBg}`}>
-        <Icon className={`h-4 w-4 ${iconColor}`} />
+    <div className="flex items-start sm:items-center gap-4 px-5 py-5 transition-colors hover:bg-slate-50/50">
+      <div className={`mt-1 sm:mt-0 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl ${iconBg}`}>
+        <Icon className={`h-5 w-5 ${iconColor}`} />
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-slate-900">{label}</p>
-        <p className="text-xs text-slate-500">{description}</p>
+      <div className="min-w-0 flex-1 pr-4">
+        <p className="text-sm font-semibold text-slate-900">{label}</p>
+        <p className="mt-1 text-sm text-slate-500 leading-relaxed">{description}</p>
       </div>
-      <Switch checked={checked} onCheckedChange={onChange} />
+      <div className="mt-1 sm:mt-0">
+        <Switch checked={checked} onCheckedChange={onChange} />
+      </div>
     </div>
   );
 }
 
 function SettingsRow({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
   return (
-    <div className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-slate-50">
-      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-slate-100">
-        <Icon className="h-4 w-4 text-slate-500" />
+    <div className="flex cursor-pointer items-center gap-4 px-5 py-4 transition-colors hover:bg-slate-50">
+      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-slate-100">
+        <Icon className="h-5 w-5 text-slate-500" />
       </div>
-      <p className="flex-1 text-sm font-medium text-slate-900">{label}</p>
-      <ChevronRight className="h-4 w-4 text-slate-400" />
+      <p className="flex-1 text-sm font-semibold text-slate-900">{label}</p>
+      <ChevronRight className="h-5 w-5 text-slate-400" />
     </div>
   );
 }

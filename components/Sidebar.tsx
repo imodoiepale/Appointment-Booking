@@ -5,20 +5,16 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useSearchParams } from 'next/navigation';
+import { useTheme } from 'next-themes';
 import {
-    AlertCircle,
+    Calendar,
     CheckCircle,
     PlusCircle,
     HelpCircle,
     Menu,
     X,
     CalendarDays,
-    User,
-    Users,
     LayoutDashboard,
-    ChevronDown,
-    ChevronLeft,
-    ChevronRight,
     Bell,
     Settings,
     Clock,
@@ -26,183 +22,194 @@ import {
     Sun,
     Moon,
     Monitor,
-    ShieldCheck
+    PanelLeftClose,
+    PanelLeftOpen,
+    MoreVertical,
+    AlertCircle
 } from 'lucide-react';
 
 const Sidebar = () => {
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const currentScope = searchParams.get('scope') ?? 'all';
+    const { theme, setTheme } = useTheme();
+    const [mounted, setMounted] = useState(false);
 
-    const [expanded, setExpanded] = useState(false);
-    const [collapsed, setCollapsed] = useState(false);
-    const [meetingsExpanded, setMeetingsExpanded] = useState(true);
-    const [theme, setTheme] = useState('light'); // light, dark, system
+    // Sidebar states
+    const [isMobileOpen, setIsMobileOpen] = useState(false);
+    const [isCollapsed, setIsCollapsed] = useState(false);
 
-    // Handle Theme Switching
-    useEffect(() => {
-        const root = window.document.documentElement;
-        if (theme === 'dark') {
-            root.classList.add('dark');
-        } else if (theme === 'light') {
-            root.classList.remove('dark');
-        } else {
-            // System preference
-            if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                root.classList.add('dark');
-            } else {
-                root.classList.remove('dark');
-            }
-        }
-    }, [theme]);
+    useEffect(() => setMounted(true), []);
 
-    const toggleSidebar = () => setExpanded(!expanded);
+    const toggleMobile = () => setIsMobileOpen(!isMobileOpen);
 
-    const topNavigation = [
+    // Navigation Groups
+    const mainNav = [
         { name: 'Overview', href: '/dashboard', icon: LayoutDashboard },
         { name: 'Calendar', href: '/calendar', icon: CalendarDays },
-        { name: 'Schedule', href: '/schedule', icon: PlusCircle },
         { name: 'Notifications', href: '/notifications', icon: Bell },
+    ];
+
+    const statusViews = [
+        { name: 'Upcoming', href: '/dashboard?status=upcoming', status: 'upcoming', icon: Clock },
+        { name: 'Today', href: '/dashboard?status=today', status: 'today', icon: Calendar },
+        { name: 'Pending', href: '/dashboard?status=pending', status: 'pending', icon: AlertCircle },
+        { name: 'Completed', href: '/dashboard?status=completed', status: 'completed', icon: CheckCircle },
+        { name: 'Canceled', href: '/dashboard?status=canceled', status: 'canceled', icon: XCircle },
+    ];
+
+    const utilityNav = [
         { name: 'Settings', href: '/settings', icon: Settings },
         { name: 'Support', href: '/help', icon: HelpCircle },
     ];
 
-    const statusLinks = [
-        { name: 'Upcoming', href: '/dashboard?status=upcoming', status: 'upcoming', icon: Clock, color: 'text-blue-500' },
-        { name: 'Today', href: '/dashboard?status=today', status: 'today', icon: CalendarDays, color: 'text-sky-500' },
-        { name: 'Pending', href: '/dashboard?status=pending', status: 'pending', icon: AlertCircle, color: 'text-amber-500' },
-        { name: 'Completed', href: '/dashboard?status=completed', status: 'completed', icon: CheckCircle, color: 'text-emerald-500' },
-    ];
-
+    // Helper functions for active states
     const isNavActive = (href: string) => {
-        if (href === '/dashboard') return pathname === '/dashboard' && !searchParams.get('scope') && !searchParams.get('status');
+        if (href === '/dashboard') return pathname === '/dashboard' && !searchParams.get('status');
         return pathname === href;
     };
-
     const isStatusActive = (status: string) => pathname === '/dashboard' && searchParams.get('status') === status;
 
-    const linkClass = (isActive: boolean) =>
-        `group flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition-all duration-200 ${collapsed ? 'justify-center' : ''} ${isActive
-            ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 ring-1 ring-blue-400'
-            : 'text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-blue-400 hover:shadow-sm'
-        }`;
+    // Component classes
+    const linkBaseClass = "group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all duration-200 w-full";
+    const getLinkClass = (isActive: boolean) =>
+        `${linkBaseClass} ${isActive
+            ? 'bg-zinc-100 text-zinc-900 dark:bg-white/10 dark:text-white'
+            : 'text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white'
+        } ${isCollapsed ? 'justify-center px-0' : ''}`;
+
+    const getIconClass = (isActive: boolean) =>
+        `flex-shrink-0 transition-colors ${isActive ? 'text-zinc-900 dark:text-white' : 'text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-white'}`;
 
     return (
         <>
-            {/* Mobile Nav Button */}
+            {/* Mobile Floating Toggle */}
             <button
-                onClick={toggleSidebar}
-                className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-2xl lg:hidden transition-transform active:scale-90"
+                onClick={toggleMobile}
+                className="lg:hidden fixed top-4 left-4 z-50 flex h-10 w-10 items-center justify-center rounded-lg bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 shadow-sm transition-active active:scale-95"
             >
-                {expanded ? <X size={24} /> : <Menu size={24} />}
+                {isMobileOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
 
+            {/* Sidebar Container */}
             <aside
-                className={`fixed inset-y-0 left-0 z-40 transform border-r border-slate-200 dark:border-slate-800 bg-[#F8FAFC] dark:bg-[#0F172A] transition-all duration-300 ease-in-out lg:static lg:translate-x-0 ${collapsed ? 'w-20' : 'w-72'} ${expanded ? 'translate-x-0' : '-translate-x-full'}`}
+                className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-zinc-200 bg-white dark:border-white/10 dark:bg-zinc-950 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:sticky lg:top-0 h-screen
+                ${isCollapsed ? 'w-[72px]' : 'w-64'} 
+                ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
             >
-                <div className="flex flex-col h-full overflow-hidden">
+                {/* Desktop Collapse Toggle */}
+                <button
+                    onClick={() => setIsCollapsed(!isCollapsed)}
+                    className="absolute -right-3.5 top-8 z-50 hidden h-7 w-7 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-400 transition-all hover:text-zinc-900 hover:shadow-md dark:border-white/10 dark:bg-zinc-900 dark:hover:text-white lg:flex"
+                >
+                    {isCollapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
+                </button>
 
-                    {/* Header Branding */}
-                    <div className={`relative flex items-center h-24 px-6 ${collapsed ? 'justify-center px-0' : ''}`}>
+                {/* Top Section: User Profile & Brand */}
+                <div className="flex flex-col gap-4 p-4">
+                    <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : 'justify-between'} rounded-lg p-2 transition-colors hover:bg-zinc-50 dark:hover:bg-white/5 cursor-pointer`}>
                         <div className="flex items-center gap-3">
-                            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white dark:bg-slate-800 shadow-sm border border-slate-100 dark:border-slate-700">
-                                <Image src="/logo.png" alt="Logo" width={28} height={28} priority />
+                            <div className="relative flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-md bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700">
+                                <Image src="/logo.png" alt="Logo" width={40} height={40}/>
                             </div>
-                            {!collapsed && (
+                            {!isCollapsed && (
                                 <div className="flex flex-col">
-                                    <span className="text-lg font-extrabold tracking-tight text-slate-900 dark:text-white leading-none">BCL Meetings</span>
-                                    <span className="mt-1 flex items-center gap-1 text-[10px] font-bold text-blue-500 uppercase tracking-widest">
-                                        <ShieldCheck size={12} /> Enterprise
-                                    </span>
+                                    <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 leading-none">BCL Meetings</span>
+                                    <span className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Booksmart</span>
                                 </div>
                             )}
                         </div>
-                        {!collapsed && (
-                            <button onClick={() => setCollapsed(true)} className="ml-auto hidden lg:flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
-                                <ChevronLeft size={18} />
-                            </button>
-                        )}
-                        {collapsed && (
-                            <button onClick={() => setCollapsed(false)} className="absolute -right-3.5 top-9 hidden lg:flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-blue-600 shadow-sm z-50">
-                                <ChevronRight size={14} />
-                            </button>
-                        )}
+                        {!isCollapsed && <MoreVertical size={16} className="text-zinc-400" />}
                     </div>
 
-                    {/* Navigation Body */}
-                    <div className="flex-1 overflow-y-auto px-4 space-y-8 py-4 custom-scrollbar">
+                    {/* Primary Action Button */}
+                    <Link
+                        href="/schedule"
+                        onClick={() => setIsMobileOpen(false)}
+                        className={`flex items-center justify-center gap-2 rounded-lg bg-zinc-900 dark:bg-white px-3 py-2 text-sm font-medium text-white dark:text-zinc-900 transition-all hover:bg-zinc-800 dark:hover:bg-zinc-200 active:scale-[0.98] ${isCollapsed ? 'px-0' : ''}`}
+                        title="New Meeting"
+                    >
+                        <PlusCircle size={18} />
+                        {!isCollapsed && <span>New Meeting</span>}
+                    </Link>
+                </div>
+
+                {/* Scrollable Navigation */}
+                <div className="flex-1 overflow-y-auto px-3 py-2 space-y-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+
+                    {/* Main Nav */}
+                    <div>
+                        {!isCollapsed && <p className="mb-2 px-3 text-xs font-semibold text-zinc-400 dark:text-zinc-500">Menu</p>}
                         <nav className="space-y-1">
-                            {topNavigation.map((item) => {
+                            {mainNav.map((item) => {
                                 const isActive = isNavActive(item.href);
                                 return (
-                                    <Link key={item.name} href={item.href} onClick={() => setExpanded(false)} className={linkClass(isActive)}>
-                                        <item.icon size={20} strokeWidth={isActive ? 2.5 : 2} />
-                                        {!collapsed && <span>{item.name}</span>}
+                                    <Link key={item.name} href={item.href} onClick={() => setIsMobileOpen(false)} title={item.name} className={getLinkClass(isActive)}>
+                                        <item.icon size={18} className={getIconClass(isActive)} />
+                                        {!isCollapsed && <span>{item.name}</span>}
                                     </Link>
                                 );
                             })}
                         </nav>
+                    </div>
 
-                        {/* Status Filters */}
-                        <div className="pt-2">
-                            {!collapsed && <h3 className="px-4 mb-3 text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">Filters</h3>}
-                            <div className="space-y-1">
-                                {statusLinks.map((item) => {
-                                    const isActive = isStatusActive(item.status);
-                                    return (
-                                        <Link key={item.status} href={item.href} className={`flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all ${collapsed ? 'justify-center' : ''} ${isActive ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 ring-1 ring-blue-100 dark:ring-blue-900' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'}`}>
-                                            <item.icon size={18} className={isActive ? item.color : 'text-slate-400'} />
-                                            {!collapsed && <span>{item.name}</span>}
-                                        </Link>
-                                    );
-                                })}
-                            </div>
+                    {/* Status Views */}
+                    <div>
+                        {!isCollapsed && <p className="mb-2 px-3 text-xs font-semibold text-zinc-400 dark:text-zinc-500">Views</p>}
+                        <nav className="space-y-1">
+                            {statusViews.map((item) => {
+                                const isActive = isStatusActive(item.status);
+                                return (
+                                    <Link key={item.status} href={item.href} onClick={() => setIsMobileOpen(false)} title={item.name} className={getLinkClass(isActive)}>
+                                        <item.icon size={18} className={getIconClass(isActive)} />
+                                        {!isCollapsed && <span>{item.name}</span>}
+                                    </Link>
+                                );
+                            })}
+                        </nav>
+                    </div>
+                </div>
+
+                {/* Bottom Section */}
+                <div className="mt-auto border-t border-zinc-200 dark:border-white/10 p-3 space-y-4">
+                    <nav className="space-y-1">
+                        {utilityNav.map((item) => (
+                            <Link key={item.name} href={item.href} onClick={() => setIsMobileOpen(false)} title={item.name} className={getLinkClass(isNavActive(item.href))}>
+                                <item.icon size={18} className={getIconClass(isNavActive(item.href))} />
+                                {!isCollapsed && <span>{item.name}</span>}
+                            </Link>
+                        ))}
+                    </nav>
+
+                    {/* Theme Toggle */}
+                    {mounted && (
+                        <div className={`flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 p-1 ${isCollapsed ? 'flex-col' : ''}`}>
+                            {[
+                                { value: 'light', icon: Sun },
+                                { value: 'system', icon: Monitor },
+                                { value: 'dark', icon: Moon }
+                            ].map(({ value, icon: Icon }) => (
+                                <button
+                                    key={value}
+                                    onClick={() => setTheme(value)}
+                                    title={`${value.charAt(0).toUpperCase() + value.slice(1)} Mode`}
+                                    className={`flex w-full items-center justify-center rounded-md p-1.5 transition-all 
+                                    ${theme === value
+                                            ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-white'
+                                            : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white'}`}
+                                >
+                                    <Icon size={16} />
+                                </button>
+                            ))}
                         </div>
-                    </div>
-
-                    {/* Sidebar Footer */}
-                    <div className="p-4 bg-slate-100/50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-800">
-
-                        {/* Theme Toggle */}
-                        {!collapsed && (
-                            <div className="mb-4 flex items-center justify-between rounded-xl bg-white dark:bg-slate-800 p-1 border border-slate-200 dark:border-slate-700">
-                                <button
-                                    onClick={() => setTheme('light')}
-                                    className={`flex flex-1 items-center justify-center rounded-lg py-1.5 transition-all ${theme === 'light' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                >
-                                    <Sun size={16} />
-                                </button>
-                                <button
-                                    onClick={() => setTheme('system')}
-                                    className={`flex flex-1 items-center justify-center rounded-lg py-1.5 transition-all ${theme === 'system' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                >
-                                    <Monitor size={16} />
-                                </button>
-                                <button
-                                    onClick={() => setTheme('dark')}
-                                    className={`flex flex-1 items-center justify-center rounded-lg py-1.5 transition-all ${theme === 'dark' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                >
-                                    <Moon size={16} />
-                                </button>
-                            </div>
-                        )}
-
-                        <Link
-                            href="/schedule"
-                            className={`flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3.5 text-sm font-bold text-white shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all active:scale-95 ${collapsed ? 'px-0' : 'px-4'}`}
-                        >
-                            <PlusCircle size={20} />
-                            {!collapsed && <span>New Meeting</span>}
-                        </Link>
-                    </div>
+                    )}
                 </div>
             </aside>
 
-            {/* Mobile Overlay */}
-            {expanded && (
+            {/* Mobile Backdrop */}
+            {isMobileOpen && (
                 <div
-                    className="fixed inset-0 z-30 bg-slate-900/60 backdrop-blur-sm lg:hidden"
-                    onClick={toggleSidebar}
+                    className="fixed inset-0 z-30 bg-black/20 backdrop-blur-sm lg:hidden transition-opacity"
+                    onClick={() => setIsMobileOpen(false)}
                 />
             )}
         </>

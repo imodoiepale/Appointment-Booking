@@ -1,52 +1,29 @@
 // @ts-nocheck
-"use client"; // Ensures this component runs on the client side
+"use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
-// Remove direct Supabase import as we'll use the client
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, add, startOfWeek, isSameDay, isBefore, parseISO, getHours, getMinutes, isWithinInterval, format as formatDate } from 'date-fns';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, Trash2, Info, Loader2, Check, Video, MapPin, Building, User, Phone, Mail, PlusCircle, ExternalLink, MoreHorizontal, MessageSquare, UserPlus, CheckCircle, XCircle, LinkIcon, RefreshCw, Building2, FileText, Quote, Menu, Settings, Search, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { format, startOfMonth, startOfWeek, isSameDay, parseISO, addDays, addMonths, addWeeks } from 'date-fns';
+import { ChevronLeft, ChevronRight, Clock, Trash2, Loader2, Video, MapPin, Phone, Mail, PlusCircle, Search, SlidersHorizontal, X, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
-import { Toast } from '@/components/ui/toast'; // Import Toast component if needed
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Separator } from '@/components/ui/separator';
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils"; // Utility for conditional class names
-import supabase from '@/utils/supabaseClient'; // Import from utils
+import { cn } from "@/lib/utils";
+import supabase from '@/utils/supabaseClient';
 
-import { checkAppointmentStatus, getBadgeStatusColor } from '@/utils/appointmentUtils'; // Added utils
-
-// Type definitions
+// ── TYPES ────────────────────────────────────────────────────────
 interface Meeting {
-  id_main: number; // Changed from meeting_id to id_main to match database
-  meeting_date: string; // Keep as YYYY-MM-DD string from Supabase
-  meeting_start_time: string; // HH:mm format
-  meeting_end_time: string; // HH:mm format
+  id_main: number;
+  meeting_date: string;
+  meeting_start_time: string;
+  meeting_end_time: string;
   meeting_duration?: number;
   client_name: string;
   client_company: string;
   client_email?: string;
   client_mobile?: string;
-  meeting_type: 'virtual' | 'physical'; // Use specific types
+  meeting_type: 'virtual' | 'physical';
   meeting_venue_area: string;
   meeting_venue?: string;
   meeting_agenda: string;
@@ -56,97 +33,75 @@ interface Meeting {
   badge_status?: string;
 }
 
-// Helper: Check if two meetings overlap
-const meetingsOverlap = (meeting1: Meeting, meeting2: Meeting) => {
-  if (meeting1.meeting_date !== meeting2.meeting_date) return false;
+type ViewType = 'month' | 'week' | 'day';
 
-  const [startHour1, startMin1] = meeting1.meeting_start_time.split(':').map(Number);
-  const [endHour1, endMin1] = meeting1.meeting_end_time.split(':').map(Number);
-  const [startHour2, startMin2] = meeting2.meeting_start_time.split(':').map(Number);
-  const [endHour2, endMin2] = meeting2.meeting_end_time.split(':').map(Number);
-
-  const start1 = startHour1 * 60 + startMin1;
-  const end1 = endHour1 * 60 + endMin1;
-  const start2 = startHour2 * 60 + startMin2;
-  const end2 = endHour2 * 60 + endMin2;
-
-  // Overlap if one starts before the other ends, and vice-versa
-  // Does not include touching boundaries (e.g., 10:00-11:00 and 11:00-12:00)
-  return start1 < end2 && start2 < end1;
+// ── STATUS COLOR SYSTEM ──────────────────────────────────────────
+const STATUS_STYLES: Record<string, { pill: string; dot: string; event: string }> = {
+  confirmed: { pill: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20', dot: 'bg-green-500', event: 'bg-green-50 text-green-800 border-l-[3px] border-green-500 dark:bg-green-500/10 dark:text-green-300 dark:border-green-500/50' },
+  scheduled: { pill: 'bg-zinc-100 text-zinc-700 border-zinc-200 dark:bg-white/10 dark:text-zinc-300 dark:border-white/10', dot: 'bg-zinc-500 dark:bg-zinc-400', event: 'bg-zinc-50 text-zinc-800 border-l-[3px] border-zinc-400 dark:bg-white/5 dark:text-zinc-300 dark:border-zinc-500' },
+  pending: { pill: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20', dot: 'bg-amber-400', event: 'bg-amber-50 text-amber-800 border-l-[3px] border-amber-400 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/50' },
+  completed: { pill: 'bg-zinc-100 text-zinc-500 border-zinc-200 dark:bg-white/5 dark:text-zinc-400 dark:border-white/10', dot: 'bg-zinc-400', event: 'bg-zinc-50/50 text-zinc-500 border-l-[3px] border-zinc-300 dark:bg-white/5 dark:text-zinc-400 dark:border-zinc-700' },
+  cancelled: { pill: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20', dot: 'bg-red-500', event: 'bg-red-50 text-red-800 border-l-[3px] border-red-500 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/50' },
+  virtual: { pill: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20', dot: 'bg-indigo-500', event: 'bg-indigo-50 text-indigo-800 border-l-[3px] border-indigo-400 dark:bg-indigo-500/10 dark:text-indigo-300 dark:border-indigo-500/50' },
 };
 
+const getStatusStyle = (status?: string) => {
+  const key = (status || 'scheduled').toLowerCase();
+  return STATUS_STYLES[key] ?? STATUS_STYLES.scheduled;
+};
+
+const getMeetingEventStyle = (m: Meeting) => {
+  if (m.status) {
+    const s = getStatusStyle(m.status);
+    if (s) return s.event;
+  }
+  return m.meeting_type === 'virtual'
+    ? STATUS_STYLES.virtual.event
+    : STATUS_STYLES.scheduled.event;
+};
+
+// ── CONSTANTS ────────────────────────────────────────────────────
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const TIME_SLOTS = Array.from({ length: 14 }, (_, i) => `${(i + 7).toString().padStart(2, '0')}:00`);
+
+// ── COMPONENT ────────────────────────────────────────────────────
 const CalendarView = () => {
-  const { toast } = useToast(); // Initialize toast
-  const [currentDate, setCurrentDate] = useState<Date>(new Date()); // Date controlling the calendar month view
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date()); // Specific date selected for viewing details
-  const [allMeetings, setAllMeetings] = useState<Meeting[]>([]); // Changed from meetings to allMeetings
+  const { toast } = useToast();
+  const [currentDate, setCurrentDate] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [allMeetings, setAllMeetings] = useState<Meeting[]>([]);
   const [meetingsForSelectedDate, setMeetingsForSelectedDate] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [deletingMeeting, setDeletingMeeting] = useState<Meeting | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>("timeline"); // Default view
+  const [view, setView] = useState<ViewType>('month');
+  const [filter, setFilter] = useState<'mine' | 'all'>('mine');
 
-  // Time slots for the day view (7 AM to 9 PM, 30-minute intervals)
-  const timeSlots = React.useMemo(() => Array.from({ length: (21 - 7) * 2 }, (_, i) => {
-    const hour = Math.floor(i / 2) + 7;
-    const minute = (i % 2) * 30;
-    return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-  }), []); // Memoize to avoid recalculation
-
-  // Format time to 12-hour format with AM/PM
-  const formatTime = (time: string): string => {
-    if (!time || !time.includes(':')) return 'Invalid time';
-    try {
-      const [hours, minutes] = time.split(':').map(Number);
-      const date = new Date();
-      date.setHours(hours, minutes, 0, 0);
-      return formatDate(date, 'h:mm a');
-    } catch (e) {
-      console.error("Error formatting time:", time, e);
-      return 'Invalid time';
-    }
+  const safeFormatDate = (dateStr: string, fmt: string) => {
+    try { return format(parseISO(dateStr), fmt); } catch { return dateStr; }
   };
 
-  // Format date safely, handles invalid input
-  const formatDateSafe = (dateInput: string | Date | undefined, formatStr: string = 'dd/MM/yyyy'): string => {
-    if (!dateInput) return 'N/A';
-    try {
-      const date = typeof dateInput === 'string' ? parseISO(dateInput) : dateInput;
-      if (isNaN(date.getTime())) {
-        // Handle cases where date string might be DD/MM/YYYY or other formats not directly parsed by parseISO
-        // Basic attempt for YYYY-MM-DD which is expected from DB
-        if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
-          const [year, month, day] = dateInput.split('-').map(Number);
-          const parsed = new Date(year, month - 1, day);
-          if (!isNaN(parsed.getTime())) return formatDate(parsed, formatStr);
-        }
-        console.error('Invalid date encountered:', dateInput);
-        return 'Invalid date';
-      }
-      return format(date, formatStr);
-    } catch (error) {
-      console.error('Error formatting date:', dateInput, error);
-      return 'Invalid date';
-    }
+  const handlePrevious = () => {
+    if (view === 'month') setCurrentDate(addMonths(currentDate, -1));
+    else if (view === 'week') setCurrentDate(addWeeks(currentDate, -1));
+    else setCurrentDate(addDays(currentDate, -1));
   };
 
-  // Filter meetings for the selected date
-  const filterAndSortMeetingsForSelectedDate = useCallback((allMeetings: Meeting[], date: Date) => {
+  const handleNext = () => {
+    if (view === 'month') setCurrentDate(addMonths(currentDate, 1));
+    else if (view === 'week') setCurrentDate(addWeeks(currentDate, 1));
+    else setCurrentDate(addDays(currentDate, 1));
+  };
+
+  const filterAndSortMeetingsForSelectedDate = useCallback((meetings: Meeting[], date: Date) => {
     const dateString = format(date, 'yyyy-MM-dd');
-    const filtered = allMeetings
-      .filter(meeting => meeting.meeting_date === dateString)
-      .sort((a, b) => {
-        // Sort primarily by start time
-        const startTimeA = a.meeting_start_time.localeCompare(b.meeting_start_time);
-        if (startTimeA !== 0) return startTimeA;
-        // If start times are the same, sort by end time (shorter meetings first?) or ID
-        return a.id_main - b.id_main;
-      });
+    const filtered = meetings
+      .filter(m => m.meeting_date === dateString)
+      .sort((a, b) => a.meeting_start_time.localeCompare(b.meeting_start_time));
     setMeetingsForSelectedDate(filtered);
   }, []);
 
-  // Fetch meetings from Supabase
   const fetchMeetings = useCallback(async () => {
     setLoading(true);
     try {
@@ -155,697 +110,688 @@ const CalendarView = () => {
         .select('*')
         .order('meeting_date', { ascending: true })
         .order('meeting_start_time', { ascending: true });
-
       if (error) throw error;
-
       if (data) {
         setAllMeetings(data as Meeting[]);
         filterAndSortMeetingsForSelectedDate(data as Meeting[], selectedDate);
       }
     } catch (error: any) {
-      console.error('Error fetching meetings:', error);
-      toast({
-        title: "Error fetching meetings",
-        description: error.message,
-        variant: "destructive"
-      });
+      toast({ title: "Error fetching meetings", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  }, [toast, selectedDate, filterAndSortMeetingsForSelectedDate]); // Now filterAndSortMeetingsForSelectedDate is defined before use
+  }, [toast, selectedDate, filterAndSortMeetingsForSelectedDate]);
 
-  // Handle date selection from Calendar or buttons
-  const handleDateSelect = useCallback((newDate: Date | undefined) => {
-    if (newDate) {
-      setSelectedDate(newDate);
-      // Keep calendar view consistent unless month changes significantly
-      if (newDate.getMonth() !== currentDate.getMonth() || newDate.getFullYear() !== currentDate.getFullYear()) {
-        setCurrentDate(newDate);
-      }
-    }
-  }, [currentDate]);
-
-  // Go to Previous/Next day
-  const changeDay = (increment: number) => {
-    setSelectedDate(prevDate => add(prevDate, { days: increment }));
-  };
-
-  // Go to Today
-  const goToToday = () => {
-    const today = new Date();
-    setSelectedDate(today);
-    setCurrentDate(today); // Also reset calendar month view to today
-  };
-
-  // Delete meeting function
   const deleteMeeting = async () => {
     if (!deletingMeeting) return;
-
     setIsDeleting(true);
     try {
-      const { error } = await supabase
-        .from('bcl_meetings_meetings')
-        .delete()
-        .eq('id_main', deletingMeeting.id_main); // Changed from meeting_id to id_main
-
+      const { error } = await supabase.from('bcl_meetings_meetings').delete().eq('id_main', deletingMeeting.id_main);
       if (error) throw error;
-
-      // Update UI after successful deletion
-      setAllMeetings(prev => prev.filter(m => m.id_main !== deletingMeeting.id_main)); // Changed from meeting_id to id_main
-      setMeetingsForSelectedDate(prev => prev.filter(m => m.id_main !== deletingMeeting.id_main)); // Changed from meeting_id to id_main
-
-      // Close dialogs and show success message
+      setAllMeetings(prev => prev.filter(m => m.id_main !== deletingMeeting.id_main));
+      setMeetingsForSelectedDate(prev => prev.filter(m => m.id_main !== deletingMeeting.id_main));
       setSelectedMeeting(null);
       setDeletingMeeting(null);
-
-      toast({
-        title: "Meeting Deleted",
-        description: `Meeting with ${deletingMeeting.client_name} has been deleted.`,
-      });
+      toast({ title: "Meeting Deleted", description: `Booking for ${deletingMeeting.client_name} removed.` });
     } catch (error: any) {
-      console.error('Error deleting meeting:', error);
-      toast({
-        title: "Error Deleting Meeting",
-        description: error.message,
-        variant: "destructive"
-      });
+      toast({ title: "Error Deleting", description: error.message, variant: "destructive" });
     } finally {
       setIsDeleting(false);
     }
   };
 
-  // Get meeting duration in 30-minute slots
-  const getMeetingDurationInSlots = (meeting: Meeting): number => {
-    try {
-      const [startHour, startMinute] = meeting.meeting_start_time.split(':').map(Number);
-      const [endHour, endMinute] = meeting.meeting_end_time.split(':').map(Number);
-      const startTimeInMinutes = startHour * 60 + startMinute;
-      const endTimeInMinutes = endHour * 60 + endMinute;
-      const durationMinutes = endTimeInMinutes - startTimeInMinutes;
-      return Math.max(1, Math.ceil(durationMinutes / 30)); // Ensure at least 1 slot
-    } catch (e) {
-      console.error("Error calculating duration for meeting:", meeting.id_main, e);
-      return 1; // Default to 1 slot on error
-    }
-  };
-
-  // Find the closest time slot for a given time
-  const findClosestTimeSlot = (time: string): number => {
-    try {
-      const [hour, minute] = time.split(':').map(Number);
-      const timeInMinutes = hour * 60 + minute;
-
-      // Find the closest slot index
-      return timeSlots.reduce((closest, slot, index) => {
-        const [slotHour, slotMinute] = slot.split(':').map(Number);
-        const slotInMinutes = slotHour * 60 + slotMinute;
-
-        // If the time is before the first slot, return the first slot
-        if (index === 0 && timeInMinutes < slotInMinutes) return 0;
-
-        // If time matches exactly or is after this slot but before next slot, use this index
-        if (timeInMinutes >= slotInMinutes &&
-          (index === timeSlots.length - 1 || timeInMinutes < (slotHour + (slotMinute === 30 ? 1 : 0)) * 60 + (slotMinute === 30 ? 0 : 30))) {
-          return index;
-        }
-
-        return closest;
-      }, 0);
-    } catch (e) {
-      console.error("Error finding closest time slot:", time, e);
-      return 0; // Default to first slot on error
-    }
-  };
-
-  // Get upcoming meetings (within next 7 days, for example)
-  const upcomingMeetings = React.useMemo(() => {
+  const todayMeetings = useMemo(() => {
     const today = format(new Date(), 'yyyy-MM-dd');
-    const nextWeek = format(add(new Date(), { days: 7 }), 'yyyy-MM-dd');
-    return allMeetings
-      .filter(m => m.meeting_date >= today && m.meeting_date <= nextWeek)
-      .sort((a, b) => {
-        const dateCompare = a.meeting_date.localeCompare(b.meeting_date);
-        if (dateCompare !== 0) return dateCompare;
-        return a.meeting_start_time.localeCompare(b.meeting_start_time);
-      });
+    return allMeetings.filter(m => m.meeting_date === today);
   }, [allMeetings]);
 
-  // Sort all meetings by date (most recent first) for the Table view
-  const sortedMeetingsForTable = React.useMemo(() => {
-    return [...allMeetings].sort((a, b) => {
-      try {
-        const dateA = parseISO(`${a.meeting_date}T${a.meeting_start_time}`);
-        const dateB = parseISO(`${b.meeting_date}T${b.meeting_start_time}`);
-        if (isNaN(dateA.getTime()) || isNaN(dateB.getTime())) return 0; // Handle invalid dates
-        return dateB.getTime() - dateA.getTime(); // Descending (newest first)
-      } catch (error) {
-        console.error('Error sorting meetings by date:', error);
-        return 0;
-      }
-    });
-  }, [allMeetings]);
-
-
-  // Initial fetch and real-time subscription setup
-  useEffect(() => {
-    fetchMeetings();
-
-    const channel = supabase
-      .channel('meeting-changes')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'bcl_meetings_meetings'
-      }, (payload) => {
-        console.log('Change received!', payload);
-        fetchMeetings(); // Re-fetch data on any change
-      })
-      .subscribe();
-
-    // Cleanup subscription on component unmount
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [fetchMeetings]); // fetchMeetings is memoized with useCallback
-
-
-  // Filter meetings whenever the selected date or the full meeting list changes
-  useEffect(() => {
-    if (allMeetings.length > 0) {
-      filterAndSortMeetingsForSelectedDate(allMeetings, selectedDate);
-    } else {
-      setMeetingsForSelectedDate([]); // Clear if no meetings
-    }
-  }, [selectedDate, allMeetings, filterAndSortMeetingsForSelectedDate]);
-
-  // Custom Day Content for Shadcn Calendar to show meeting indicators
-  const DayContent = ({ date: dayDate, displayMonth }: { date: Date, displayMonth: Date }) => {
-    const dateString = format(dayDate, 'yyyy-MM-dd');
-    // Check if this day has any meetings
-    const hasMeetings = allMeetings.some(meeting => meeting.meeting_date === dateString);
-    // Check if the day is outside the currently displayed month
-    const isOutsideMonth = dayDate.getMonth() !== displayMonth.getMonth();
-
-    return (
-      <div className={cn("relative flex items-center justify-center h-full w-full",
-        isOutsideMonth ? "text-muted-foreground opacity-50" : "" // Dim days outside month
-      )}>
-        <span>{format(dayDate, 'd')}</span>
-        {hasMeetings && !isOutsideMonth && (
-          <span className="absolute bottom-1 right-1 block h-2 w-2 rounded-full bg-blue-500" />
-        )}
-      </div>
-    );
-  };
-
-  const calendarDays = React.useMemo(() => {
+  const calendarDays = useMemo(() => {
     const monthStart = startOfMonth(currentDate);
-    const calStart = startOfWeek(monthStart, { weekStartsOn: 1 });
-    return Array.from({ length: 42 }, (_, i) => add(calStart, { days: i }));
+    const calStart = startOfWeek(monthStart, { weekStartsOn: 0 });
+    return Array.from({ length: 42 }, (_, i) => addDays(calStart, i));
   }, [currentDate]);
 
-  return (
-    <TooltipProvider>
-      <div className="flex h-screen bg-white font-sans antialiased text-slate-900 overflow-hidden">
+  const weekDays = useMemo(() => {
+    const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
+    return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  }, [currentDate]);
 
-        {/* ── LEFT ICON NAV ── */}
-        <nav className="w-[68px] shrink-0 bg-white border-r border-slate-100 flex flex-col items-center pt-5 pb-4 gap-1 z-10">
-          <div className="h-9 w-9 rounded-xl bg-orange-500 flex items-center justify-center mb-5 shadow-md shadow-orange-200">
-            <CalendarIcon className="h-[18px] w-[18px] text-white" />
-          </div>
-          {([
-            { icon: Building2, label: 'Dashboard' },
-            { icon: FileText, label: 'Documents' },
-            { icon: Building, label: 'Projects' },
-            { icon: CalendarIcon, label: 'Calendar', active: true },
-            { icon: Menu, label: 'More' },
-          ] as const).map(({ icon: Icon, label, active }: { icon: any, label: string, active?: boolean }) => (
-            <Tooltip key={label}>
-              <TooltipTrigger asChild>
-                <button className={cn(
-                  "h-10 w-10 rounded-xl flex items-center justify-center transition-colors",
-                  active ? "bg-orange-50 text-orange-500" : "text-slate-400 hover:bg-slate-50 hover:text-slate-700"
-                )}>
-                  <Icon className="h-5 w-5" />
+  useEffect(() => {
+    fetchMeetings();
+    const channel = supabase
+      .channel('meeting-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bcl_meetings_meetings' }, () => fetchMeetings())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchMeetings]);
+
+  useEffect(() => {
+    if (allMeetings.length > 0) filterAndSortMeetingsForSelectedDate(allMeetings, selectedDate);
+    else setMeetingsForSelectedDate([]);
+  }, [selectedDate, allMeetings, filterAndSortMeetingsForSelectedDate]);
+
+  // ── MONTH VIEW ──────────────────────────────────────────────────
+  const renderMonthView = () => (
+    <div className="grid grid-cols-7 h-full" style={{ gridAutoRows: 'minmax(130px, 1fr)' }}>
+      {calendarDays.map((day, idx) => {
+        const dateStr = format(day, 'yyyy-MM-dd');
+        const dayMeetings = allMeetings.filter(m => m.meeting_date === dateStr);
+        const isCurrentMonth = day.getMonth() === currentDate.getMonth();
+        const isToday = isSameDay(day, new Date());
+        const isSelected = isSameDay(day, selectedDate);
+        const isWeekend = idx % 7 === 0 || idx % 7 === 6;
+
+        return (
+          <div
+            key={idx}
+            onClick={() => setSelectedDate(day)}
+            className={cn(
+              "border-r border-b border-zinc-200 dark:border-white/10 p-2 sm:p-3 cursor-pointer transition-colors group relative",
+              idx % 7 === 6 && "border-r-0",
+              !isCurrentMonth && "bg-zinc-50/50 dark:bg-white/[0.02]",
+              isWeekend && isCurrentMonth && "bg-zinc-50/30 dark:bg-white/[0.01]",
+              isSelected && !isToday && "bg-zinc-100/50 dark:bg-white/5 ring-1 ring-inset ring-zinc-200 dark:ring-white/10",
+              isToday && "bg-zinc-100/80 dark:bg-white/10",
+              "hover:bg-zinc-50 dark:hover:bg-white/5"
+            )}
+          >
+            {/* Date number */}
+            <div className="flex items-start justify-between mb-2">
+              <span className={cn(
+                "h-7 w-7 flex items-center justify-center rounded-full text-xs font-semibold transition-colors",
+                isToday && "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm",
+                !isToday && isCurrentMonth && !isWeekend && "text-zinc-900 dark:text-zinc-100 group-hover:bg-zinc-200/50 dark:group-hover:bg-white/10",
+                !isToday && isCurrentMonth && isWeekend && "text-zinc-500 dark:text-zinc-400 group-hover:bg-zinc-200/50 dark:group-hover:bg-white/10",
+                !isCurrentMonth && "text-zinc-300 dark:text-zinc-600"
+              )}>
+                {format(day, 'd')}
+              </span>
+              {dayMeetings.length > 0 && isCurrentMonth && (
+                <span className="text-[10px] font-medium text-zinc-400 dark:text-zinc-500 mt-1">{dayMeetings.length}</span>
+              )}
+            </div>
+
+            {/* Meetings */}
+            <div className="space-y-1">
+              {dayMeetings.slice(0, 3).map(m => (
+                <div
+                  key={m.id_main}
+                  onClick={(e) => { e.stopPropagation(); setSelectedMeeting(m); }}
+                  className={cn(
+                    "flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-medium cursor-pointer hover:opacity-80 transition-opacity truncate",
+                    getMeetingEventStyle(m)
+                  )}
+                >
+                  <span className="font-semibold shrink-0 opacity-80">{m.meeting_start_time}</span>
+                  <span className="truncate">{m.client_name}</span>
+                </div>
+              ))}
+              {dayMeetings.length > 3 && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setSelectedDate(day); }}
+                  className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium px-2 hover:text-zinc-900 dark:hover:text-white transition-colors"
+                >
+                  +{dayMeetings.length - 3} more
                 </button>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="text-xs">{label}</TooltipContent>
-            </Tooltip>
-          ))}
-          <div className="flex-1" />
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button className="h-10 w-10 rounded-xl flex items-center justify-center text-slate-400 hover:bg-slate-50 hover:text-slate-700 transition-colors">
-                <Settings className="h-5 w-5" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="right" className="text-xs">Settings</TooltipContent>
-          </Tooltip>
-          <Avatar className="h-8 w-8 mt-2">
-            <AvatarFallback className="bg-slate-200 text-slate-600 text-xs font-bold">U</AvatarFallback>
-          </Avatar>
-        </nav>
-
-        {/* ── MAIN CALENDAR CONTENT ── */}
-        <div className="flex-1 flex flex-col overflow-hidden bg-white min-w-0">
-
-          {/* Top Bar */}
-          <div className="flex items-center justify-between px-6 h-[60px] border-b border-slate-100 shrink-0">
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost" size="icon"
-                onClick={() => setCurrentDate(prev => add(prev, { months: -1 }))}
-                className="h-8 w-8 rounded-lg text-slate-500 hover:text-slate-900"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <h2 className="text-sm font-bold text-slate-900 w-[148px] text-center select-none">
-                {format(currentDate, 'MMMM  yyyy')}
-              </h2>
-              <Button
-                variant="ghost" size="icon"
-                onClick={() => setCurrentDate(prev => add(prev, { months: 1 }))}
-                className="h-8 w-8 rounded-lg text-slate-500 hover:text-slate-900"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                onClick={goToToday}
-                className="h-9 px-4 text-xs font-semibold rounded-lg border-slate-200 text-slate-600 hover:bg-slate-50"
-              >
-                Today
-              </Button>
-              <Button
-                variant="outline"
-                className="h-9 px-4 text-xs font-semibold rounded-lg border-slate-200 text-slate-600 hover:bg-slate-50"
-              >
-                Request Approval
-              </Button>
-              <Button className="h-9 px-4 text-xs font-semibold rounded-lg bg-orange-500 hover:bg-orange-600 text-white shadow-sm">
-                <PlusCircle className="mr-1.5 h-3.5 w-3.5" /> Add event
-              </Button>
+              )}
             </div>
           </div>
+        );
+      })}
+    </div>
+  );
 
-          {/* Day-of-week header */}
-          <div className="grid grid-cols-7 border-b border-slate-100 shrink-0">
-            {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map((d) => (
-              <div key={d} className="py-3 text-center text-[11px] font-bold text-slate-400 tracking-widest">
-                {d}
-              </div>
-            ))}
+  // ── WEEK VIEW ───────────────────────────────────────────────────
+  const renderWeekView = () => (
+    <div className="flex h-full min-h-0">
+      {/* Time axis */}
+      <div className="w-16 shrink-0 border-r border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950">
+        <div className="h-12 border-b border-zinc-200 dark:border-white/10" />
+        {TIME_SLOTS.map(time => (
+          <div key={time} className="h-20 border-b border-zinc-200 dark:border-white/10 flex items-start justify-end pr-3 pt-1.5">
+            <span className="text-[10px] font-medium text-zinc-400 dark:text-zinc-500">{time}</span>
           </div>
+        ))}
+      </div>
 
-          {/* Monthly grid */}
-          <div className="flex-1 overflow-y-auto">
-            {loading ? (
-              <div className="flex items-center justify-center h-full">
-                <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+      {/* Day columns */}
+      <div className="flex flex-1 overflow-x-auto relative">
+        {weekDays.map(day => {
+          const isToday = isSameDay(day, new Date());
+          const dayMeetings = allMeetings.filter(m => m.meeting_date === format(day, 'yyyy-MM-dd'));
+          return (
+            <div key={day.toString()} className="flex-1 min-w-[120px] border-r border-zinc-200 dark:border-white/10 last:border-r-0 flex flex-col">
+              {/* Day header */}
+              <div className={cn(
+                "h-12 px-3 flex flex-col items-center justify-center border-b border-zinc-200 dark:border-white/10 shrink-0 sticky top-0 z-10",
+                isToday ? "bg-zinc-50 dark:bg-white/5" : "bg-white dark:bg-zinc-950"
+              )}>
+                <p className={cn("text-[10px] font-medium uppercase tracking-wider", isToday ? "text-zinc-900 dark:text-white" : "text-zinc-500 dark:text-zinc-400")}>
+                  {format(day, 'EEE')}
+                </p>
+                <p className={cn("text-sm font-semibold leading-none mt-0.5", isToday ? "text-zinc-900 dark:text-white" : "text-zinc-700 dark:text-zinc-300")}>
+                  {format(day, 'd')}
+                </p>
               </div>
-            ) : (
-              <div className="grid grid-cols-7" style={{ gridAutoRows: 'minmax(108px, auto)' }}>
-                {calendarDays.map((day, idx) => {
-                  const dateStr = format(day, 'yyyy-MM-dd');
-                  const dayMeetings = allMeetings.filter(m => m.meeting_date === dateStr);
-                  const isCurrentMonth = day.getMonth() === currentDate.getMonth();
-                  const isToday = isSameDay(day, new Date());
-                  const isSelected = isSameDay(day, selectedDate);
+
+              {/* Time slots */}
+              <div className="relative flex-1">
+                {TIME_SLOTS.map((_, i) => (
+                  <div key={i} className={cn("h-20 border-b border-zinc-200 dark:border-white/10", i % 2 === 0 ? "bg-white dark:bg-zinc-950" : "bg-zinc-50/50 dark:bg-white/[0.02]")} />
+                ))}
+                {/* Meetings */}
+                {dayMeetings.map(m => {
+                  const startHour = parseInt(m.meeting_start_time.split(':')[0]);
+                  const startMin = parseInt(m.meeting_start_time.split(':')[1]);
+                  const top = (startHour - 7) * 80 + (startMin / 60) * 80;
                   return (
                     <div
-                      key={idx}
-                      onClick={() => handleDateSelect(day)}
-                      className={cn(
-                        "p-2 border-b border-r border-slate-100 cursor-pointer transition-colors hover:bg-slate-50/70",
-                        !isCurrentMonth && "bg-slate-50/40",
-                        isSelected && !isToday && "bg-indigo-50/30",
-                        idx % 7 === 6 && "border-r-0"
-                      )}
+                      key={m.id_main}
+                      onClick={() => setSelectedMeeting(m)}
+                      className={cn("absolute left-1 right-1 p-2 rounded-md text-[10px] font-medium cursor-pointer hover:opacity-90 transition-opacity overflow-hidden", getMeetingEventStyle(m))}
+                      style={{ top: `${top}px`, minHeight: '36px' }}
                     >
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className={cn(
-                          "h-7 w-7 flex items-center justify-center rounded-full text-sm font-bold transition-colors",
-                          !isCurrentMonth && "text-slate-300",
-                          isCurrentMonth && !isToday && !isSelected && "text-slate-700",
-                          isToday && "bg-orange-500 text-white shadow-sm",
-                          isSelected && !isToday && "bg-indigo-600 text-white"
-                        )}>
-                          {format(day, 'd')}
-                        </span>
-                        {dayMeetings.length > 0 && isCurrentMonth && (
-                          <span className="text-[9px] font-bold text-slate-300 tabular-nums">{dayMeetings.length}</span>
-                        )}
-                      </div>
-                      <div className="space-y-0.5">
-                        {dayMeetings.slice(0, 2).map((meeting) => (
-                          <div
-                            key={meeting.id_main}
-                            onClick={(e) => { e.stopPropagation(); setSelectedMeeting(meeting); }}
-                            className={cn(
-                              "flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold truncate hover:opacity-80 transition-opacity",
-                              meeting.meeting_type === 'virtual'
-                                ? "bg-blue-100 text-blue-700"
-                                : "bg-teal-100 text-teal-700"
-                            )}
-                          >
-                            <span className="font-bold shrink-0 text-[9px] tabular-nums">{meeting.meeting_start_time}</span>
-                            <span className="truncate">{meeting.client_name}</span>
-                          </div>
-                        ))}
-                        {dayMeetings.length > 2 && (
-                          <p className="text-[10px] text-slate-400 font-semibold px-1 pt-0.5">
-                            {dayMeetings.length - 2} more
-                          </p>
-                        )}
-                      </div>
+                      <p className="font-semibold truncate">{m.meeting_start_time} – {m.meeting_end_time}</p>
+                      <p className="truncate mt-0.5 opacity-80">{m.client_name}</p>
                     </div>
                   );
                 })}
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* ── RIGHT PANEL ── */}
-        <div className="w-[280px] shrink-0 bg-white border-l border-slate-100 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto">
-
-            {/* Task List */}
-            <div className="p-5 border-b border-slate-100">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-bold text-slate-900">Task List</h3>
-                <button className="text-xs text-orange-500 font-semibold hover:text-orange-600 transition-colors">View all</button>
-              </div>
-              <div className="space-y-4">
-                {upcomingMeetings.slice(0, 3).map((meeting) => (
-                  <div
-                    key={meeting.id_main}
-                    className="flex items-center gap-3 cursor-pointer group"
-                    onClick={() => setSelectedMeeting(meeting)}
-                  >
-                    <span className="text-xs font-bold text-slate-500 tabular-nums shrink-0 w-12">{formatTime(meeting.meeting_start_time)}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-slate-900 group-hover:text-orange-500 transition-colors truncate">{meeting.client_name}</p>
-                      <p className="text-[10px] text-slate-400 truncate">{meeting.client_company || meeting.meeting_venue_area}</p>
-                    </div>
-                    <Badge className={cn(
-                      "text-[8px] font-black uppercase px-2 py-0.5 rounded border-0 shrink-0",
-                      meeting.meeting_type === 'virtual' ? "bg-orange-100 text-orange-700" : "bg-emerald-100 text-emerald-700"
-                    )}>
-                      {meeting.meeting_type === 'virtual' ? 'TEAM' : 'SITE'}
-                    </Badge>
-                  </div>
-                ))}
-                {upcomingMeetings.length === 0 && (
-                  <p className="text-xs text-slate-400 italic text-center py-2">No upcoming meetings</p>
-                )}
-              </div>
             </div>
-
-            {/* Contracts */}
-            <div className="p-5 border-b border-slate-100">
-              <h3 className="text-sm font-bold text-slate-900 mb-4">Contracts</h3>
-              <div className="space-y-3">
-                {sortedMeetingsForTable.slice(0, 4).map((meeting) => (
-                  <div key={meeting.id_main} className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-lg bg-orange-50 border border-orange-100 flex items-center justify-center shrink-0">
-                      <FileText className="h-4 w-4 text-orange-400" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-slate-900 truncate">{meeting.meeting_agenda || `Meeting – ${meeting.client_name}`}</p>
-                      <p className="text-[10px] text-slate-400 truncate">{meeting.client_company || 'Client'} • {formatDateSafe(meeting.meeting_date, 'dd.MM.yyyy')}</p>
-                    </div>
-                    <button
-                      onClick={() => setSelectedMeeting(meeting)}
-                      className="text-[10px] font-bold text-slate-600 border border-slate-200 rounded px-2.5 py-1 hover:bg-slate-50 transition-colors shrink-0"
-                    >
-                      Open
-                    </button>
-                  </div>
-                ))}
-                {sortedMeetingsForTable.length === 0 && (
-                  <p className="text-xs text-slate-400 italic text-center py-2">No records</p>
-                )}
-              </div>
-            </div>
-
-            {/* Pinned Message */}
-            <div className="p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-bold text-slate-900">Pinned message</h3>
-                <button className="text-xs text-orange-500 font-semibold hover:text-orange-600 transition-colors">View all</button>
-              </div>
-              <div className="space-y-5">
-                {upcomingMeetings.slice(0, 2).map((meeting) => (
-                  <div key={meeting.id_main} className="flex gap-3">
-                    <Avatar className="h-8 w-8 shrink-0">
-                      <AvatarFallback className="bg-slate-200 text-slate-600 text-[10px] font-black">
-                        {String(meeting.bcl_attendee || 'BC').slice(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-bold text-slate-900">{meeting.bcl_attendee || 'BCL Team'}</span>
-                        <span className="text-[10px] text-slate-400">{formatDateSafe(meeting.meeting_date, 'dd.MM.yyyy')}</span>
-                      </div>
-                      <p className="text-[11px] text-slate-500 leading-relaxed">
-                        {meeting.meeting_agenda || `Upcoming meeting with ${meeting.client_name}.`}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-                {upcomingMeetings.length === 0 && (
-                  <p className="text-xs text-slate-400 italic text-center py-2">No pinned messages</p>
-                )}
-              </div>
-            </div>
-
-          </div>
-        </div>
-
-        {/* ── MEETING DETAILS DIALOG ── */}
-        <Dialog open={!!selectedMeeting} onOpenChange={(open) => !open && setSelectedMeeting(null)}>
-          <DialogContent className="max-w-4xl p-0 overflow-hidden bg-white border-none shadow-2xl rounded-[2.5rem]">
-            {selectedMeeting && (
-              <>
-                {/* HEADER HERO */}
-                <div className="relative border-b border-slate-100 bg-white px-10 pt-10 pb-8">
-                  <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-3">
-                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 text-[11px] font-black ring-1 ring-indigo-100">MTG</span>
-                        <span className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Record • #{selectedMeeting.id_main}</span>
-                      </div>
-                      <DialogTitle className="text-4xl font-black text-slate-900 tracking-tight leading-none">
-                        {selectedMeeting.client_name}
-                      </DialogTitle>
-                      <div className="flex flex-wrap items-center gap-5 text-sm font-bold text-slate-500">
-                        <div className="flex items-center gap-2"><Building className="h-4 w-4" />{selectedMeeting.client_company || 'Independent Client'}</div>
-                        <div className="h-1 w-1 rounded-full bg-slate-300" />
-                        <div className="flex items-center gap-2 text-indigo-600">
-                          {selectedMeeting.meeting_type === 'virtual' ? <Video className="h-4 w-4" /> : <MapPin className="h-4 w-4" />}
-                          <span className="capitalize tracking-tight font-black">{selectedMeeting.meeting_type} Engagement</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Badge className={cn("px-4 py-1.5 rounded-lg border-none font-black text-[10px] uppercase tracking-widest shadow-sm", getBadgeStatusColor(selectedMeeting.status || 'pending'))}>
-                        {selectedMeeting.status || 'Scheduled'}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-
-                {/* CONTENT GRID */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 bg-white">
-                  <div className="lg:col-span-7 p-10 space-y-10 overflow-y-auto max-h-[60vh] scrollbar-hide">
-
-                    {/* LOGISTICS HERO */}
-                    <div className="grid grid-cols-3 gap-5 p-1.5 bg-slate-50/80 rounded-3xl border border-slate-100 shadow-inner">
-                      <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-                        <p className="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Date</p>
-                        <p className="text-sm font-black text-slate-900">{formatDateSafe(selectedMeeting.meeting_date, 'MMM dd, yyyy')}</p>
-                      </div>
-                      <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-                        <p className="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Time</p>
-                        <p className="text-sm font-black text-slate-900">{formatTime(selectedMeeting.meeting_start_time)}</p>
-                      </div>
-                      <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-                        <p className="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Duration</p>
-                        <p className="text-sm font-black text-slate-900">{selectedMeeting.meeting_duration || '?'}m</p>
-                      </div>
-                    </div>
-
-                    <section className="space-y-4">
-                      <h3 className="flex items-center gap-2 text-[11px] font-black text-slate-900 uppercase tracking-[0.2em]"><FileText className="h-4 w-4 text-slate-400" /> Agenda & Context</h3>
-                      <div className="relative p-6 rounded-3xl bg-indigo-50/40 border border-indigo-100/50">
-                        <Quote className="absolute top-6 right-6 h-10 w-10 text-indigo-100/40" />
-                        <p className="text-slate-700 leading-relaxed text-sm italic font-medium relative z-10 pr-10">
-                          {selectedMeeting.meeting_agenda || 'No specific agenda has been outlined for this discussion.'}
-                        </p>
-                      </div>
-                    </section>
-
-                    <section className="space-y-4">
-                      <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.2em]">Stakeholders</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {[
-                          { name: selectedMeeting.bcl_attendee, role: 'Lead Consultant', type: 'internal' },
-                          { name: selectedMeeting.client_name, role: 'Client Executive', type: 'external' }
-                        ].map((person, i) => (
-                          <div key={i} className="flex items-center gap-4 p-5 rounded-2xl bg-white border border-slate-100 hover:shadow-md transition-all group">
-                            <div className={cn("h-12 w-12 rounded-2xl flex items-center justify-center text-xs font-black ring-2 ring-inset transition-transform group-hover:scale-110",
-                              person.type === 'internal' ? 'bg-slate-900 text-white ring-slate-800' : 'bg-indigo-100 text-indigo-600 ring-indigo-200')}>
-                              {String(person.name || "??").slice(0, 2).toUpperCase()}
-                            </div>
-                            <div>
-                              <p className="text-sm font-black text-slate-900 tracking-tight">{person.name || 'Team Member'}</p>
-                              <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{person.role}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-                  </div>
-
-                  {/* DIALOG SIDEBAR */}
-                  <div className="lg:col-span-5 bg-slate-50/50 p-10 border-l border-slate-100 space-y-8 overflow-y-auto max-h-[60vh] scrollbar-hide">
-                    <section className="space-y-4">
-                      <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Connectivity</h3>
-                      {selectedMeeting.meeting_type === 'virtual' && selectedMeeting.meeting_venue ? (
-                        <a
-                          href={selectedMeeting.meeting_venue}
-                          target="_blank"
-                          className="flex flex-col items-center justify-center gap-4 p-8 rounded-3xl bg-white border-2 border-dashed border-indigo-200 hover:border-indigo-500 hover:bg-indigo-50/50 transition-all group shadow-sm"
-                        >
-                          <div className="h-14 w-14 rounded-2xl bg-indigo-100 flex items-center justify-center group-hover:scale-110 transition-all shadow-sm">
-                            <Video className="h-7 w-7 text-indigo-600" />
-                          </div>
-                          <div className="text-center">
-                            <p className="text-sm font-black text-indigo-600">Join Video Session</p>
-                            <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">Google Meet Encrypted Link</p>
-                          </div>
-                        </a>
-                      ) : (
-                        <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Location</p>
-                          <div className="flex items-start gap-3">
-                            <MapPin className="h-4 w-4 text-emerald-500 mt-0.5" />
-                            <p className="text-sm font-bold text-slate-800 leading-tight">{selectedMeeting.meeting_venue || selectedMeeting.meeting_venue_area || 'Venue details pending'}</p>
-                          </div>
-                        </div>
-                      )}
-                    </section>
-
-                    <section className="space-y-4">
-                      <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Quick Contacts</h3>
-                      <div className="space-y-2">
-                        {[
-                          { label: 'Client', value: selectedMeeting.client_mobile },
-                          { label: 'Consultant', value: selectedMeeting.bcl_attendee_mobile }
-                        ].map((contact, i) => (
-                          <div key={i} className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-all">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{contact.label}</span>
-                            <a href={`tel:${contact.value}`} className="text-xs font-black text-slate-900 hover:text-indigo-600 transition-colors tabular-nums">{contact.value || 'N/A'}</a>
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-                  </div>
-                </div>
-
-                {/* FOOTER ACTION BAR */}
-                <DialogFooter className="px-10 py-6 bg-white border-t border-slate-100 flex items-center justify-between gap-4">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <Button variant="outline" className="h-12 rounded-2xl px-6 text-[11px] font-black uppercase tracking-widest border-slate-200 hover:bg-slate-50 transition-all">
-                      <RefreshCw className="mr-2 h-4 w-4" /> Reschedule
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => { setDeletingMeeting(selectedMeeting); }}
-                      className="h-12 rounded-2xl px-6 text-[11px] font-black uppercase tracking-widest border-rose-100 text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-all"
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" /> Delete Meeting
-                    </Button>
-                  </div>
-                  <Button variant="ghost" onClick={() => setSelectedMeeting(null)} className="text-[11px] font-black text-slate-400 hover:text-slate-900 uppercase tracking-[0.2em] transition-colors">
-                    Close Details
-                  </Button>
-                </DialogFooter>
-              </>
-            )}
-          </DialogContent>
-        </Dialog>
-
-        {/* --- 4. ALERT DIALOGS --- */}
-        <AlertDialog open={!!deletingMeeting} onOpenChange={(open) => !open && setDeletingMeeting(null)}>
-          <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl p-10 max-w-md">
-            <AlertDialogHeader>
-              <div className="h-16 w-16 bg-rose-50 text-rose-600 rounded-3xl flex items-center justify-center mb-6 mx-auto">
-                <Trash2 className="h-8 w-8" />
-              </div>
-              <AlertDialogTitle className="text-2xl font-black text-center text-slate-900 tracking-tight">Confirm Deletion</AlertDialogTitle>
-              <AlertDialogDescription className="text-center text-slate-500 font-medium pt-2">
-                Are you sure you want to remove the booking for <span className="font-black text-slate-900 underline decoration-rose-200 underline-offset-4">{deletingMeeting?.client_name}</span>?
-                <br /><br />
-                This action is irreversible and will remove all associated notes.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter className="flex-col sm:flex-row gap-3 mt-8">
-              <AlertDialogCancel className="h-12 rounded-2xl font-black text-[11px] uppercase tracking-widest border-slate-200 hover:bg-slate-50 m-0 flex-1">Keep Record</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={deleteMeeting}
-                disabled={isDeleting}
-                className="h-12 rounded-2xl font-black text-[11px] uppercase tracking-widest bg-rose-600 text-white hover:bg-rose-700 m-0 flex-1 shadow-lg shadow-rose-100"
-              >
-                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Yes, Delete Permanently'}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-      </div>
-    </TooltipProvider>
-  );
-};
-
-// Helper component for consistent detail items in the dialog
-const DetailItem = ({ icon: Icon, label, value, href }: { icon: React.ElementType, label: string, value: string | undefined, href?: string }) => {
-  if (!value) return null;
-
-  const content = href ? (
-    <a href={href} className="text-blue-600 hover:underline break-all" target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-      {value}
-    </a>
-  ) : (
-    <span className="text-gray-800 break-words">{value}</span>
-  );
-
-  return (
-    <div className="flex items-start">
-      <Icon className="h-4 w-4 text-gray-400 mr-2 mt-0.5 flex-shrink-0" />
-      <div className="flex-1">
-        <p className="text-xs font-medium text-gray-500">{label}</p>
-        {content}
+          );
+        })}
       </div>
     </div>
   );
-};
 
-// Helper function to check for conflicts on the selected date
-const hasMeetingConflicts = (meetingsOnDate: Meeting[]): boolean => {
-  for (let i = 0; i < meetingsOnDate.length; i++) {
-    for (let j = i + 1; j < meetingsOnDate.length; j++) {
-      if (meetingsOverlap(meetingsOnDate[i], meetingsOnDate[j])) {
-        return true; // Found an overlap
-      }
-    }
-  }
-  return false; // No overlaps found
-};
+  // ── DAY VIEW ────────────────────────────────────────────────────
+  const renderDayView = () => {
+    const dayMeetings = allMeetings.filter(m => m.meeting_date === format(currentDate, 'yyyy-MM-dd'));
+    return (
+      <div className="flex h-full min-h-0">
+        {/* Time axis */}
+        <div className="w-16 shrink-0 border-r border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950">
+          <div className="h-14 border-b border-zinc-200 dark:border-white/10" />
+          {TIME_SLOTS.map(time => (
+            <div key={time} className="h-20 border-b border-zinc-200 dark:border-white/10 flex items-start justify-end pr-3 pt-1.5">
+              <span className="text-[10px] font-medium text-zinc-400 dark:text-zinc-500">{time}</span>
+            </div>
+          ))}
+        </div>
 
+        {/* Day column */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Header */}
+          <div className="h-14 px-6 flex items-center gap-4 border-b border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950 shrink-0">
+            <div>
+              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{format(currentDate, 'EEEE')}</p>
+              <p className="text-base font-semibold text-zinc-900 dark:text-zinc-100 leading-none mt-0.5">{format(currentDate, 'MMMM d, yyyy')}</p>
+            </div>
+            {dayMeetings.length > 0 && (
+              <span className="ml-auto px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-white/10 text-zinc-600 dark:text-zinc-300 text-[11px] font-medium border border-zinc-200 dark:border-white/10">
+                {dayMeetings.length} {dayMeetings.length === 1 ? 'meeting' : 'meetings'}
+              </span>
+            )}
+          </div>
+
+          {/* Time grid */}
+          <div className="flex-1 overflow-y-auto relative">
+            {TIME_SLOTS.map((_, i) => (
+              <div key={i} className={cn("h-20 border-b border-zinc-200 dark:border-white/10", i % 2 === 0 ? "bg-white dark:bg-zinc-950" : "bg-zinc-50/50 dark:bg-white/[0.02]")} />
+            ))}
+
+            {/* Meeting cards */}
+            {dayMeetings.map(m => {
+              const startHour = parseInt(m.meeting_start_time.split(':')[0]);
+              const startMin = parseInt(m.meeting_start_time.split(':')[1]);
+              const endHour = parseInt(m.meeting_end_time.split(':')[0]);
+              const endMin = parseInt(m.meeting_end_time.split(':')[1]);
+              const top = (startHour - 7) * 80 + (startMin / 60) * 80;
+              const height = Math.max(((endHour * 60 + endMin) - (startHour * 60 + startMin)) / 60 * 80, 44);
+              const style = getStatusStyle(m.status);
+
+              return (
+                <div
+                  key={m.id_main}
+                  onClick={() => setSelectedMeeting(m)}
+                  className={cn("absolute left-4 right-4 rounded-lg cursor-pointer hover:opacity-90 transition-opacity overflow-hidden flex gap-3 p-3 shadow-sm", getMeetingEventStyle(m))}
+                  style={{ top: `${top}px`, height: `${height}px` }}
+                >
+                  <div className="flex flex-col justify-between flex-1 min-w-0">
+                    <div>
+                      <p className="text-xs font-semibold truncate">{m.client_name}</p>
+                      <p className="text-[10px] opacity-70 truncate">{m.client_company}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <Clock className="h-3 w-3 opacity-60 shrink-0" />
+                      <span className="text-[10px] font-medium">{m.meeting_start_time} – {m.meeting_end_time}</span>
+                    </div>
+                  </div>
+                  <div className="shrink-0 flex flex-col items-end justify-between">
+                    <span className={cn("px-2 py-0.5 rounded-full text-[9px] font-medium border", style.pill)}>
+                      {m.status || 'Scheduled'}
+                    </span>
+                    {m.meeting_type === 'virtual' && <Video className="h-3 w-3 opacity-50" />}
+                  </div>
+                </div>
+              );
+            })}
+
+            {dayMeetings.length === 0 && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-600 pointer-events-none">
+                <CalendarDays className="h-10 w-10 mb-2 opacity-50" />
+                <p className="text-sm font-medium">No meetings scheduled</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ── RENDER ──────────────────────────────────────────────────────
+  return (
+    <div className="flex flex-col h-[calc(100vh-64px)] bg-white dark:bg-zinc-950 overflow-hidden">
+
+      {/* ── TOP BAR ── */}
+      <div className="h-14 flex items-center px-4 sm:px-6 gap-3 shrink-0 z-10 border-b border-zinc-200 dark:border-white/10 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md">
+
+        {/* Filter toggle */}
+        <div className="hidden sm:flex items-center bg-zinc-100 dark:bg-zinc-900/50 rounded-lg p-0.5 border border-zinc-200 dark:border-white/10">
+          {(['mine', 'all'] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={cn(
+                "px-3 py-1.5 text-xs font-medium rounded-md transition-all capitalize",
+                filter === f ? "bg-white dark:bg-zinc-800 shadow-sm text-zinc-900 dark:text-white" : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+              )}
+            >
+              {f === 'mine' ? 'My Meetings' : 'All'}
+            </button>
+          ))}
+        </div>
+
+        {/* Date navigation */}
+        <div className="flex items-center gap-1.5 ml-0 sm:ml-2">
+          <Button
+            variant="outline" size="sm"
+            onClick={() => { setCurrentDate(new Date()); setSelectedDate(new Date()); }}
+            className="h-8 px-3 text-xs font-medium rounded-md border-zinc-200 dark:border-white/10 text-zinc-700 dark:text-zinc-300"
+          >Today</Button>
+          <button onClick={handlePrevious} className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-zinc-100 dark:hover:bg-white/10 text-zinc-500 dark:text-zinc-400 transition-colors border border-transparent">
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button onClick={handleNext} className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-zinc-100 dark:hover:bg-white/10 text-zinc-500 dark:text-zinc-400 transition-colors border border-transparent">
+            <ChevronRight className="h-4 w-4" />
+          </button>
+          <span className="text-sm font-semibold text-zinc-900 dark:text-white ml-2 min-w-[120px]">
+            {format(currentDate, view === 'month' ? 'MMMM yyyy' : view === 'week' ? "'Week of' MMM d" : 'MMMM d, yyyy')}
+          </span>
+        </div>
+
+        <div className="flex-1" />
+
+        {/* Actions */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="hidden sm:flex items-center bg-zinc-100 dark:bg-zinc-900/50 rounded-lg p-0.5 border border-zinc-200 dark:border-white/10">
+            {(['month', 'week', 'day'] as ViewType[]).map(v => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={cn("px-3 py-1.5 text-[11px] font-medium rounded-md capitalize transition-all", view === v ? "bg-white dark:bg-zinc-800 shadow-sm text-zinc-900 dark:text-white" : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200")}
+              >{v}</button>
+            ))}
+          </div>
+          <div className="hidden sm:block w-px h-5 bg-zinc-200 dark:bg-white/10 mx-1" />
+          <Button className="h-8 px-3 text-xs font-medium rounded-md bg-zinc-900 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 gap-1.5 shadow-sm">
+            <PlusCircle className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Add Meeting</span>
+          </Button>
+        </div>
+      </div>
+
+      {/* ── BODY ── */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+
+        {/* ── LEFT SIDEBAR ── */}
+        <div className="hidden xl:flex w-[260px] shrink-0 bg-zinc-50/50 dark:bg-zinc-950/50 border-r border-zinc-200 dark:border-white/10 flex-col overflow-hidden">
+
+          {/* Mini Calendar */}
+          <div className="p-4 border-b border-zinc-200 dark:border-white/10">
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={(date) => { if (date) { setSelectedDate(date); setCurrentDate(date); } }}
+              month={currentDate}
+              onMonthChange={setCurrentDate}
+              className="p-0 border-0 shadow-none bg-transparent dark:bg-transparent"
+              classNames={{
+                months: "w-full",
+                month: "w-full space-y-2",
+                caption: "flex justify-between pt-1 relative items-center mb-2",
+                caption_label: "text-xs font-semibold text-zinc-900 dark:text-zinc-100",
+                nav: "space-x-1 flex items-center",
+                nav_button: "h-6 w-6 bg-transparent p-0 flex items-center justify-center text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200/50 dark:text-zinc-400 dark:hover:text-white dark:hover:bg-white/10 rounded-md transition-colors",
+                nav_button_previous: "relative",
+                nav_button_next: "relative",
+                table: "w-full border-collapse",
+                head_row: "grid grid-cols-7 w-full mb-1",
+                head_cell: "text-[10px] font-medium text-zinc-400 dark:text-zinc-500 uppercase text-center",
+                row: "grid grid-cols-7 w-full mt-0.5",
+                cell: "flex items-center justify-center p-0",
+                day: "h-7 w-7 p-0 text-xs font-medium text-zinc-700 dark:text-zinc-300 rounded-md hover:bg-zinc-200/50 dark:hover:bg-white/10 mx-auto transition-colors aria-selected:opacity-100",
+                day_selected: "bg-zinc-900 text-white hover:bg-zinc-800 hover:text-white focus:bg-zinc-900 focus:text-white dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 shadow-sm",
+                day_today: "bg-zinc-100 dark:bg-white/10 text-zinc-900 dark:text-white font-semibold",
+                day_outside: "text-zinc-300 dark:text-zinc-700 opacity-50",
+                day_disabled: "text-zinc-300 dark:text-zinc-700 opacity-40",
+              }}
+            />
+          </div>
+
+          {/* Meetings Today */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="px-4 py-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                  Today's Schedule
+                </h3>
+                {todayMeetings.length > 0 && (
+                  <span className="h-4 w-4 rounded-full bg-zinc-200 dark:bg-white/10 text-zinc-700 dark:text-zinc-300 text-[9px] font-semibold flex items-center justify-center">
+                    {todayMeetings.length}
+                  </span>
+                )}
+              </div>
+
+              {loading ? (
+                <div className="flex items-center gap-2 text-zinc-400 dark:text-zinc-500 mt-4 justify-center">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span className="text-xs">Loading…</span>
+                </div>
+              ) : todayMeetings.length > 0 ? (
+                <div className="space-y-1.5">
+                  {todayMeetings.map(m => {
+                    const style = getStatusStyle(m.status);
+                    return (
+                      <div
+                        key={m.id_main}
+                        onClick={() => setSelectedMeeting(m)}
+                        className="group flex items-start gap-2.5 p-2.5 rounded-md border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 hover:border-zinc-300 dark:hover:border-white/20 cursor-pointer transition-all shadow-sm"
+                      >
+                        <span className={cn("mt-1.5 h-1.5 w-1.5 rounded-full shrink-0", style.dot)} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate leading-snug">{m.client_name}</p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <Clock className="h-2.5 w-2.5 text-zinc-400 dark:text-zinc-500 shrink-0" />
+                            <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium">{m.meeting_start_time} – {m.meeting_end_time}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 text-center border border-dashed border-zinc-200 dark:border-white/10 rounded-lg bg-zinc-50/50 dark:bg-white/[0.02]">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">No meetings today</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── CALENDAR + DETAIL PANEL ── */}
+        <div className="flex flex-1 min-w-0 overflow-hidden">
+
+          {/* ── CALENDAR AREA ── */}
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-white dark:bg-zinc-950">
+
+            {/* Day column headers — view-aware */}
+            {view !== 'day' && (
+              <div className="grid grid-cols-7 border-b border-zinc-200 dark:border-white/10 shrink-0 bg-white dark:bg-zinc-950">
+                {view === 'month'
+                  ? DAY_NAMES.map((name, i) => {
+                    const isWeekend = i === 0 || i === 6;
+                    return (
+                      <div
+                        key={name}
+                        className={cn(
+                          "py-2 px-2 border-r border-zinc-200 dark:border-white/10 last:border-r-0 text-center select-none",
+                          isWeekend ? "bg-zinc-50/50 dark:bg-white/[0.02]" : "bg-white dark:bg-zinc-950"
+                        )}
+                      >
+                        <p className={cn("text-[10px] font-semibold uppercase tracking-wider", isWeekend ? "text-zinc-400 dark:text-zinc-500" : "text-zinc-500 dark:text-zinc-400")}>
+                          {name}
+                        </p>
+                      </div>
+                    );
+                  })
+                  : weekDays.map((day, i) => {
+                    const isToday = isSameDay(day, new Date());
+                    const isWeekend = i === 0 || i === 6;
+                    return (
+                      <div
+                        key={day.toString()}
+                        className={cn(
+                          "py-2.5 px-2 border-r border-zinc-200 dark:border-white/10 last:border-r-0 text-center select-none",
+                          isToday ? "bg-zinc-50 dark:bg-white/5" : isWeekend ? "bg-zinc-50/50 dark:bg-white/[0.02]" : "bg-white dark:bg-zinc-950"
+                        )}
+                      >
+                        <p className={cn("text-[10px] font-medium uppercase tracking-wider", isToday ? "text-zinc-900 dark:text-white" : "text-zinc-400 dark:text-zinc-500")}>
+                          {format(day, 'EEE')}
+                        </p>
+                        <p className={cn("text-lg font-semibold mt-0.5 leading-none", isToday ? "text-zinc-900 dark:text-white" : isWeekend ? "text-zinc-400 dark:text-zinc-500" : "text-zinc-700 dark:text-zinc-300")}>
+                          {format(day, 'd')}
+                        </p>
+                      </div>
+                    );
+                  })
+                }
+              </div>
+            )}
+
+            {/* View content */}
+            <div className="flex-1 overflow-y-auto">
+              {loading ? (
+                <div className="h-full flex flex-col items-center justify-center gap-3 text-zinc-400 dark:text-zinc-500">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                </div>
+              ) : (
+                <>
+                  {view === 'month' && renderMonthView()}
+                  {view === 'week' && renderWeekView()}
+                  {view === 'day' && renderDayView()}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* ── DETAIL PANEL ── */}
+          {selectedMeeting && (
+            <div className="w-[320px] xl:w-[360px] shrink-0 bg-white dark:bg-zinc-950 border-l border-zinc-200 dark:border-white/10 flex flex-col overflow-hidden shadow-2xl xl:shadow-none z-20 absolute right-0 inset-y-0 xl:relative">
+
+              {/* Panel header */}
+              <div className="px-5 pt-5 pb-4 border-b border-zinc-200 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.02]">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1 min-w-0 pr-3">
+                    <p className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5 truncate">{selectedMeeting.client_company}</p>
+                    <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 leading-snug line-clamp-2">
+                      {selectedMeeting.client_name}
+                      {selectedMeeting.meeting_agenda && (
+                        <span className="text-zinc-500 dark:text-zinc-400 font-normal"> – {selectedMeeting.meeting_agenda.slice(0, 45)}{selectedMeeting.meeting_agenda.length > 45 ? '…' : ''}</span>
+                      )}
+                    </h2>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0 mt-0.5">
+                    <button
+                      onClick={() => { setDeletingMeeting(selectedMeeting); setSelectedMeeting(null); }}
+                      className="h-7 w-7 flex items-center justify-center rounded-md text-zinc-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 dark:hover:text-red-400 transition-colors"
+                    ><Trash2 className="h-3.5 w-3.5" /></button>
+                    <button
+                      onClick={() => setSelectedMeeting(null)}
+                      className="h-7 w-7 flex items-center justify-center rounded-md text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 dark:hover:text-white dark:hover:bg-white/10 transition-colors"
+                    ><X className="h-4 w-4" /></button>
+                  </div>
+                </div>
+
+                {/* Badges row */}
+                <div className="flex flex-wrap gap-1.5">
+                  <span className={cn("px-2 py-0.5 rounded-md text-[10px] font-medium border", getStatusStyle(selectedMeeting.status).pill)}>
+                    {selectedMeeting.status || 'Scheduled'}
+                  </span>
+                  <span className={cn(
+                    "px-2 py-0.5 rounded-md text-[10px] font-medium flex items-center gap-1 border",
+                    selectedMeeting.meeting_type === 'virtual'
+                      ? "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20"
+                      : "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20"
+                  )}>
+                    {selectedMeeting.meeting_type === 'virtual'
+                      ? <><Video className="h-2.5 w-2.5" /> Virtual</>
+                      : <><MapPin className="h-2.5 w-2.5" /> In Person</>}
+                  </span>
+                </div>
+              </div>
+
+              {/* Tabs */}
+              <Tabs defaultValue="details" className="flex flex-col flex-1 overflow-hidden">
+                <TabsList className="grid grid-cols-3 mx-4 mt-4 mb-0 bg-zinc-100 dark:bg-zinc-900/50 rounded-lg h-8 p-0.5 shrink-0">
+                  <TabsTrigger value="details" className="text-[11px] font-medium rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100 text-zinc-500 dark:text-zinc-400">Details</TabsTrigger>
+                  <TabsTrigger value="contacts" className="text-[11px] font-medium rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100 text-zinc-500 dark:text-zinc-400">Contacts</TabsTrigger>
+                  <TabsTrigger value="agenda" className="text-[11px] font-medium rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm data-[state=active]:text-zinc-900 dark:data-[state=active]:text-zinc-100 text-zinc-500 dark:text-zinc-400">Agenda</TabsTrigger>
+                </TabsList>
+
+                {/* ── DETAILS ── */}
+                <TabsContent value="details" className="flex-1 overflow-y-auto px-5 py-4 space-y-5 mt-0">
+                  {/* Key info grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { label: 'Date', value: safeFormatDate(selectedMeeting.meeting_date, 'dd MMM yyyy') },
+                      { label: 'Time', value: `${selectedMeeting.meeting_start_time} – ${selectedMeeting.meeting_end_time}` },
+                      { label: 'Duration', value: selectedMeeting.meeting_duration ? `${selectedMeeting.meeting_duration} min` : '—' },
+                      { label: 'Status', value: null },
+                    ].map(({ label, value }) => (
+                      <div key={label} className="bg-zinc-50 dark:bg-white/[0.02] rounded-lg p-3 border border-zinc-100 dark:border-white/5">
+                        <p className="text-[9px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">{label}</p>
+                        {label === 'Status' ? (
+                          <span className={cn("px-2 py-0.5 rounded-md text-[10px] font-medium border", getStatusStyle(selectedMeeting.status).pill)}>
+                            {selectedMeeting.status || 'Scheduled'}
+                          </span>
+                        ) : (
+                          <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{value}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Assigned consultant */}
+                  <div>
+                    <p className="text-[9px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">Assigned To</p>
+                    <div className="flex items-center gap-3 p-3 bg-zinc-50 dark:bg-white/[0.02] border border-zinc-100 dark:border-white/5 rounded-lg">
+                      <div className="h-8 w-8 rounded-full bg-zinc-200 dark:bg-white/10 flex items-center justify-center text-xs font-semibold text-zinc-700 dark:text-zinc-300 shrink-0">
+                        {String(selectedMeeting.bcl_attendee || 'BC').slice(0, 2).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 leading-tight">{selectedMeeting.bcl_attendee || '—'}</p>
+                        <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">BCL Consultant</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Location */}
+                  <div className="bg-zinc-50 dark:bg-white/[0.02] border border-zinc-100 dark:border-white/5 rounded-lg p-3">
+                    <p className="text-[9px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">Location / Link</p>
+                    <div className="flex items-start gap-2.5">
+                      <MapPin className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500 mt-0.5 shrink-0" />
+                      <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300 leading-snug break-all">
+                        {selectedMeeting.meeting_venue || selectedMeeting.meeting_venue_area || '—'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Join button */}
+                  {selectedMeeting.meeting_type === 'virtual' && selectedMeeting.meeting_venue && (
+                    <a href={selectedMeeting.meeting_venue} target="_blank" rel="noopener noreferrer">
+                      <Button className="w-full rounded-md bg-zinc-900 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 font-medium text-xs h-9 gap-2 shadow-sm mt-2">
+                        <Video className="h-3.5 w-3.5" /> Join Virtual Meeting
+                      </Button>
+                    </a>
+                  )}
+                </TabsContent>
+
+                {/* ── CONTACTS ── */}
+                <TabsContent value="contacts" className="flex-1 overflow-y-auto px-5 py-4 space-y-5 mt-0">
+                  {/* Client */}
+                  <div>
+                    <p className="text-[9px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">Client Details</p>
+                    <div className="flex items-center gap-3 p-3 bg-zinc-50 dark:bg-white/[0.02] border border-zinc-100 dark:border-white/5 rounded-lg mb-2">
+                      <div className="h-9 w-9 rounded-full bg-zinc-200 dark:bg-white/10 flex items-center justify-center text-xs font-semibold text-zinc-700 dark:text-zinc-300 shrink-0">
+                        {String(selectedMeeting.client_name || 'CL').slice(0, 2).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{selectedMeeting.client_name}</p>
+                        <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">{selectedMeeting.client_company}</p>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      {selectedMeeting.client_email && (
+                        <a href={`mailto:${selectedMeeting.client_email}`} className="flex items-center gap-2.5 px-3 py-2.5 bg-zinc-50 dark:bg-white/[0.02] border border-zinc-100 dark:border-white/5 rounded-lg hover:border-zinc-300 dark:hover:border-white/20 transition-all">
+                          <Mail className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                          <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate">{selectedMeeting.client_email}</span>
+                        </a>
+                      )}
+                      {selectedMeeting.client_mobile && (
+                        <a href={`tel:${selectedMeeting.client_mobile}`} className="flex items-center gap-2.5 px-3 py-2.5 bg-zinc-50 dark:bg-white/[0.02] border border-zinc-100 dark:border-white/5 rounded-lg hover:border-zinc-300 dark:hover:border-white/20 transition-all">
+                          <Phone className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                          <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">{selectedMeeting.client_mobile}</span>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </TabsContent>
+
+                {/* ── AGENDA ── */}
+                <TabsContent value="agenda" className="flex-1 overflow-y-auto px-5 py-4 mt-0">
+                  <p className="text-[9px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">Meeting Agenda</p>
+                  <div className="bg-zinc-50 dark:bg-white/[0.02] border border-zinc-100 dark:border-white/5 rounded-lg p-4">
+                    <p className="text-xs text-zinc-700 dark:text-zinc-300 font-medium leading-relaxed whitespace-pre-wrap">
+                      {selectedMeeting.meeting_agenda || 'No agenda specified for this meeting.'}
+                    </p>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── DELETE CONFIRMATION ── */}
+      <AlertDialog open={!!deletingMeeting} onOpenChange={(open) => !open && setDeletingMeeting(null)}>
+        <AlertDialogContent className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-2xl max-w-sm p-6 gap-6">
+          <AlertDialogHeader className="items-start text-left space-y-3">
+            <div className="h-10 w-10 bg-red-50 dark:bg-red-500/10 rounded-full flex items-center justify-center border border-red-100 dark:border-red-500/20">
+              <Trash2 className="h-5 w-5 text-red-600 dark:text-red-500" />
+            </div>
+            <div>
+              <AlertDialogTitle className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Delete Meeting</AlertDialogTitle>
+              <AlertDialogDescription className="text-zinc-500 dark:text-zinc-400 text-sm mt-1">
+                Remove the booking for <span className="font-semibold text-zinc-900 dark:text-zinc-100">{deletingMeeting?.client_name}</span>? This action cannot be undone.
+              </AlertDialogDescription>
+            </div>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex gap-2 sm:gap-2">
+            <AlertDialogCancel className="flex-1 rounded-md border-zinc-200 dark:border-white/10 font-medium text-xs h-9 hover:bg-zinc-50 dark:hover:bg-white/5 dark:text-zinc-300">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={deleteMeeting}
+              disabled={isDeleting}
+              className="flex-1 rounded-md bg-red-600 hover:bg-red-700 text-white font-medium text-xs h-9 dark:bg-red-600 dark:hover:bg-red-700"
+            >
+              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Delete Meeting'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+};
 
 export default CalendarView;

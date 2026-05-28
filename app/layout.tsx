@@ -1,20 +1,14 @@
 // app/layout.tsx
 import type { Metadata, Viewport } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Inter } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from "@/components/theme-provider"
 import AppShell from '@/components/AppShell'
 
-const geist = Geist({
+const inter = Inter({
   subsets: ['latin'],
   display: 'swap',
-  variable: '--font-geist',
-})
-
-const geistMono = Geist_Mono({
-  subsets: ['latin'],
-  display: 'swap',
-  variable: '--font-geist-mono',
+  variable: '--font-inter',
 })
 
 export const metadata: Metadata = {
@@ -46,7 +40,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased bg-slate-100 overflow-x-hidden`}>
+      <body className={`${inter.variable} font-sans antialiased bg-slate-100 overflow-x-hidden`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

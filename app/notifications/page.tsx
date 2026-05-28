@@ -5,7 +5,6 @@ import React, { useState } from "react";
 import { useNotifications } from "@/context/NotificationContext";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Bell,
   Check,
@@ -36,26 +35,26 @@ export default function NotificationsPage() {
   const getIcon = (type: Notification["type"]) => {
     switch (type) {
       case "success":
-        return <CheckCircle className="h-4 w-4 text-blue-600" />;
+        return <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />;
       case "warning":
-        return <Bell className="h-4 w-4 text-amber-500" />;
+        return <Bell className="h-4 w-4 text-amber-600 dark:text-amber-400" />;
       case "error":
-        return <AlertCircle className="h-4 w-4 text-red-500" />;
+        return <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />;
       default:
-        return <Info className="h-4 w-4 text-blue-600" />;
+        return <Info className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />;
     }
   };
 
   const getIconBg = (type: Notification["type"]) => {
     switch (type) {
       case "success":
-        return "bg-blue-50";
+        return "bg-emerald-50 dark:bg-emerald-500/10";
       case "warning":
-        return "bg-amber-50";
+        return "bg-amber-50 dark:bg-amber-500/10";
       case "error":
-        return "bg-red-50";
+        return "bg-red-50 dark:bg-red-500/10";
       default:
-        return "bg-blue-50";
+        return "bg-zinc-100 dark:bg-white/10";
     }
   };
 
@@ -67,8 +66,8 @@ export default function NotificationsPage() {
     const diffDays = Math.floor(diffHours / 24);
 
     if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins} min ago`;
-    if (diffHours < 24) return `${diffHours} hr ago`;
+    if (diffMins < 60) return `${diffMins} m ago`;
+    if (diffHours < 24) return `${diffHours} h ago`;
     if (diffDays === 1) return "Yesterday";
     return new Date(date).toLocaleDateString("en-GB", {
       day: "numeric",
@@ -97,14 +96,14 @@ export default function NotificationsPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
+    <div className="mx-auto max-w-5xl px-4 sm:px-6 py-8">
       {/* Header */}
-      <div className="mb-6 flex items-start justify-between">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-950">
+          <h1 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
             Notifications
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
             Stay updated on your meetings and reminders.
           </p>
         </div>
@@ -116,7 +115,7 @@ export default function NotificationsPage() {
                 variant="outline"
                 size="sm"
                 onClick={markAllAsRead}
-                className="gap-1.5 border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-600"
+                className="h-8 gap-1.5 border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/5 text-xs font-medium"
               >
                 <CheckCheck className="h-3.5 w-3.5" />
                 Mark all read
@@ -126,7 +125,7 @@ export default function NotificationsPage() {
               variant="outline"
               size="sm"
               onClick={clearNotifications}
-              className="gap-1.5 border-slate-200 text-slate-500 hover:border-red-200 hover:text-red-500"
+              className="h-8 gap-1.5 border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 hover:text-red-600 hover:border-red-200 dark:hover:text-red-400 dark:hover:border-red-500/30 text-xs font-medium transition-colors"
             >
               <Trash2 className="h-3.5 w-3.5" />
               Clear all
@@ -137,60 +136,55 @@ export default function NotificationsPage() {
 
       {/* Stats row */}
       {notifications.length > 0 && (
-        <div className="mb-5 grid gap-3 sm:grid-cols-3">
-          <div className="premium-panel flex items-center gap-3 rounded-xl px-4 py-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600/10">
-              <Bell className="h-4 w-4 text-blue-600" />
+        <div className="mb-6 grid gap-4 grid-cols-2 md:grid-cols-3">
+          <div className="flex flex-col gap-3 rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/50 p-4 shadow-sm">
+            <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
+              <Bell className="h-4 w-4" />
+              <p className="text-[10px] font-semibold uppercase tracking-wider">Total Activity</p>
             </div>
-            <div>
-              <p className="text-xs text-slate-500">Total</p>
-              <p className="text-lg font-semibold text-slate-950">{notifications.length}</p>
-            </div>
+            <p className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">{notifications.length}</p>
           </div>
-          <div className="flex items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 shadow-sm">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600/15">
-              <Bell className="h-4 w-4 text-blue-600" />
+
+          <div className="flex flex-col gap-3 rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/50 p-4 shadow-sm relative overflow-hidden">
+            {unreadCount > 0 && <div className="absolute top-0 left-0 w-full h-1 bg-zinc-900 dark:bg-white" />}
+            <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
+              <CheckCheck className="h-4 w-4" />
+              <p className="text-[10px] font-semibold uppercase tracking-wider">Unread</p>
             </div>
-            <div>
-              <p className="text-xs text-blue-600">Unread</p>
-              <p className="text-lg font-semibold text-blue-700">{unreadCount}</p>
-            </div>
+            <p className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">{unreadCount}</p>
           </div>
-          <div className="premium-panel flex items-center gap-3 rounded-xl px-4 py-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100">
-              <Calendar className="h-4 w-4 text-slate-500" />
+
+          <div className="hidden md:flex flex-col gap-3 rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900/50 p-4 shadow-sm">
+            <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
+              <Calendar className="h-4 w-4" />
+              <p className="text-[10px] font-semibold uppercase tracking-wider">Meeting Updates</p>
             </div>
-            <div>
-              <p className="text-xs text-slate-500">Meetings</p>
-              <p className="text-lg font-semibold text-slate-950">
-                {notifications.filter((n) => n.meetingId).length}
-              </p>
-            </div>
+            <p className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
+              {notifications.filter((n) => n.meetingId).length}
+            </p>
           </div>
         </div>
       )}
 
       {/* Filter tabs */}
-      <div className="mb-4 flex items-center gap-1 rounded-xl border border-slate-200/80 bg-white/90 p-1 shadow-sm">
-        <Filter className="ml-2 h-3.5 w-3.5 flex-shrink-0 text-slate-400" />
+      <div className="mb-4 flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50/50 dark:bg-white/[0.02] p-1 w-full overflow-x-auto scrollbar-hide">
+        <Filter className="ml-2 mr-1 h-3.5 w-3.5 flex-shrink-0 text-zinc-400" />
         {tabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveFilter(tab.key)}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all ${
-              activeFilter === tab.key
-                ? "bg-slate-950 text-white shadow-sm shadow-slate-950/10"
-                : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-            }`}
+            className={`flex items-center justify-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap ${activeFilter === tab.key
+                ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm"
+                : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+              }`}
           >
             {tab.label}
             {tab.count !== undefined && tab.count > 0 && (
               <span
-                className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-                  activeFilter === tab.key
-                    ? "bg-white/20 text-white"
-                    : "bg-slate-200 text-slate-600"
-                }`}
+                className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold leading-none ${activeFilter === tab.key
+                    ? "bg-zinc-100 text-zinc-900 dark:bg-white/10 dark:text-white"
+                    : "bg-zinc-200/50 dark:bg-white/10 text-zinc-500 dark:text-zinc-400"
+                  }`}
               >
                 {tab.count}
               </span>
@@ -200,65 +194,52 @@ export default function NotificationsPage() {
       </div>
 
       {/* Notification list */}
-      <div className="premium-surface overflow-hidden rounded-xl">
+      <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950 shadow-sm overflow-hidden flex flex-col min-h-[400px]">
         {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
-              <Bell className="h-7 w-7 text-slate-300" />
+          <div className="flex flex-1 flex-col items-center justify-center py-16 text-center px-4">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-zinc-50 dark:bg-white/[0.02] border border-zinc-100 dark:border-white/5">
+              <Bell className="h-5 w-5 text-zinc-300 dark:text-zinc-600" />
             </div>
-            <p className="text-sm font-medium text-slate-700">
-              {activeFilter === "unread" ? "All caught up!" : "No notifications"}
+            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+              {activeFilter === "unread" ? "You're all caught up" : "No notifications"}
             </p>
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400 max-w-xs">
               {activeFilter === "unread"
-                ? "No unread notifications at the moment."
-                : "You'll see meeting updates and reminders here."}
+                ? "There are no unread notifications right now."
+                : "When you get updates, meeting requests, or reminders, they'll show up here."}
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-zinc-100 dark:divide-white/5">
             {filtered.map((n) => (
               <div
                 key={n.id}
                 onClick={() => handleClick(n)}
-                className={`group flex items-start gap-3 px-4 py-3 transition-colors hover:bg-slate-50 ${
-                  n.link ? "cursor-pointer" : "cursor-default"
-                } ${!n.read ? "bg-blue-50/40" : ""}`}
+                className={`group flex items-start gap-4 px-5 py-4 transition-colors hover:bg-zinc-50 dark:hover:bg-white/[0.02] ${n.link ? "cursor-pointer" : "cursor-default"
+                  } ${!n.read ? "bg-zinc-50/50 dark:bg-white/[0.01]" : ""}`}
               >
-                {/* Unread dot */}
-                <div className="mt-1 flex-shrink-0">
-                  {!n.read ? (
-                    <div className="h-2 w-2 rounded-full bg-blue-600" />
-                  ) : (
-                    <div className="h-2 w-2 rounded-full bg-transparent" />
-                  )}
+                {/* Unread indicator */}
+                <div className="mt-2 flex-shrink-0 w-2 flex justify-center">
+                  {!n.read && <div className="h-1.5 w-1.5 rounded-full bg-zinc-900 dark:bg-white shadow-sm" />}
                 </div>
 
                 {/* Icon */}
-                <div
-                  className={`mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${getIconBg(
-                    n.type
-                  )}`}
-                >
+                <div className={`mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md border border-zinc-200/50 dark:border-white/5 ${getIconBg(n.type)}`}>
                   {getIcon(n.type)}
                 </div>
 
                 {/* Content */}
                 <div className="min-w-0 flex-1">
-                  <p
-                    className={`text-xs ${
-                      !n.read
-                        ? "font-semibold text-slate-950"
-                        : "font-medium text-slate-700"
-                    }`}
-                  >
-                    {n.title}
-                  </p>
-                  <p className="mt-0.5 line-clamp-2 text-[11px] text-slate-500">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className={`text-sm leading-tight ${!n.read ? "font-semibold text-zinc-900 dark:text-zinc-100" : "font-medium text-zinc-700 dark:text-zinc-300"}`}>
+                      {n.title}
+                    </p>
+                    <p className="text-[10px] font-medium text-zinc-400 dark:text-zinc-500 whitespace-nowrap pt-0.5">
+                      {formatTimestamp(n.timestamp)}
+                    </p>
+                  </div>
+                  <p className={`mt-1 text-xs leading-relaxed line-clamp-2 ${!n.read ? "text-zinc-600 dark:text-zinc-400" : "text-zinc-500 dark:text-zinc-500"}`}>
                     {n.message}
-                  </p>
-                  <p className="mt-1 text-[10px] text-slate-400">
-                    {formatTimestamp(n.timestamp)}
                   </p>
                 </div>
 
@@ -271,7 +252,7 @@ export default function NotificationsPage() {
                         markAsRead(n.id);
                       }}
                       title="Mark as read"
-                      className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-blue-100 hover:text-blue-600"
+                      className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-white/10 dark:hover:text-white transition-colors"
                     >
                       <Check className="h-3.5 w-3.5" />
                     </button>
@@ -282,7 +263,7 @@ export default function NotificationsPage() {
                       removeNotification(n.id);
                     }}
                     title="Delete"
-                    className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-red-100 hover:text-red-500"
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400 transition-colors"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
