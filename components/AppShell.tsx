@@ -10,12 +10,12 @@ import { Toaster } from "@/components/ui/toaster";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isLoginPage = pathname === "/login";
+  const isPublicPage = pathname === "/login" || pathname === "/" || pathname === "/privacy" || pathname === "/terms";
 
-  if (isLoginPage) {
+  if (isPublicPage) {
     return (
       <>
-        <main className="min-h-screen bg-slate-950">{children}</main>
+        <main className="min-h-screen">{children}</main>
         <Toaster />
       </>
     );

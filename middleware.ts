@@ -5,7 +5,10 @@ const AUTH_SESSION_COOKIE_NAME =
 
 // Routes that don't require authentication
 const PUBLIC_PATHS = [
+  "/",
   "/login",
+  "/privacy",
+  "/terms",
   "/api/auth/login",
   "/api/auth/logout",
   "/api/auth/session",

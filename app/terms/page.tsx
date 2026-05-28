@@ -8,7 +8,7 @@ export const metadata = {
 
 export default function TermsPage() {
   return (
-    <div className="min-h-screen bg-slate-950 px-4 py-12 text-slate-100">
+    <div className="min-h-screen bg-white dark:bg-slate-950 px-4 py-12 text-slate-900 dark:text-slate-100">
       <div className="mx-auto max-w-3xl">
 
         {/* Header */}
@@ -18,37 +18,37 @@ export default function TermsPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Terms of Service</h1>
-            <p className="text-sm text-slate-400">BookSmart — bcl-meetings-booking.vercel.app</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">BookSmart — meetings.booksmartportals.com</p>
           </div>
         </div>
 
-        <p className="mb-8 text-sm text-slate-400">
+        <p className="mb-8 text-sm text-slate-500 dark:text-slate-400">
           Last updated: May 2026
         </p>
 
-        <div className="space-y-8 text-sm leading-7 text-slate-300">
+        <div className="space-y-8 text-sm leading-7 text-slate-600 dark:text-slate-300">
 
           <section>
-            <h2 className="mb-2 text-base font-semibold text-white">1. Acceptance of Terms</h2>
+            <h2 className="mb-2 text-base font-semibold text-slate-900 dark:text-white">1. Acceptance of Terms</h2>
             <p>
               By accessing or using BookSmart ("the app") at{" "}
-              <span className="text-teal-400">bcl-meetings-booking.vercel.app</span>, you
+              <span className="text-teal-600 dark:text-teal-400">meetings.booksmartportals.com</span>, you
               agree to be bound by these Terms of Service. If you do not agree, do not use
               the app.
             </p>
           </section>
 
           <section>
-            <h2 className="mb-2 text-base font-semibold text-white">2. Who Can Use the App</h2>
+            <h2 className="mb-2 text-base font-semibold text-slate-900 dark:text-white">2. Who Can Use the App</h2>
             <p>
-              BookSmart is an internal meeting scheduling tool operated by BCL. Access is
-              granted only to authorised BCL staff and approved external users. Accounts
+              BookSmart is a meeting scheduling tool operated by BookSmart Consultancy Limited.
+              Access is granted only to authorised staff and approved external users. Accounts
               are created and managed by system administrators.
             </p>
           </section>
 
           <section>
-            <h2 className="mb-2 text-base font-semibold text-white">3. User Responsibilities</h2>
+            <h2 className="mb-2 text-base font-semibold text-slate-900 dark:text-white">3. User Responsibilities</h2>
             <ul className="list-disc space-y-1 pl-5">
               <li>You are responsible for keeping your login credentials confidential.</li>
               <li>
@@ -71,7 +71,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 text-base font-semibold text-white">4. Google Calendar Integration</h2>
+            <h2 className="mb-2 text-base font-semibold text-slate-900 dark:text-white">4. Google Calendar Integration</h2>
             <p>
               The Google Calendar sync feature is optional. By connecting your Google account,
               you grant BookSmart permission to create, update, and delete calendar events on
@@ -81,12 +81,12 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 text-base font-semibold text-white">5. Data Ownership</h2>
+            <h2 className="mb-2 text-base font-semibold text-slate-900 dark:text-white">5. Data Ownership</h2>
             <p>
-              Meeting data you enter into BookSmart belongs to BCL for operational and
-              reporting purposes. Personal data (your name, email, credentials) belongs to
-              you. See our{" "}
-              <Link href="/privacy" className="text-teal-400 underline underline-offset-2">
+              Meeting data you enter into BookSmart belongs to BookSmart Consultancy Limited
+              for operational and reporting purposes. Personal data (your name, email,
+              credentials) belongs to you. See our{" "}
+              <Link href="/privacy" className="text-teal-600 dark:text-teal-400 underline underline-offset-2">
                 Privacy Policy
               </Link>{" "}
               for details on how it is handled.
@@ -94,7 +94,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 text-base font-semibold text-white">6. Availability</h2>
+            <h2 className="mb-2 text-base font-semibold text-slate-900 dark:text-white">6. Availability</h2>
             <p>
               We aim to keep BookSmart available at all times but do not guarantee uninterrupted
               access. We may perform maintenance, updates, or changes to the service at any
@@ -103,7 +103,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 text-base font-semibold text-white">7. Account Termination</h2>
+            <h2 className="mb-2 text-base font-semibold text-slate-900 dark:text-white">7. Account Termination</h2>
             <p>
               Administrators may suspend or terminate any account that violates these terms,
               misuses the system, or is no longer required. You may also request deletion of
@@ -112,16 +112,16 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 text-base font-semibold text-white">8. Limitation of Liability</h2>
+            <h2 className="mb-2 text-base font-semibold text-slate-900 dark:text-white">8. Limitation of Liability</h2>
             <p>
-              BookSmart is provided "as is". BCL is not liable for any indirect, incidental,
-              or consequential damages arising from use of the app, including missed meetings
-              due to system errors or calendar sync failures.
+              BookSmart is provided "as is". BookSmart Consultancy Limited is not liable for
+              any indirect, incidental, or consequential damages arising from use of the app,
+              including missed meetings due to system errors or calendar sync failures.
             </p>
           </section>
 
           <section>
-            <h2 className="mb-2 text-base font-semibold text-white">9. Changes to These Terms</h2>
+            <h2 className="mb-2 text-base font-semibold text-slate-900 dark:text-white">9. Changes to These Terms</h2>
             <p>
               We may update these terms at any time. Continued use of the app after changes
               are posted means you accept the revised terms.
@@ -129,25 +129,29 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-2 text-base font-semibold text-white">10. Contact</h2>
+            <h2 className="mb-2 text-base font-semibold text-slate-900 dark:text-white">10. Contact</h2>
             <p>
               Questions about these terms? Contact us at{" "}
               <a
-                href="mailto:info@nsait.co.ke"
-                className="text-teal-400 underline underline-offset-2"
+                href="mailto:info@booksmartconsult.com"
+                className="text-teal-600 dark:text-teal-400 underline underline-offset-2"
               >
-                info@nsait.co.ke
+                info@booksmartconsult.com
               </a>
-              .
+              {" "}or call{" "}
+              <a href="tel:+254700298298" className="text-teal-600 dark:text-teal-400 underline underline-offset-2">
+                +254 700 298 298
+              </a>
+              . BookSmart Consultancy Limited, Parklands, Nairobi, Kenya.
             </p>
           </section>
 
         </div>
 
         {/* Footer nav */}
-        <div className="mt-12 flex gap-6 border-t border-white/10 pt-6 text-sm text-slate-500">
-          <Link href="/" className="hover:text-teal-400">Home</Link>
-          <Link href="/privacy" className="hover:text-teal-400">Privacy Policy</Link>
+        <div className="mt-12 flex gap-6 border-t border-slate-200 dark:border-white/10 pt-6 text-sm text-slate-400 dark:text-slate-500">
+          <Link href="/" className="hover:text-teal-600 dark:hover:text-teal-400">Home</Link>
+          <Link href="/privacy" className="hover:text-teal-600 dark:hover:text-teal-400">Privacy Policy</Link>
         </div>
 
       </div>

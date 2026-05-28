@@ -49,8 +49,8 @@ export default function RootLayout({
       <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased bg-slate-100 overflow-x-hidden`}>
         <ThemeProvider
           attribute="class"
-          defaultTheme="light"
-          enableSystem={false}
+          defaultTheme="system"
+          enableSystem={true}
           disableTransitionOnChange
         >
           <AppShell>{children}</AppShell>
