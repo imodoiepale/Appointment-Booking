@@ -6,13 +6,12 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useTheme } from 'next-themes';
+import { useSidebar } from '@/contexts/SidebarContext';
 import {
     Calendar,
     CheckCircle,
     PlusCircle,
     HelpCircle,
-    Menu,
-    X,
     CalendarDays,
     LayoutDashboard,
     Bell,
@@ -21,197 +20,324 @@ import {
     XCircle,
     Sun,
     Moon,
-    Monitor,
     PanelLeftClose,
     PanelLeftOpen,
-    MoreVertical,
-    AlertCircle
+    AlertCircle,
+    Search,
+    ChevronDown,
+    ChevronUp,
 } from 'lucide-react';
+
+/* ─────────────────────────────────────────────────────────────
+   Injected Styles - Deep Teal / Cyan UI Scheme
+───────────────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────
+   Injected Styles - Deep Teal / Cyan UI Scheme (Themed)
+───────────────────────────────────────────────────────────── */
+const SidebarStyles = () => (
+    <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        :root {
+            /* Dark Mode (Default) */
+            --sb-bg: #003038;
+            --sb-active-bg: rgba(255, 255, 255, 0.08);
+            --sb-accent: #00d1d1;
+            --sb-text: #ffffff;
+            --sb-muted: #a3c6cc;
+            --sb-border: rgba(255, 255, 255, 0.05);
+            --sb-search-bg: rgba(255, 255, 255, 0.1);
+            --sb-search-border: rgba(255, 255, 255, 0.1);
+            --sb-search-placeholder: rgba(255, 255, 255, 0.4);
+            --sb-brand-text: #ffffff;
+            --sb-nav-hover: rgba(255, 255, 255, 0.04);
+            --sb-section-label: rgba(255, 255, 255, 0.3);
+        }
+
+        [data-theme='light'] {
+            /* Light Mode */
+            --sb-bg: #ffffff;
+            --sb-active-bg: rgba(0, 209, 209, 0.1);
+            --sb-accent: #00a3a3; /* Slightly deeper cyan for better contrast on white */
+            --sb-text: #003038;
+            --sb-muted: #64868c;
+            --sb-border: #eef2f3;
+            --sb-search-bg: #f0f4f5;
+            --sb-search-border: #e2e8e9;
+            --sb-search-placeholder: #8ca4a8;
+            --sb-brand-text: #003038;
+            --sb-nav-hover: #f7fafa;
+            --sb-section-label: #8ca4a8;
+        }
+
+        .sb-shell {
+            background-color: var(--sb-bg);
+            font-family: 'Inter', sans-serif;
+            color: var(--sb-text);
+            border-right: 1px solid var(--sb-border);
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+        }
+
+        /* Branding */
+        .sb-brand-name { font-weight: 700; font-size: 15px; color: var(--sb-brand-text); }
+        .sb-brand-sub { font-size: 11px; color: var(--sb-muted); }
+
+        /* Search Bar */
+        .sb-search-box {
+            background: var(--sb-search-bg);
+            border: 1px solid var(--sb-search-border);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            margin: 0 16px 24px 16px;
+        }
+        .sb-search-input {
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--sb-text);
+            font-size: 13px;
+            width: 100%;
+            margin-left: 8px;
+        }
+        .sb-search-input::placeholder { color: var(--sb-search-placeholder); }
+
+        /* Navigation Links */
+        .sb-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 16px;
+            color: var(--sb-muted);
+            font-size: 14px;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        .sb-link:hover { color: var(--sb-text); background: var(--sb-nav-hover); }
+        
+        .sb-link-active {
+            color: var(--sb-text);
+            background: var(--sb-active-bg);
+            font-weight: 500;
+        }
+        .sb-link-active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 20%;
+            bottom: 20%;
+            width: 3px;
+            background: var(--sb-accent);
+            border-radius: 0 4px 4px 0;
+        }
+
+        .sb-section-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--sb-section-label);
+            padding: 20px 16px 8px 16px;
+            font-weight: 600;
+        }
+
+        /* Create Meeting Button */
+        .sb-create-btn {
+            margin: 20px 16px;
+            background: linear-gradient(135deg, #00d1d1 0%, #00a3a3 100%);
+            color: #ffffff; /* Keep white for readability on gradient */
+            border: none;
+            border-radius: 10px;
+            padding: 12px;
+            font-weight: 700;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 15px rgba(0, 209, 209, 0.2);
+        }
+        [data-theme='light'] .sb-create-btn {
+            color: #ffffff; /* Ensure white text on cyan button in light mode */
+        }
+        .sb-create-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0, 209, 209, 0.3); }
+
+        /* Badge/Count */
+        .sb-count {
+            margin-left: auto;
+            background: var(--sb-active-bg);
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--sb-accent);
+            font-weight: 600;
+        }
+
+        .sb-status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            margin-left: auto;
+        }
+
+        .sb-utility-border {
+            border-top: 1px solid var(--sb-border);
+        }
+    `}</style>
+);
 
 const Sidebar = () => {
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const { theme, setTheme } = useTheme();
     const [mounted, setMounted] = useState(false);
-
-    // Sidebar states
-    const [isMobileOpen, setIsMobileOpen] = useState(false);
+    const { isMobileOpen, setIsMobileOpen } = useSidebar();
     const [isCollapsed, setIsCollapsed] = useState(false);
 
     useEffect(() => setMounted(true), []);
 
-    const toggleMobile = () => setIsMobileOpen(!isMobileOpen);
-
-    // Navigation Groups
     const mainNav = [
         { name: 'Overview', href: '/dashboard', icon: LayoutDashboard },
         { name: 'Calendar', href: '/calendar', icon: CalendarDays },
-        { name: 'Notifications', href: '/notifications', icon: Bell },
+        { name: 'Notifications', href: '/notifications', icon: Bell, count: 3 },
     ];
 
     const statusViews = [
-        { name: 'Upcoming', href: '/dashboard?status=upcoming', status: 'upcoming', icon: Clock },
-        { name: 'Today', href: '/dashboard?status=today', status: 'today', icon: Calendar },
-        { name: 'Pending', href: '/dashboard?status=pending', status: 'pending', icon: AlertCircle },
-        { name: 'Completed', href: '/dashboard?status=completed', status: 'completed', icon: CheckCircle },
-        { name: 'Canceled', href: '/dashboard?status=canceled', status: 'canceled', icon: XCircle },
+        { name: 'Upcoming', href: '/dashboard?status=upcoming', status: 'upcoming', icon: Clock, color: '#6b8afd', count: 8 },
+        { name: 'Today', href: '/dashboard?status=today', status: 'today', icon: Calendar, color: '#00d1d1', count: 2 },
+        { name: 'Pending', href: '/dashboard?status=pending', status: 'pending', icon: AlertCircle, color: '#f5a623', count: 5 },
+        { name: 'Completed', href: '/dashboard?status=completed', status: 'completed', icon: CheckCircle, color: '#48c78e' },
+        { name: 'Canceled', href: '/dashboard?status=canceled', status: 'canceled', icon: XCircle, color: 'rgba(255,255,255,0.2)' },
     ];
 
-    const utilityNav = [
-        { name: 'Settings', href: '/settings', icon: Settings },
-        { name: 'Support', href: '/help', icon: HelpCircle },
-    ];
-
-    // Helper functions for active states
     const isNavActive = (href: string) => {
         if (href === '/dashboard') return pathname === '/dashboard' && !searchParams.get('status');
         return pathname === href;
     };
     const isStatusActive = (status: string) => pathname === '/dashboard' && searchParams.get('status') === status;
 
-    // Component classes
-    const linkBaseClass = "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 w-full";
-    const getLinkClass = (isActive: boolean) =>
-        `${linkBaseClass} ${isActive
-            ? 'bg-blue-50 text-blue-700 shadow-sm dark:bg-blue-500/10 dark:text-blue-400 font-semibold'
-            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/50 dark:hover:text-slate-100 font-medium'
-        } ${isCollapsed ? 'justify-center px-0' : ''}`;
-
-    const getIconClass = (isActive: boolean) =>
-        `flex-shrink-0 transition-colors ${isActive
-            ? 'text-blue-600 dark:text-blue-400'
-            : 'text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300'
-        }`;
+    const toggleTheme = () => {
+        setTheme(theme === 'dark' ? 'light' : 'dark');
+    };
 
     return (
         <>
-            {/* Mobile Floating Toggle */}
-            <button
-                onClick={toggleMobile}
-                className="lg:hidden fixed top-4 left-4 z-50 flex h-11 w-11 items-center justify-center rounded-xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/60 dark:border-slate-800 text-slate-700 dark:text-slate-300 shadow-lg shadow-slate-200/50 dark:shadow-slate-950/50 transition-active active:scale-95"
-            >
-                {isMobileOpen ? <X size={22} /> : <Menu size={22} />}
-            </button>
+            <SidebarStyles />
 
-            {/* Sidebar Container */}
             <aside
-                className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-slate-200/80 bg-white dark:border-slate-800/60 dark:bg-slate-950 shadow-[4px_0_24px_rgba(0,0,0,0.02)] dark:shadow-[4px_0_24px_rgba(0,0,0,0.2)] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:sticky lg:top-0 h-screen
-                ${isCollapsed ? 'w-[76px]' : 'w-64'} 
-                ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
+                className={`sb-shell fixed inset-y-0 left-0 z-40 flex flex-col h-screen transition-all duration-300
+                    ${isCollapsed ? 'w-[70px]' : 'w-[240px]'}
+                    ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+                    lg:sticky lg:top-0`}
             >
-                {/* Desktop Collapse Toggle */}
-                <button
-                    onClick={() => setIsCollapsed(!isCollapsed)}
-                    className="absolute -right-3.5 top-8 z-50 hidden h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 shadow-sm transition-all hover:text-slate-700 hover:shadow-md dark:border-slate-700 dark:bg-slate-900 dark:hover:text-slate-200 lg:flex"
-                >
-                    {isCollapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
-                </button>
-
-                {/* Top Section: User Profile & Brand */}
-                <div className="flex flex-col gap-6 p-4 pt-6">
-                    <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : 'justify-between'} rounded-xl p-1.5 transition-colors hover:bg-slate-50 dark:hover:bg-slate-900/50 cursor-pointer`}>
-                        <div className="flex items-center gap-3">
-                            <div className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-blue-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 border border-slate-200/60 dark:border-slate-700 shadow-sm">
-                                <Image src="/logo.png" alt="Logo" width={28} height={28} />
-                            </div>
-                            {!isCollapsed && (
-                                <div className="flex flex-col">
-                                    <span className="text-sm font-bold tracking-tight text-slate-950 dark:text-slate-50 leading-none">BCL Meetings</span>
-                                    <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-1">Booksmart</span>
-                                </div>
-                            )}
+                {/* Branding Section */}
+                <div className="flex items-center justify-between p-4 mb-2">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center font-bold text-[#003038]">
+                            <Image src="/logo.png" alt="Logo" width={40} height={40} />
                         </div>
-                        {!isCollapsed && <MoreVertical size={16} className="text-slate-400" />}
+                        {!isCollapsed && (
+                            <div className="whitespace-nowrap">
+                                <div className="sb-brand-name">BCL Meetings</div>
+                                <div className="sb-brand-sub">Booksmart</div>
+                            </div>
+                        )}
                     </div>
-
-                    {/* Primary Action Button */}
-                    <Link
-                        href="/schedule"
-                        onClick={() => setIsMobileOpen(false)}
-                        className={`flex items-center justify-center gap-2 rounded-xl bg-blue-600 text-sm font-semibold text-white shadow-md shadow-blue-600/20 transition-all hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-600/30 active:scale-[0.98] dark:bg-blue-600 dark:hover:bg-blue-500 ${isCollapsed ? 'h-11 w-11 p-0' : 'px-4 py-3'}`}
-                        title="New Meeting"
+                    <button
+                        onClick={() => setIsCollapsed(!isCollapsed)}
+                        className="hidden lg:block text-white/30 hover:text-white"
                     >
-                        <PlusCircle size={18} />
-                        {!isCollapsed && <span>New Meeting</span>}
-                    </Link>
+                        {isCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+                    </button>
                 </div>
 
-                {/* Scrollable Navigation */}
-                <div className="flex-1 overflow-y-auto px-4 py-2 space-y-8 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-
-                    {/* Main Nav */}
-                    <div>
-                        {!isCollapsed && <p className="mb-3 px-2 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Menu</p>}
-                        <nav className="space-y-1.5">
-                            {mainNav.map((item) => {
-                                const isActive = isNavActive(item.href);
-                                return (
-                                    <Link key={item.name} href={item.href} onClick={() => setIsMobileOpen(false)} title={item.name} className={getLinkClass(isActive)}>
-                                        <item.icon size={18} className={getIconClass(isActive)} />
-                                        {!isCollapsed && <span>{item.name}</span>}
-                                    </Link>
-                                );
-                            })}
-                        </nav>
+                {/* Search Bar */}
+                {!isCollapsed && (
+                    <div className="sb-search-box">
+                        <Search size={16} className="text-white/40" />
+                        <input type="text" placeholder="Search keyword" className="sb-search-input" />
                     </div>
+                )}
 
-                    {/* Status Views */}
-                    <div>
-                        {!isCollapsed && <p className="mb-3 px-2 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Views</p>}
-                        <nav className="space-y-1.5">
-                            {statusViews.map((item) => {
-                                const isActive = isStatusActive(item.status);
-                                return (
-                                    <Link key={item.status} href={item.href} onClick={() => setIsMobileOpen(false)} title={item.name} className={getLinkClass(isActive)}>
-                                        <item.icon size={18} className={getIconClass(isActive)} />
-                                        {!isCollapsed && <span>{item.name}</span>}
-                                    </Link>
-                                );
-                            })}
-                        </nav>
-                    </div>
-                </div>
-
-                {/* Bottom Section */}
-                <div className="mt-auto border-t border-slate-200/80 dark:border-slate-800/80 p-4 space-y-4">
-                    <nav className="space-y-1.5">
-                        {utilityNav.map((item) => (
-                            <Link key={item.name} href={item.href} onClick={() => setIsMobileOpen(false)} title={item.name} className={getLinkClass(isNavActive(item.href))}>
-                                <item.icon size={18} className={getIconClass(isNavActive(item.href))} />
-                                {!isCollapsed && <span>{item.name}</span>}
+                {/* Main Navigation */}
+                <div className="flex-1 overflow-y-auto scrollbar-hide">
+                    {!isCollapsed && <div className="sb-section-label">Navigate</div>}
+                    <nav className="space-y-1">
+                        {mainNav.map((item) => (
+                            <Link
+                                key={item.name}
+                                href={item.href}
+                                className={`sb-link ${isNavActive(item.href) ? 'sb-link-active' : ''}`}
+                            >
+                                <item.icon size={20} />
+                                {!isCollapsed && (
+                                    <>
+                                        <span className="flex-1">{item.name}</span>
+                                        {item.count && <span className="sb-count">{item.count}</span>}
+                                    </>
+                                )}
                             </Link>
                         ))}
                     </nav>
 
-                    {/* Theme Toggle */}
+                    {!isCollapsed && <div className="sb-section-label">Filter by status</div>}
+                    <nav className="space-y-1">
+                        {statusViews.map((item) => (
+                            <Link
+                                key={item.status}
+                                href={item.href}
+                                className={`sb-link ${isStatusActive(item.status) ? 'sb-link-active' : ''}`}
+                            >
+                                <item.icon size={20} />
+                                {!isCollapsed && (
+                                    <>
+                                        <span className="flex-1">{item.name}</span>
+                                        {item.count ? (
+                                            <span className="sb-count">{item.count}</span>
+                                        ) : (
+                                            <span className="sb-status-dot" style={{ backgroundColor: item.color }} />
+                                        )}
+                                    </>
+                                )}
+                            </Link>
+                        ))}
+                    </nav>
+
+                    {/* Create Meeting Button (Replacement for Upgrade Card) */}
+                    <button className={`sb-create-btn ${isCollapsed ? 'mx-auto w-10 h-10 p-0' : 'w-[calc(100%-32px)]'}`}>
+                        <PlusCircle size={isCollapsed ? 20 : 18} />
+                        {!isCollapsed && <span>Create Meeting</span>}
+                    </button>
+                </div>
+
+                {/* Bottom Utilities */}
+                <div className="p-4 border-t border-white/5 space-y-1">
+                    <Link href="/settings" className="sb-link">
+                        <Settings size={20} />
+                        {!isCollapsed && <span>Settings</span>}
+                    </Link>
+                    <Link href="/help" className="sb-link">
+                        <HelpCircle size={20} />
+                        {!isCollapsed && <span>Support</span>}
+                    </Link>
+
+                    {/* Single Mode Toggle */}
                     {mounted && (
-                        <div className={`flex items-center gap-1 rounded-xl border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/30 p-1 shadow-inner ${isCollapsed ? 'flex-col' : ''}`}>
-                            {[
-                                { value: 'light', icon: Sun },
-                                { value: 'system', icon: Monitor },
-                                { value: 'dark', icon: Moon }
-                            ].map(({ value, icon: Icon }) => (
-                                <button
-                                    key={value}
-                                    onClick={() => setTheme(value)}
-                                    title={`${value.charAt(0).toUpperCase() + value.slice(1)} Mode`}
-                                    className={`flex w-full items-center justify-center rounded-lg p-2 transition-all 
-                                    ${theme === value
-                                            ? 'bg-white text-blue-600 shadow-sm dark:bg-slate-800 dark:text-blue-400 border border-slate-200/50 dark:border-slate-700/50'
-                                            : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 border border-transparent'}`}
-                                >
-                                    <Icon size={16} />
-                                </button>
-                            ))}
-                        </div>
+                        <button onClick={toggleTheme} className="sb-link w-full text-left">
+                            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+                            {!isCollapsed && <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>}
+                        </button>
                     )}
                 </div>
             </aside>
 
-            {/* Mobile Backdrop */}
+            {/* Mobile backdrop */}
             {isMobileOpen && (
                 <div
-                    className="fixed inset-0 z-30 bg-slate-900/20 backdrop-blur-sm lg:hidden transition-opacity"
+                    className="fixed inset-0 bg-black/60 z-30 lg:hidden backdrop-blur-sm"
                     onClick={() => setIsMobileOpen(false)}
                 />
             )}

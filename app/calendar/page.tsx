@@ -1,16 +1,32 @@
 // @ts-nocheck
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { format, startOfMonth, startOfWeek, isSameDay, parseISO, addDays, addMonths, addWeeks } from 'date-fns';
-import { ChevronLeft, ChevronRight, Clock, Trash2, Loader2, Video, MapPin, Phone, Mail, PlusCircle, Search, SlidersHorizontal, X, CalendarDays } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  format, startOfMonth, startOfWeek, isSameDay, parseISO,
+  addDays, addMonths, addWeeks, isToday as dateFnsIsToday
+} from 'date-fns';
+import {
+  ChevronLeft, ChevronRight, Trash2, Loader2, Video,
+  MapPin, Phone, Mail, PlusCircle, X, Download,
+  CalendarDays, Calendar, Users, Clock, AlertCircle,
+  CheckCircle2, XCircle, Sparkles
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
+} from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 import { cn } from "@/lib/utils";
 import supabase from '@/utils/supabaseClient';
+import {
+  getStatusGradient,
+  getStatusColor,
+  getStatusBadgeClasses
+} from '@/utils/meetingStatusColors';
 
 // ── TYPES ────────────────────────────────────────────────────────
 interface Meeting {
@@ -35,92 +51,726 @@ interface Meeting {
 
 type ViewType = 'month' | 'week' | 'day';
 
-// ── STATUS COLOR SYSTEM ──────────────────────────────────────────
-const STATUS_STYLES: Record<string, { pill: string; dot: string; event: string }> = {
-  confirmed: { pill: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20', dot: 'bg-emerald-500', event: 'bg-emerald-50 text-emerald-800 border-l-[3px] border-emerald-500 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/50' },
-  scheduled: { pill: 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-white/10 dark:text-slate-300 dark:border-white/10', dot: 'bg-slate-500 dark:bg-slate-400', event: 'bg-slate-50 text-slate-800 border-l-[3px] border-slate-400 dark:bg-white/5 dark:text-slate-300 dark:border-slate-500' },
-  pending: { pill: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20', dot: 'bg-amber-400', event: 'bg-amber-50 text-amber-800 border-l-[3px] border-amber-400 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/50' },
-  completed: { pill: 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-white/5 dark:text-slate-400 dark:border-white/10', dot: 'bg-slate-400', event: 'bg-slate-50/50 text-slate-500 border-l-[3px] border-slate-300 dark:bg-white/5 dark:text-slate-400 dark:border-slate-700' },
-  cancelled: { pill: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20', dot: 'bg-red-500', event: 'bg-red-50 text-red-800 border-l-[3px] border-red-500 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/50' },
-  virtual: { pill: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20', dot: 'bg-blue-500', event: 'bg-blue-50 text-blue-800 border-l-[3px] border-blue-400 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/50' },
-};
+// ── INJECTED STYLES — matches sidebar design language exactly ─────
+const CalendarStyles = () => (
+  <style>{`
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-const getStatusStyle = (status?: string) => {
-  const key = (status || 'scheduled').toLowerCase();
-  return STATUS_STYLES[key] ?? STATUS_STYLES.scheduled;
-};
+    .cal-shell {
+      font-family: 'Inter', sans-serif;
+      background-color: #f0f4f5;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
 
-const getMeetingEventStyle = (m: Meeting) => {
-  if (m.status) {
-    const s = getStatusStyle(m.status);
-    if (s) return s.event;
-  }
-  return m.meeting_type === 'virtual'
-    ? STATUS_STYLES.virtual.event
-    : STATUS_STYLES.scheduled.event;
-};
+    /* ── TOPBAR ── */
+    .cal-topbar {
+      background: #ffffff;
+      border-bottom: 1px solid #eef2f3;
+      padding: 0 24px;
+      height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .cal-topbar-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #003038;
+      letter-spacing: -0.01em;
+    }
+    .cal-topbar-sub {
+      font-size: 12px;
+      color: #64868c;
+      margin-top: 1px;
+    }
+
+    /* View switcher — mirrors sb-link style */
+    .cal-view-pill {
+      display: flex;
+      background: #f0f4f5;
+      border-radius: 8px;
+      padding: 3px;
+      gap: 2px;
+    }
+    .cal-view-btn {
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      color: #64868c;
+      background: transparent;
+      text-transform: capitalize;
+      letter-spacing: 0.01em;
+    }
+    .cal-view-btn:hover { color: #003038; background: rgba(0,48,56,0.06); }
+    .cal-view-btn.active {
+      background: linear-gradient(135deg, #00d1d1 0%, #00a3a3 100%);
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(0,209,209,0.25);
+    }
+
+    .cal-export-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 8px;
+      border: 1px solid #e2e8e9;
+      background: #ffffff;
+      color: #003038;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .cal-export-btn:hover { background: #f0f4f5; border-color: #c8d6d8; }
+
+    .cal-add-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      border-radius: 8px;
+      border: none;
+      background: linear-gradient(135deg, #00d1d1 0%, #00a3a3 100%);
+      color: #ffffff;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(0,209,209,0.3);
+      transition: all 0.2s ease;
+    }
+    .cal-add-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,209,209,0.35); }
+
+    /* ── BODY LAYOUT ── */
+    .cal-body {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      padding: 16px;
+      gap: 14px;
+    }
+
+    /* ── LEFT SIDEBAR (mini calendar + today list) ── */
+    .cal-aside {
+      width: 232px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .cal-panel {
+      background: #ffffff;
+      border-radius: 12px;
+      border: 1px solid #eef2f3;
+      overflow: hidden;
+    }
+
+    .cal-panel-header {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #8ca4a8;
+      padding: 14px 16px 8px 16px;
+    }
+
+    /* Mini calendar */
+    .mini-cal-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 14px 10px;
+    }
+    .mini-cal-month { font-size: 13px; font-weight: 700; color: #003038; }
+    .mini-cal-nav-btn {
+      width: 26px; height: 26px;
+      border-radius: 6px;
+      border: 1px solid #eef2f3;
+      background: #f7fafa;
+      color: #64868c;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .mini-cal-nav-btn:hover { background: #003038; color: #fff; border-color: #003038; }
+
+    .mini-cal-grid { padding: 0 10px 12px; }
+    .mini-cal-dow {
+      display: grid; grid-template-columns: repeat(7,1fr);
+      margin-bottom: 4px;
+    }
+    .mini-cal-dow span {
+      text-align: center; font-size: 9px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.04em; color: #8ca4a8;
+      padding: 4px 0;
+    }
+    .mini-cal-days { display: grid; grid-template-columns: repeat(7,1fr); gap: 1px; }
+    .mini-day {
+      aspect-ratio: 1;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 500;
+      border-radius: 6px;
+      cursor: pointer;
+      color: #003038;
+      transition: all 0.15s ease;
+      position: relative;
+    }
+    .mini-day:hover { background: #f0f4f5; }
+    .mini-day.other-month { color: #c8d6d8; }
+    .mini-day.today {
+      background: rgba(0,209,209,0.1);
+      color: #007a7a;
+      font-weight: 700;
+    }
+    .mini-day.selected {
+      background: linear-gradient(135deg, #003038, #005060);
+      color: #ffffff;
+      font-weight: 700;
+      box-shadow: 0 2px 8px rgba(0,48,56,0.25);
+    }
+    .mini-day.has-meeting::after {
+      content: '';
+      position: absolute;
+      bottom: 2px;
+      left: 50%; transform: translateX(-50%);
+      width: 4px; height: 4px;
+      border-radius: 50%;
+      background: #00d1d1;
+    }
+    .mini-day.selected::after { background: rgba(255,255,255,0.6); }
+
+    /* Today list */
+    .today-item {
+      display: flex; align-items: flex-start;
+      gap: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+      border-bottom: 1px solid #f5f8f9;
+    }
+    .today-item:last-child { border-bottom: none; }
+    .today-item:hover { background: #f7fafa; }
+    .today-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+    .today-name { font-size: 12px; font-weight: 600; color: #003038; }
+    .today-meta { font-size: 11px; color: #8ca4a8; margin-top: 2px; }
+
+    /* ── MAIN CALENDAR AREA ── */
+    .cal-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #ffffff;
+      border-radius: 12px;
+      border: 1px solid #eef2f3;
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    /* Calendar nav bar */
+    .cal-nav {
+      height: 52px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 18px;
+      border-bottom: 1px solid #eef2f3;
+      flex-shrink: 0;
+      background: #ffffff;
+    }
+    .cal-nav-label {
+      font-size: 14px; font-weight: 700; color: #003038;
+      min-width: 200px; text-align: center;
+      letter-spacing: -0.01em;
+    }
+    .cal-nav-btn {
+      width: 30px; height: 30px;
+      border-radius: 8px; border: 1px solid #eef2f3;
+      background: #f7fafa; color: #64868c;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all 0.15s ease;
+    }
+    .cal-nav-btn:hover { background: #003038; color: #fff; border-color: #003038; }
+    .cal-today-btn {
+      padding: 5px 14px; font-size: 12px; font-weight: 600;
+      border-radius: 8px; border: 1px solid #eef2f3;
+      background: #f7fafa; color: #003038; cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .cal-today-btn:hover { background: rgba(0,209,209,0.08); border-color: #00d1d1; color: #007a7a; }
+
+    /* ── MONTH VIEW ── */
+    .month-dow-header {
+      display: grid; grid-template-columns: repeat(7,1fr);
+      background: #f7fafa;
+      border-bottom: 1px solid #eef2f3;
+    }
+    .month-dow-cell {
+      text-align: center; font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      color: #8ca4a8; padding: 10px 0;
+    }
+    .month-grid {
+      display: grid; grid-template-columns: repeat(7,1fr);
+      grid-template-rows: repeat(6,1fr);
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .month-cell {
+      border-right: 1px solid #f0f4f5;
+      border-bottom: 1px solid #f0f4f5;
+      padding: 6px;
+      cursor: pointer;
+      min-height: 0;
+      transition: background 0.15s ease;
+      position: relative;
+    }
+    .month-cell:hover { background: #f7fafa; }
+    .month-cell.other-month { background: #fafcfc; opacity: 0.55; }
+    .month-cell.selected { background: rgba(0,209,209,0.04); }
+    .month-day-num {
+      width: 24px; height: 24px;
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 600; color: #64868c;
+      margin-bottom: 4px;
+    }
+    .month-day-num.today {
+      background: linear-gradient(135deg, #003038, #005060);
+      color: #ffffff;
+      box-shadow: 0 2px 6px rgba(0,48,56,0.2);
+    }
+    .month-event {
+      display: flex; align-items: center;
+      padding: 2px 6px;
+      border-radius: 5px;
+      font-size: 10px; font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 2px;
+      cursor: pointer;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      transition: opacity 0.15s;
+    }
+    .month-event:hover { opacity: 0.85; }
+
+    /* ── WEEK VIEW ── */
+    .week-layout { display: flex; flex: 1; overflow: hidden; }
+    .week-time-col {
+      width: 52px; flex-shrink: 0;
+      border-right: 1px solid #f0f4f5;
+      background: #ffffff;
+    }
+    .week-time-header { height: 56px; border-bottom: 1px solid #eef2f3; }
+    .week-time-slot {
+      height: 72px; border-bottom: 1px solid #f5f8f9;
+      position: relative;
+    }
+    .week-time-label {
+      position: absolute; top: -7px; right: 8px;
+      font-size: 9px; font-weight: 700; color: #b0c4c8;
+      text-transform: uppercase; letter-spacing: 0.03em;
+    }
+    .week-days-scroll { flex: 1; overflow-x: auto; display: flex; }
+    .week-day-col {
+      flex: 1; min-width: 100px;
+      border-right: 1px solid #f0f4f5;
+      position: relative;
+    }
+    .week-day-col:last-child { border-right: none; }
+    .week-day-header {
+      height: 56px; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      border-bottom: 1px solid #eef2f3;
+      position: sticky; top: 0; z-index: 10; background: #ffffff;
+      transition: background 0.2s;
+    }
+    .week-day-header.today-col { background: rgba(0,209,209,0.04); }
+    .week-dow { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #8ca4a8; }
+    .week-date {
+      width: 28px; height: 28px; margin-top: 3px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: #003038;
+    }
+    .week-date.today {
+      background: linear-gradient(135deg, #003038, #00505e);
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(0,48,56,0.25);
+    }
+    .week-grid-row {
+      height: 72px; border-bottom: 1px solid #f5f8f9;
+    }
+    .week-event {
+      position: absolute; left: 4px; right: 4px;
+      border-radius: 8px;
+      padding: 5px 8px;
+      cursor: pointer;
+      z-index: 5;
+      overflow: hidden;
+      transition: all 0.2s ease;
+      color: #ffffff;
+    }
+    .week-event:hover { transform: scale(1.02); z-index: 10; box-shadow: 0 6px 20px rgba(0,0,0,0.18); }
+    .week-event-time { font-size: 9px; font-weight: 700; opacity: 0.85; }
+    .week-event-name { font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .week-event-co { font-size: 10px; opacity: 0.75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* ── DAY VIEW ── */
+    .day-layout { display: flex; flex: 1; overflow: hidden; }
+    .day-time-col {
+      width: 52px; flex-shrink: 0;
+      border-right: 1px solid #f0f4f5;
+      background: #ffffff;
+    }
+    .day-time-header { height: 56px; border-bottom: 1px solid #eef2f3; }
+    .day-content { flex: 1; overflow-y: auto; position: relative; }
+    .day-header-strip {
+      height: 56px; display: flex; align-items: center;
+      padding: 0 20px; gap: 14px;
+      border-bottom: 1px solid #eef2f3;
+      position: sticky; top: 0; z-index: 10; background: #ffffff;
+    }
+    .day-big-num {
+      width: 38px; height: 38px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px; font-weight: 800;
+      flex-shrink: 0;
+    }
+    .day-big-num.today {
+      background: linear-gradient(135deg, #003038, #00505e);
+      color: #fff; box-shadow: 0 3px 10px rgba(0,48,56,0.25);
+    }
+    .day-big-num.not-today { background: #f0f4f5; color: #003038; }
+    .day-grid-row {
+      height: 96px; border-bottom: 1px solid #f5f8f9;
+    }
+    .day-event {
+      position: absolute; left: 16px; right: 16px;
+      border-radius: 10px; overflow: hidden;
+      cursor: pointer;
+      display: flex;
+      transition: all 0.2s ease;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .day-event:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.12); transform: translateX(2px); }
+    .day-event-bar { width: 4px; flex-shrink: 0; }
+    .day-event-body {
+      flex: 1; padding: 12px 14px;
+      display: flex; align-items: center; gap: 12px;
+      background: #ffffff;
+      border: 1px solid #eef2f3;
+      border-left: none;
+      border-radius: 0 10px 10px 0;
+    }
+    .day-event-avatar {
+      width: 36px; height: 36px; flex-shrink: 0;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; color: #ffffff;
+    }
+    .day-event-info { flex: 1; min-width: 0; }
+    .day-event-name { font-size: 13px; font-weight: 700; color: #003038; }
+    .day-event-meta { font-size: 11px; color: #8ca4a8; margin-top: 2px; }
+    .day-event-pill {
+      padding: 3px 10px; border-radius: 5px;
+      font-size: 10px; font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    /* ── RIGHT DETAIL PANEL ── */
+    .cal-detail {
+      width: 268px; flex-shrink: 0;
+      background: #ffffff;
+      border-radius: 12px;
+      border: 1px solid #eef2f3;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .cal-detail-empty {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 24px; text-align: center;
+    }
+    .cal-detail-icon-wrap {
+      width: 52px; height: 52px; border-radius: 14px;
+      background: #f0f4f5;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 12px;
+    }
+    .cal-detail-empty-title { font-size: 13px; font-weight: 700; color: #003038; }
+    .cal-detail-empty-sub { font-size: 12px; color: #8ca4a8; margin-top: 4px; line-height: 1.5; }
+
+    .detail-color-header {
+      padding: 18px 16px 14px;
+      position: relative; overflow: hidden;
+    }
+    .detail-header-shine {
+      position: absolute; top: -20px; right: -20px;
+      width: 80px; height: 80px; border-radius: 50%;
+      background: rgba(255,255,255,0.12);
+    }
+    .detail-status-pill {
+      display: inline-flex; align-items: center;
+      padding: 3px 10px;
+      border-radius: 5px;
+      font-size: 10px; font-weight: 700;
+      letter-spacing: 0.04em; text-transform: uppercase;
+      background: rgba(255,255,255,0.2);
+      color: #ffffff;
+      margin-bottom: 12px;
+    }
+    .detail-close {
+      position: absolute; top: 12px; right: 12px;
+      width: 26px; height: 26px; border-radius: 6px;
+      background: rgba(255,255,255,0.15);
+      border: none; cursor: pointer; color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s;
+    }
+    .detail-close:hover { background: rgba(255,255,255,0.25); }
+    .detail-avatar {
+      width: 42px; height: 42px; border-radius: 10px;
+      background: rgba(255,255,255,0.25);
+      border: 1.5px solid rgba(255,255,255,0.35);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 800; color: #ffffff;
+      margin-bottom: 8px;
+    }
+    .detail-name { font-size: 15px; font-weight: 800; color: #ffffff; letter-spacing: -0.01em; }
+    .detail-company { font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 2px; }
+
+    .detail-body { flex: 1; overflow-y: auto; padding: 14px; }
+    .detail-section-label {
+      font-size: 9px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.07em; color: #8ca4a8; margin-bottom: 8px; margin-top: 14px;
+    }
+    .detail-section-label:first-child { margin-top: 0; }
+    .detail-chip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .detail-chip {
+      background: #f7fafa; border-radius: 8px;
+      border: 1px solid #eef2f3;
+      padding: 10px 12px;
+    }
+    .detail-chip-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #8ca4a8; margin-bottom: 3px; }
+    .detail-chip-value { font-size: 12px; font-weight: 700; color: #003038; }
+
+    .detail-type-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px;
+      background: #f7fafa;
+      border-radius: 8px; border: 1px solid #eef2f3;
+    }
+    .detail-type-icon {
+      width: 30px; height: 30px; border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .detail-agenda {
+      font-size: 12px; color: #64868c; line-height: 1.6;
+      background: #f7fafa; border-radius: 8px;
+      border: 1px solid #eef2f3; padding: 10px 12px;
+    }
+
+    .detail-attendee {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px;
+      background: #f7fafa; border-radius: 8px;
+      border: 1px solid #eef2f3;
+    }
+    .detail-att-avatar {
+      width: 30px; height: 30px; border-radius: 7px;
+      background: linear-gradient(135deg, #003038, #005060);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 700; color: #fff; flex-shrink: 0;
+    }
+
+    .detail-contact-link {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 12px;
+      border-radius: 8px; border: 1px solid #eef2f3;
+      text-decoration: none; color: inherit;
+      transition: all 0.15s ease;
+      margin-bottom: 6px;
+    }
+    .detail-contact-link:last-child { margin-bottom: 0; }
+    .detail-contact-link:hover { background: #f7fafa; border-color: #c8d6d8; }
+    .detail-contact-icon {
+      width: 28px; height: 28px; border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .detail-contact-text { font-size: 11px; font-weight: 500; color: #003038; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* Detail footer */
+    .detail-footer {
+      padding: 12px 14px;
+      border-top: 1px solid #eef2f3;
+      display: flex; gap: 8px;
+    }
+    .detail-del-btn {
+      width: 36px; height: 36px; border-radius: 8px;
+      border: 1px solid #ffe0e0; background: #fff5f5;
+      color: #e05252; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all 0.15s ease; flex-shrink: 0;
+    }
+    .detail-del-btn:hover { background: #ffe0e0; }
+    .detail-join-btn {
+      flex: 1; height: 36px; border-radius: 8px; border: none;
+      background: linear-gradient(135deg, #00d1d1 0%, #00a3a3 100%);
+      color: #fff; font-size: 12px; font-weight: 700;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+      box-shadow: 0 3px 10px rgba(0,209,209,0.25);
+      transition: all 0.2s ease;
+    }
+    .detail-join-btn:hover { box-shadow: 0 5px 15px rgba(0,209,209,0.35); transform: translateY(-1px); }
+    .detail-edit-btn {
+      flex: 1; height: 36px; border-radius: 8px;
+      border: 1px solid #eef2f3; background: #f7fafa;
+      color: #003038; font-size: 12px; font-weight: 700;
+      cursor: pointer; transition: all 0.15s ease;
+    }
+    .detail-edit-btn:hover { background: #eef2f3; }
+
+    /* Status pill styles */
+    .pill-completed { background: #dcfce7; color: #166534; }
+    .pill-active    { background: #ccfbf1; color: #065f46; }
+    .pill-virtual   { background: #ede9fe; color: #5b21b6; }
+    .pill-scheduled { background: #dbeafe; color: #1e40af; }
+    .pill-cancelled { background: #fee2e2; color: #991b1b; }
+    .pill-pending   { background: #fef3c7; color: #92400e; }
+    .pill-physical  { background: #e0f2fe; color: #0c4a6e; }
+    .pill-default   { background: #f1f5f9; color: #334155; }
+
+    /* Scrollbar */
+    .cal-main ::-webkit-scrollbar,
+    .cal-detail ::-webkit-scrollbar { width: 4px; height: 4px; }
+    .cal-main ::-webkit-scrollbar-track,
+    .cal-detail ::-webkit-scrollbar-track { background: transparent; }
+    .cal-main ::-webkit-scrollbar-thumb,
+    .cal-detail ::-webkit-scrollbar-thumb { background: #d0dfe1; border-radius: 4px; }
+  `}</style>
+);
+
+// ── COLOR HELPERS ───────────────────────────────────────────────────
+const getEventGradient = (m: Meeting) => getStatusGradient(m.status || m.meeting_type);
+const getEventColor = (m: Meeting) => getStatusColor(m.status || m.meeting_type);
+const getLabel = (m: Meeting) => m.status || m.meeting_type || 'Meeting';
+const initials = (n: string) => n?.split(' ').map(c => c[0]).join('').slice(0, 2).toUpperCase() ?? '??';
 
 // ── CONSTANTS ────────────────────────────────────────────────────
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const TIME_SLOTS = Array.from({ length: 14 }, (_, i) => `${(i + 7).toString().padStart(2, '0')}:00`);
 
-// ── COMPONENT ────────────────────────────────────────────────────
+// ── MINI CALENDAR ────────────────────────────────────────────────
+function MiniCalendar({ currentDate, selectedDate, onSelect, daysWithMeetings }: {
+  currentDate: Date; selectedDate: Date;
+  onSelect: (d: Date) => void; daysWithMeetings: Date[];
+}) {
+  const [miniDate, setMiniDate] = useState(currentDate);
+  const ms = startOfMonth(miniDate);
+  const cs = startOfWeek(ms, { weekStartsOn: 0 });
+  const days = Array.from({ length: 42 }, (_, i) => addDays(cs, i));
+
+  return (
+    <>
+      <div className="mini-cal-nav">
+        <button className="mini-cal-nav-btn" onClick={() => setMiniDate(addMonths(miniDate, -1))}>
+          <ChevronLeft size={12} />
+        </button>
+        <span className="mini-cal-month">{format(miniDate, 'MMMM yyyy')}</span>
+        <button className="mini-cal-nav-btn" onClick={() => setMiniDate(addMonths(miniDate, 1))}>
+          <ChevronRight size={12} />
+        </button>
+      </div>
+      <div className="mini-cal-grid">
+        <div className="mini-cal-dow">
+          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => <span key={i}>{d}</span>)}
+        </div>
+        <div className="mini-cal-days">
+          {days.map((day, i) => {
+            const isOther = day.getMonth() !== miniDate.getMonth();
+            const isSel = isSameDay(day, selectedDate);
+            const isNow = dateFnsIsToday(day);
+            const hasMtg = !isOther && daysWithMeetings.some(d => isSameDay(d, day));
+            return (
+              <button key={i} onClick={() => !isOther && onSelect(day)}
+                className={cn('mini-day',
+                  isOther && 'other-month',
+                  isSel && 'selected',
+                  !isSel && isNow && 'today',
+                  hasMtg && 'has-meeting',
+                )}>
+                {format(day, 'd')}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── EXPORT HELPER ────────────────────────────────────────────────
+function exportMeetingsCSV(meetings: Meeting[]) {
+  const headers = [
+    'Date', 'Start Time', 'End Time', 'Client Name', 'Company',
+    'Email', 'Mobile', 'Type', 'Venue Area', 'Venue',
+    'Agenda', 'BCL Attendee', 'Status'
+  ];
+  const rows = meetings.map(m => [
+    m.meeting_date, m.meeting_start_time, m.meeting_end_time,
+    m.client_name, m.client_company, m.client_email ?? '',
+    m.client_mobile ?? '', m.meeting_type, m.meeting_venue_area,
+    m.meeting_venue ?? '', m.meeting_agenda, m.bcl_attendee, m.status ?? ''
+  ]);
+  const csv = [headers, ...rows]
+    .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
+    .join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `meetings-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── MAIN COMPONENT ───────────────────────────────────────────────
 const CalendarView = () => {
   const { toast } = useToast();
+  const router = useRouter();
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [allMeetings, setAllMeetings] = useState<Meeting[]>([]);
-  const [meetingsForSelectedDate, setMeetingsForSelectedDate] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [deletingMeeting, setDeletingMeeting] = useState<Meeting | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [view, setView] = useState<ViewType>('month');
-  const [filter, setFilter] = useState<'mine' | 'all'>('mine');
-
-  const safeFormatDate = (dateStr: string, fmt: string) => {
-    try { return format(parseISO(dateStr), fmt); } catch { return dateStr; }
-  };
-
-  const handlePrevious = () => {
-    if (view === 'month') setCurrentDate(addMonths(currentDate, -1));
-    else if (view === 'week') setCurrentDate(addWeeks(currentDate, -1));
-    else setCurrentDate(addDays(currentDate, -1));
-  };
-
-  const handleNext = () => {
-    if (view === 'month') setCurrentDate(addMonths(currentDate, 1));
-    else if (view === 'week') setCurrentDate(addWeeks(currentDate, 1));
-    else setCurrentDate(addDays(currentDate, 1));
-  };
-
-  const filterAndSortMeetingsForSelectedDate = useCallback((meetings: Meeting[], date: Date) => {
-    const dateString = format(date, 'yyyy-MM-dd');
-    const filtered = meetings
-      .filter(m => m.meeting_date === dateString)
-      .sort((a, b) => a.meeting_start_time.localeCompare(b.meeting_start_time));
-    setMeetingsForSelectedDate(filtered);
-  }, []);
+  const [view, setView] = useState<ViewType>('week');
 
   const fetchMeetings = useCallback(async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('bcl_meetings_meetings')
-        .select('*')
+        .from('bcl_meetings_meetings').select('*')
         .order('meeting_date', { ascending: true })
         .order('meeting_start_time', { ascending: true });
       if (error) throw error;
-      if (data) {
-        setAllMeetings(data as Meeting[]);
-        filterAndSortMeetingsForSelectedDate(data as Meeting[], selectedDate);
-      }
-    } catch (error: any) {
-      toast({ title: "Error fetching meetings", description: error.message, variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  }, [toast, selectedDate, filterAndSortMeetingsForSelectedDate]);
+      if (data) setAllMeetings(data as Meeting[]);
+    } catch (e: any) {
+      toast({ title: 'Error fetching meetings', description: e.message, variant: 'destructive' });
+    } finally { setLoading(false); }
+  }, [toast]);
 
   const deleteMeeting = async () => {
     if (!deletingMeeting) return;
@@ -129,170 +779,132 @@ const CalendarView = () => {
       const { error } = await supabase.from('bcl_meetings_meetings').delete().eq('id_main', deletingMeeting.id_main);
       if (error) throw error;
       setAllMeetings(prev => prev.filter(m => m.id_main !== deletingMeeting.id_main));
-      setMeetingsForSelectedDate(prev => prev.filter(m => m.id_main !== deletingMeeting.id_main));
-      setSelectedMeeting(null);
-      setDeletingMeeting(null);
-      toast({ title: "Meeting Deleted", description: `Booking for ${deletingMeeting.client_name} removed.` });
-    } catch (error: any) {
-      toast({ title: "Error Deleting", description: error.message, variant: "destructive" });
-    } finally {
-      setIsDeleting(false);
-    }
+      setSelectedMeeting(null); setDeletingMeeting(null);
+      toast({ title: 'Meeting Deleted', description: `Booking for ${deletingMeeting.client_name} removed.` });
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally { setIsDeleting(false); }
   };
-
-  const todayMeetings = useMemo(() => {
-    const today = format(new Date(), 'yyyy-MM-dd');
-    return allMeetings.filter(m => m.meeting_date === today);
-  }, [allMeetings]);
-
-  const calendarDays = useMemo(() => {
-    const monthStart = startOfMonth(currentDate);
-    const calStart = startOfWeek(monthStart, { weekStartsOn: 0 });
-    return Array.from({ length: 42 }, (_, i) => addDays(calStart, i));
-  }, [currentDate]);
-
-  const weekDays = useMemo(() => {
-    const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
-    return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  }, [currentDate]);
 
   useEffect(() => {
     fetchMeetings();
-    const channel = supabase
-      .channel('meeting-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bcl_meetings_meetings' }, () => fetchMeetings())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    const ch = supabase.channel('mtg').on('postgres_changes', { event: '*', schema: 'public', table: 'bcl_meetings_meetings' }, fetchMeetings).subscribe();
+    return () => { supabase.removeChannel(ch); };
   }, [fetchMeetings]);
 
-  useEffect(() => {
-    if (allMeetings.length > 0) filterAndSortMeetingsForSelectedDate(allMeetings, selectedDate);
-    else setMeetingsForSelectedDate([]);
-  }, [selectedDate, allMeetings, filterAndSortMeetingsForSelectedDate]);
+  const nav = (dir: 1 | -1) => {
+    if (view === 'month') setCurrentDate(addMonths(currentDate, dir));
+    else if (view === 'week') setCurrentDate(addWeeks(currentDate, dir));
+    else setCurrentDate(addDays(currentDate, dir));
+  };
+
+  const daysWithMeetings = useMemo(() =>
+    Array.from(new Set(allMeetings.map(m => m.meeting_date))).map(d => parseISO(d)), [allMeetings]);
+
+  const calendarDays = useMemo(() => {
+    const ms = startOfMonth(currentDate);
+    const cs = startOfWeek(ms, { weekStartsOn: 0 });
+    return Array.from({ length: 42 }, (_, i) => addDays(cs, i));
+  }, [currentDate]);
+
+  const weekDays = useMemo(() => {
+    const ws = startOfWeek(currentDate, { weekStartsOn: 0 });
+    return Array.from({ length: 7 }, (_, i) => addDays(ws, i));
+  }, [currentDate]);
+
+  const todayMeetings = useMemo(() => {
+    const t = format(new Date(), 'yyyy-MM-dd');
+    return allMeetings.filter(m => m.meeting_date === t);
+  }, [allMeetings]);
+
+  const headerLabel = useMemo(() => {
+    if (view === 'week') {
+      const ws = startOfWeek(currentDate, { weekStartsOn: 0 });
+      const we = addDays(ws, 6);
+      return ws.getMonth() === we.getMonth()
+        ? `${format(ws, 'MMM d')} – ${format(we, 'd, yyyy')}`
+        : `${format(ws, 'MMM d')} – ${format(we, 'MMM d, yyyy')}`;
+    }
+    if (view === 'day') return format(currentDate, 'EEEE, MMMM d yyyy');
+    return format(currentDate, 'MMMM yyyy');
+  }, [currentDate, view]);
 
   // ── MONTH VIEW ──────────────────────────────────────────────────
   const renderMonthView = () => (
-    <div className="grid grid-cols-7 h-full" style={{ gridAutoRows: 'minmax(130px, 1fr)' }}>
-      {calendarDays.map((day, idx) => {
-        const dateStr = format(day, 'yyyy-MM-dd');
-        const dayMeetings = allMeetings.filter(m => m.meeting_date === dateStr);
-        const isCurrentMonth = day.getMonth() === currentDate.getMonth();
-        const isToday = isSameDay(day, new Date());
-        const isSelected = isSameDay(day, selectedDate);
-        const isWeekend = idx % 7 === 0 || idx % 7 === 6;
-
-        return (
-          <div
-            key={idx}
-            onClick={() => setSelectedDate(day)}
-            className={cn(
-              "border-r border-b border-slate-200/80 dark:border-white/10 p-2 sm:p-3 cursor-pointer transition-colors group relative",
-              idx % 7 === 6 && "border-r-0",
-              !isCurrentMonth && "bg-slate-50/50 dark:bg-white/[0.02]",
-              isWeekend && isCurrentMonth && "bg-slate-50/30 dark:bg-white/[0.01]",
-              isSelected && !isToday && "bg-blue-50/50 dark:bg-blue-500/5 ring-1 ring-inset ring-blue-200 dark:ring-blue-500/20",
-              isToday && "bg-slate-100/80 dark:bg-white/10",
-              "hover:bg-slate-50 dark:hover:bg-white/5"
-            )}
-          >
-            {/* Date number */}
-            <div className="flex items-start justify-between mb-2">
-              <span className={cn(
-                "h-7 w-7 flex items-center justify-center rounded-full text-xs font-semibold transition-colors",
-                isToday && "bg-blue-600 text-white shadow-md shadow-blue-600/20",
-                !isToday && isCurrentMonth && !isWeekend && "text-slate-900 dark:text-slate-100 group-hover:bg-slate-200/50 dark:group-hover:bg-white/10",
-                !isToday && isCurrentMonth && isWeekend && "text-slate-500 dark:text-slate-400 group-hover:bg-slate-200/50 dark:group-hover:bg-white/10",
-                !isCurrentMonth && "text-slate-300 dark:text-slate-600"
-              )}>
-                {format(day, 'd')}
-              </span>
-              {dayMeetings.length > 0 && isCurrentMonth && (
-                <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 mt-1">{dayMeetings.length}</span>
-              )}
-            </div>
-
-            {/* Meetings */}
-            <div className="space-y-1">
-              {dayMeetings.slice(0, 3).map(m => (
-                <div
-                  key={m.id_main}
-                  onClick={(e) => { e.stopPropagation(); setSelectedMeeting(m); }}
-                  className={cn(
-                    "flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-medium cursor-pointer hover:opacity-80 transition-opacity truncate shadow-sm",
-                    getMeetingEventStyle(m)
-                  )}
-                >
-                  <span className="font-semibold shrink-0 opacity-80">{m.meeting_start_time}</span>
-                  <span className="truncate">{m.client_name}</span>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div className="month-dow-header">
+        {DAY_NAMES.map(d => <div key={d} className="month-dow-cell">{d}</div>)}
+      </div>
+      <div className="month-grid" style={{ flex: 1 }}>
+        {calendarDays.map((day, idx) => {
+          const ds = format(day, 'yyyy-MM-dd');
+          const dm = allMeetings.filter(m => m.meeting_date === ds);
+          const isCur = day.getMonth() === currentDate.getMonth();
+          const isSel = isSameDay(day, selectedDate);
+          const isNow = dateFnsIsToday(day);
+          return (
+            <div key={idx} className={cn('month-cell', !isCur && 'other-month', isSel && 'selected')}
+              onClick={() => { setSelectedDate(day); setCurrentDate(day); }}>
+              <div className={cn('month-day-num', isNow && 'today')}>{format(day, 'd')}</div>
+              {dm.slice(0, 3).map(m => (
+                <div key={m.id_main} className="month-event"
+                  style={{ background: getEventGradient(m) }}
+                  onClick={e => { e.stopPropagation(); setSelectedMeeting(m); }}>
+                  {m.meeting_start_time?.slice(0, 5)} {m.client_name}
                 </div>
               ))}
-              {dayMeetings.length > 3 && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); setSelectedDate(day); }}
-                  className="text-[10px] text-slate-500 dark:text-slate-400 font-medium px-2 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                >
-                  +{dayMeetings.length - 3} more
-                </button>
+              {dm.length > 3 && (
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#8ca4a8', padding: '1px 2px' }}>
+                  +{dm.length - 3} more
+                </div>
               )}
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 
   // ── WEEK VIEW ───────────────────────────────────────────────────
   const renderWeekView = () => (
-    <div className="flex h-full min-h-0">
-      {/* Time axis */}
-      <div className="w-16 shrink-0 border-r border-slate-200/80 dark:border-white/10 bg-white dark:bg-slate-950">
-        <div className="h-12 border-b border-slate-200/80 dark:border-white/10" />
-        {TIME_SLOTS.map(time => (
-          <div key={time} className="h-20 border-b border-slate-200/80 dark:border-white/10 flex items-start justify-end pr-3 pt-1.5">
-            <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">{time}</span>
-          </div>
-        ))}
+    <div className="week-layout" style={{ overflow: 'hidden', height: '100%' }}>
+      <div className="week-time-col">
+        <div className="week-time-header" />
+        <div style={{ overflowY: 'hidden' }}>
+          {TIME_SLOTS.map(t => (
+            <div key={t} className="week-time-slot">
+              <span className="week-time-label">{t}</span>
+            </div>
+          ))}
+        </div>
       </div>
-
-      {/* Day columns */}
-      <div className="flex flex-1 overflow-x-auto relative">
+      <div className="week-days-scroll" style={{ overflowY: 'auto' }}>
         {weekDays.map(day => {
-          const isToday = isSameDay(day, new Date());
-          const dayMeetings = allMeetings.filter(m => m.meeting_date === format(day, 'yyyy-MM-dd'));
+          const isNow = dateFnsIsToday(day);
+          const ds = format(day, 'yyyy-MM-dd');
+          const dm = allMeetings.filter(m => m.meeting_date === ds);
           return (
-            <div key={day.toString()} className="flex-1 min-w-[120px] border-r border-slate-200/80 dark:border-white/10 last:border-r-0 flex flex-col">
-              {/* Day header */}
-              <div className={cn(
-                "h-12 px-3 flex flex-col items-center justify-center border-b border-slate-200/80 dark:border-white/10 shrink-0 sticky top-0 z-10",
-                isToday ? "bg-blue-50/50 dark:bg-blue-500/5" : "bg-white dark:bg-slate-950"
-              )}>
-                <p className={cn("text-[10px] font-semibold uppercase tracking-wider", isToday ? "text-blue-600 dark:text-blue-400" : "text-slate-500 dark:text-slate-400")}>
-                  {format(day, 'EEE')}
-                </p>
-                <p className={cn("text-sm font-bold leading-none mt-0.5", isToday ? "text-blue-700 dark:text-blue-300" : "text-slate-700 dark:text-slate-300")}>
-                  {format(day, 'd')}
-                </p>
+            <div key={day.toString()} className="week-day-col">
+              <div className={cn('week-day-header', isNow && 'today-col')}>
+                <span className="week-dow">{format(day, 'EEE')}</span>
+                <div className={cn('week-date', isNow && 'today')}>{format(day, 'd')}</div>
               </div>
-
-              {/* Time slots */}
-              <div className="relative flex-1">
-                {TIME_SLOTS.map((_, i) => (
-                  <div key={i} className={cn("h-20 border-b border-slate-200/80 dark:border-white/10", i % 2 === 0 ? "bg-white dark:bg-slate-950" : "bg-slate-50/50 dark:bg-white/[0.02]")} />
-                ))}
-                {/* Meetings */}
-                {dayMeetings.map(m => {
-                  const startHour = parseInt(m.meeting_start_time.split(':')[0]);
-                  const startMin = parseInt(m.meeting_start_time.split(':')[1]);
-                  const top = (startHour - 7) * 80 + (startMin / 60) * 80;
+              <div style={{ position: 'relative' }}>
+                {TIME_SLOTS.map((_, i) => <div key={i} className="week-grid-row" />)}
+                {dm.map(m => {
+                  const sh = parseInt(m.meeting_start_time.split(':')[0]);
+                  const sm = parseInt(m.meeting_start_time.split(':')[1]);
+                  const eh = m.meeting_end_time ? parseInt(m.meeting_end_time.split(':')[0]) : sh + 1;
+                  const em = m.meeting_end_time ? parseInt(m.meeting_end_time.split(':')[1]) : 0;
+                  const top = (sh - 7) * 72 + (sm / 60) * 72;
+                  const height = Math.max(((eh * 60 + em) - (sh * 60 + sm)) / 60 * 72, 36);
                   return (
-                    <div
-                      key={m.id_main}
-                      onClick={() => setSelectedMeeting(m)}
-                      className={cn("absolute left-1 right-1 p-2 rounded-lg text-[10px] font-medium cursor-pointer hover:opacity-90 transition-opacity overflow-hidden shadow-sm", getMeetingEventStyle(m))}
-                      style={{ top: `${top}px`, minHeight: '36px' }}
-                    >
-                      <p className="font-semibold truncate">{m.meeting_start_time} – {m.meeting_end_time}</p>
-                      <p className="truncate mt-0.5 opacity-80">{m.client_name}</p>
+                    <div key={m.id_main} className="week-event"
+                      style={{ top, height, background: getEventGradient(m) }}
+                      onClick={() => setSelectedMeeting(m)}>
+                      <div className="week-event-time">{m.meeting_start_time?.slice(0, 5)}</div>
+                      <div className="week-event-name">{m.client_name}</div>
+                      {height > 52 && <div className="week-event-co">{m.client_company}</div>}
                     </div>
                   );
                 })}
@@ -306,493 +918,348 @@ const CalendarView = () => {
 
   // ── DAY VIEW ────────────────────────────────────────────────────
   const renderDayView = () => {
-    const dayMeetings = allMeetings.filter(m => m.meeting_date === format(currentDate, 'yyyy-MM-dd'));
+    const dm = allMeetings.filter(m => m.meeting_date === format(currentDate, 'yyyy-MM-dd'));
+    const isNow = dateFnsIsToday(currentDate);
     return (
-      <div className="flex h-full min-h-0">
-        {/* Time axis */}
-        <div className="w-16 shrink-0 border-r border-slate-200/80 dark:border-white/10 bg-white dark:bg-slate-950">
-          <div className="h-14 border-b border-slate-200/80 dark:border-white/10" />
-          {TIME_SLOTS.map(time => (
-            <div key={time} className="h-20 border-b border-slate-200/80 dark:border-white/10 flex items-start justify-end pr-3 pt-1.5">
-              <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">{time}</span>
+      <div className="day-layout" style={{ height: '100%' }}>
+        <div className="day-time-col">
+          <div className="day-time-header" />
+          {TIME_SLOTS.map(t => (
+            <div key={t} className="week-time-slot">
+              <span className="week-time-label">{t}</span>
             </div>
           ))}
         </div>
-
-        {/* Day column */}
-        <div className="flex-1 flex flex-col min-w-0">
-          {/* Header */}
-          <div className="h-14 px-6 flex items-center gap-4 border-b border-slate-200/80 dark:border-white/10 bg-white dark:bg-slate-950 shrink-0">
-            <div>
-              <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{format(currentDate, 'EEEE')}</p>
-              <p className="text-base font-bold text-slate-950 dark:text-slate-50 leading-none mt-0.5">{format(currentDate, 'MMMM d, yyyy')}</p>
+        <div className="day-content">
+          <div className="day-header-strip">
+            <div className={cn('day-big-num', isNow ? 'today' : 'not-today')}>
+              {format(currentDate, 'd')}
             </div>
-            {dayMeetings.length > 0 && (
-              <span className="ml-auto px-3 py-1 rounded-full bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 text-[11px] font-semibold border border-slate-200/80 dark:border-white/10 shadow-sm">
-                {dayMeetings.length} {dayMeetings.length === 1 ? 'meeting' : 'meetings'}
-              </span>
-            )}
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#003038' }}>{format(currentDate, 'EEEE, MMMM d')}</div>
+              <div style={{ fontSize: 11, color: '#8ca4a8' }}>{dm.length} meeting{dm.length !== 1 ? 's' : ''}</div>
+            </div>
           </div>
-
-          {/* Time grid */}
-          <div className="flex-1 overflow-y-auto relative">
-            {TIME_SLOTS.map((_, i) => (
-              <div key={i} className={cn("h-20 border-b border-slate-200/80 dark:border-white/10", i % 2 === 0 ? "bg-white dark:bg-slate-950" : "bg-slate-50/50 dark:bg-white/[0.02]")} />
-            ))}
-
-            {/* Meeting cards */}
-            {dayMeetings.map(m => {
-              const startHour = parseInt(m.meeting_start_time.split(':')[0]);
-              const startMin = parseInt(m.meeting_start_time.split(':')[1]);
-              const endHour = parseInt(m.meeting_end_time.split(':')[0]);
-              const endMin = parseInt(m.meeting_end_time.split(':')[1]);
-              const top = (startHour - 7) * 80 + (startMin / 60) * 80;
-              const height = Math.max(((endHour * 60 + endMin) - (startHour * 60 + startMin)) / 60 * 80, 44);
-              const style = getStatusStyle(m.status);
-
-              return (
-                <div
-                  key={m.id_main}
-                  onClick={() => setSelectedMeeting(m)}
-                  className={cn("absolute left-4 right-4 rounded-xl cursor-pointer hover:opacity-90 transition-opacity overflow-hidden flex gap-3 p-3 shadow-md", getMeetingEventStyle(m))}
-                  style={{ top: `${top}px`, height: `${height}px` }}
-                >
-                  <div className="flex flex-col justify-between flex-1 min-w-0">
-                    <div>
-                      <p className="text-sm font-bold truncate">{m.client_name}</p>
-                      <p className="text-xs font-medium opacity-80 truncate mt-0.5">{m.client_company}</p>
-                    </div>
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <Clock className="h-3.5 w-3.5 opacity-70 shrink-0" />
-                      <span className="text-xs font-semibold">{m.meeting_start_time} – {m.meeting_end_time}</span>
-                    </div>
+          {TIME_SLOTS.map((_, i) => <div key={i} className="day-grid-row" />)}
+          {dm.map(m => {
+            const sh = parseInt(m.meeting_start_time.split(':')[0]);
+            const sm2 = parseInt(m.meeting_start_time.split(':')[1]);
+            const eh = m.meeting_end_time ? parseInt(m.meeting_end_time.split(':')[0]) : sh + 1;
+            const em = m.meeting_end_time ? parseInt(m.meeting_end_time.split(':')[1]) : 0;
+            const top = 56 + (sh - 7) * 96 + (sm2 / 60) * 96;
+            const height = Math.max(((eh * 60 + em) - (sh * 60 + sm2)) / 60 * 96, 68);
+            const color = getEventColor(m);
+            return (
+              <div key={m.id_main} className="day-event"
+                style={{ top, height }}
+                onClick={() => setSelectedMeeting(m)}>
+                <div className="day-event-bar" style={{ background: color }} />
+                <div className="day-event-body">
+                  <div className="day-event-avatar" style={{ background: getEventGradient(m) }}>
+                    {initials(m.client_name)}
                   </div>
-                  <div className="shrink-0 flex flex-col items-end justify-between">
-                    <span className={cn("px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border bg-white/50 backdrop-blur-sm dark:bg-slate-900/50", style.pill)}>
-                      {m.status || 'Scheduled'}
-                    </span>
-                    {m.meeting_type === 'virtual' && <Video className="h-4 w-4 opacity-70" />}
+                  <div className="day-event-info">
+                    <div className="day-event-name">{m.client_name}</div>
+                    <div className="day-event-meta">
+                      {m.meeting_start_time?.slice(0, 5)} – {m.meeting_end_time?.slice(0, 5)} · {m.client_company}
+                    </div>
+                    {height > 84 && m.meeting_agenda && (
+                      <div style={{ fontSize: 11, color: '#a0b4b8', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {m.meeting_agenda}
+                      </div>
+                    )}
+                  </div>
+                  <div className="day-event-pill" style={{ fontSize: 10, ...getStatusBadgeClasses(m.status || m.meeting_type) }}>
+                    {getLabel(m)}
                   </div>
                 </div>
-              );
-            })}
-
-            {dayMeetings.length === 0 && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 dark:text-slate-600 pointer-events-none">
-                <CalendarDays className="h-12 w-12 mb-3 opacity-40 text-slate-300" />
-                <p className="text-sm font-semibold text-slate-500">No meetings scheduled</p>
               </div>
-            )}
-          </div>
+            );
+          })}
         </div>
       </div>
     );
   };
 
-  // ── RENDER ──────────────────────────────────────────────────────
-  return (
-    <div className="flex flex-col h-[calc(100vh-64px)] bg-transparent overflow-hidden">
-
-      {/* ── TOP BAR ── */}
-      <div className="h-16 flex items-center px-4 sm:px-6 gap-3 shrink-0 z-10 border-b border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl">
-
-        {/* Filter toggle */}
-        <div className="hidden sm:flex items-center bg-slate-100/80 dark:bg-slate-900/50 rounded-lg p-1 border border-slate-200/80 dark:border-white/10 shadow-inner">
-          {(['mine', 'all'] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={cn(
-                "px-4 py-1.5 text-xs font-semibold rounded-md transition-all capitalize",
-                filter === f ? "bg-white dark:bg-slate-800 shadow-sm text-blue-600 dark:text-blue-400 border border-slate-200/50 dark:border-slate-700/50" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 border border-transparent"
-              )}
-            >
-              {f === 'mine' ? 'My Meetings' : 'All'}
-            </button>
-          ))}
-        </div>
-
-        {/* Date navigation */}
-        <div className="flex items-center gap-1.5 ml-0 sm:ml-4">
-          <Button
-            variant="outline" size="sm"
-            onClick={() => { setCurrentDate(new Date()); setSelectedDate(new Date()); }}
-            className="h-9 px-4 text-xs font-semibold rounded-lg border-slate-200/80 dark:border-white/10 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800"
-          >Today</Button>
-          <div className="flex gap-1 ml-2">
-            <button onClick={handlePrevious} className="h-9 w-9 flex items-center justify-center rounded-lg bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 transition-colors">
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button onClick={handleNext} className="h-9 w-9 flex items-center justify-center rounded-lg bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 transition-colors">
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-          <span className="text-base font-bold text-slate-950 dark:text-slate-50 ml-3 min-w-[140px]">
-            {format(currentDate, view === 'month' ? 'MMMM yyyy' : view === 'week' ? "'Week of' MMM d" : 'MMMM d, yyyy')}
-          </span>
-        </div>
-
-        <div className="flex-1" />
-
-        {/* Actions */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="hidden sm:flex items-center bg-slate-100/80 dark:bg-slate-900/50 rounded-lg p-1 border border-slate-200/80 dark:border-white/10 shadow-inner">
-            {(['month', 'week', 'day'] as ViewType[]).map(v => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                className={cn("px-3 py-1.5 text-[11px] font-semibold rounded-md capitalize transition-all", view === v ? "bg-white dark:bg-slate-800 shadow-sm text-blue-600 dark:text-blue-400 border border-slate-200/50 dark:border-slate-700/50" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 border border-transparent")}
-              >{v}</button>
-            ))}
-          </div>
-          <div className="hidden sm:block w-px h-6 bg-slate-200/80 dark:bg-white/10 mx-2" />
-          <Button className="h-9 px-4 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-600/20 gap-2 transition-all active:scale-[0.98]">
-            <PlusCircle className="h-4 w-4" /> <span className="hidden sm:inline">Add Meeting</span>
-          </Button>
-        </div>
-      </div>
-
-      {/* ── BODY ── */}
-      <div className="flex flex-1 min-h-0 overflow-hidden m-4 mt-0 bg-white dark:bg-slate-950 rounded-xl border border-slate-200/80 dark:border-white/10 shadow-sm">
-
-        {/* ── LEFT SIDEBAR ── */}
-        <div className="hidden xl:flex w-[280px] shrink-0 bg-slate-50/50 dark:bg-slate-950/50 border-r border-slate-200/80 dark:border-white/10 flex-col overflow-hidden">
-
-          {/* Mini Calendar */}
-          <div className="p-4 border-b border-slate-200/80 dark:border-white/10">
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={(date) => { if (date) { setSelectedDate(date); setCurrentDate(date); } }}
-              month={currentDate}
-              onMonthChange={setCurrentDate}
-              className="p-0 border-0 shadow-none bg-transparent dark:bg-transparent"
-              classNames={{
-                months: "w-full",
-                month: "w-full space-y-3",
-                caption: "flex justify-between pt-1 relative items-center mb-3 px-1",
-                caption_label: "text-sm font-bold text-slate-950 dark:text-slate-100",
-                nav: "space-x-1 flex items-center",
-                nav_button: "h-7 w-7 bg-transparent p-0 flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/10 rounded-md transition-colors",
-                nav_button_previous: "relative",
-                nav_button_next: "relative",
-                table: "w-full border-collapse",
-                head_row: "grid grid-cols-7 w-full mb-2",
-                head_cell: "text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase text-center",
-                row: "grid grid-cols-7 w-full mt-0.5",
-                cell: "flex items-center justify-center p-0",
-                day: "h-8 w-8 p-0 text-xs font-medium text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200/50 dark:hover:bg-white/10 mx-auto transition-colors aria-selected:opacity-100",
-                day_selected: "bg-blue-600 text-white hover:bg-blue-700 hover:text-white focus:bg-blue-600 focus:text-white dark:bg-blue-600 dark:text-white shadow-md shadow-blue-600/20 font-semibold",
-                day_today: "text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-500/10",
-                day_outside: "text-slate-300 dark:text-slate-700 opacity-50",
-                day_disabled: "text-slate-300 dark:text-slate-700 opacity-40",
-              }}
-            />
-          </div>
-
-          {/* Meetings Today */}
-          <div className="flex-1 overflow-y-auto">
-            <div className="px-5 py-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                  Today's Schedule
-                </h3>
-                {todayMeetings.length > 0 && (
-                  <span className="h-5 w-5 rounded-md bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10px] font-bold flex items-center justify-center">
-                    {todayMeetings.length}
-                  </span>
-                )}
-              </div>
-
-              {loading ? (
-                <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 mt-4 justify-center">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-xs font-medium">Loading…</span>
-                </div>
-              ) : todayMeetings.length > 0 ? (
-                <div className="space-y-2">
-                  {todayMeetings.map(m => {
-                    const style = getStatusStyle(m.status);
-                    return (
-                      <div
-                        key={m.id_main}
-                        onClick={() => setSelectedMeeting(m)}
-                        className="group flex items-start gap-3 p-3 rounded-xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-slate-900 hover:border-blue-300 dark:hover:border-blue-500/30 cursor-pointer transition-all shadow-sm hover:shadow-md"
-                      >
-                        <span className={cn("mt-1.5 h-2 w-2 rounded-full shrink-0", style.dot)} />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate leading-snug">{m.client_name}</p>
-                          <div className="flex items-center gap-1.5 mt-1">
-                            <Clock className="h-3 w-3 text-slate-400 dark:text-slate-500 shrink-0" />
-                            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">{m.meeting_start_time} – {m.meeting_end_time}</span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-10 text-center border border-dashed border-slate-200/80 dark:border-white/10 rounded-xl bg-slate-50/50 dark:bg-white/[0.02]">
-                  <CalendarDays className="h-8 w-8 text-slate-300 mb-2" />
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">No meetings today</p>
-                </div>
-              )}
+  // ── DETAIL PANEL ─────────────────────────────────────────────────
+  const renderDetail = () => {
+    if (!selectedMeeting) {
+      return (
+        <div className="cal-detail">
+          <div className="cal-panel-header">Meeting Details</div>
+          <div className="cal-detail-empty">
+            <div className="cal-detail-icon-wrap">
+              <CalendarDays size={22} style={{ color: '#8ca4a8' }} />
             </div>
+            <div className="cal-detail-empty-title">No meeting selected</div>
+            <div className="cal-detail-empty-sub">Click any event on the calendar to view its details here</div>
+          </div>
+        </div>
+      );
+    }
+    const m = selectedMeeting;
+    const gradient = getEventGradient(m);
+    return (
+      <div className="cal-detail">
+        {/* colored header */}
+        <div className="detail-color-header" style={{ background: gradient }}>
+          <div className="detail-header-shine" />
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <span className={cn('detail-status-pill')}>{getLabel(m)}</span>
+              <button className="detail-close" onClick={() => setSelectedMeeting(null)}><X size={12} /></button>
+            </div>
+            <div className="detail-avatar">{initials(m.client_name)}</div>
+            <div className="detail-name">{m.client_name}</div>
+            <div className="detail-company">{m.client_company}</div>
           </div>
         </div>
 
-        {/* ── CALENDAR + DETAIL PANEL ── */}
-        <div className="flex flex-1 min-w-0 overflow-hidden">
-
-          {/* ── CALENDAR AREA ── */}
-          <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-white dark:bg-slate-950">
-
-            {/* Day column headers — view-aware */}
-            {view !== 'day' && (
-              <div className="grid grid-cols-7 border-b border-slate-200/80 dark:border-white/10 shrink-0 bg-white dark:bg-slate-950">
-                {view === 'month'
-                  ? DAY_NAMES.map((name, i) => {
-                    const isWeekend = i === 0 || i === 6;
-                    return (
-                      <div
-                        key={name}
-                        className={cn(
-                          "py-3 px-2 border-r border-slate-200/80 dark:border-white/10 last:border-r-0 text-center select-none",
-                          isWeekend ? "bg-slate-50/50 dark:bg-white/[0.02]" : "bg-white dark:bg-slate-950"
-                        )}
-                      >
-                        <p className={cn("text-[11px] font-bold uppercase tracking-widest", isWeekend ? "text-slate-400 dark:text-slate-500" : "text-slate-500 dark:text-slate-400")}>
-                          {name}
-                        </p>
-                      </div>
-                    );
-                  })
-                  : weekDays.map((day, i) => {
-                    const isToday = isSameDay(day, new Date());
-                    const isWeekend = i === 0 || i === 6;
-                    return (
-                      <div
-                        key={day.toString()}
-                        className={cn(
-                          "py-3 px-2 border-r border-slate-200/80 dark:border-white/10 last:border-r-0 text-center select-none",
-                          isToday ? "bg-blue-50/30 dark:bg-blue-500/5" : isWeekend ? "bg-slate-50/50 dark:bg-white/[0.02]" : "bg-white dark:bg-slate-950"
-                        )}
-                      >
-                        <p className={cn("text-[10px] font-bold uppercase tracking-wider", isToday ? "text-blue-600 dark:text-blue-400" : "text-slate-400 dark:text-slate-500")}>
-                          {format(day, 'EEE')}
-                        </p>
-                        <p className={cn("text-lg font-bold mt-0.5 leading-none", isToday ? "text-blue-700 dark:text-blue-300" : isWeekend ? "text-slate-400 dark:text-slate-500" : "text-slate-800 dark:text-slate-200")}>
-                          {format(day, 'd')}
-                        </p>
-                      </div>
-                    );
-                  })
-                }
+        {/* body */}
+        <div className="detail-body">
+          {/* date + time chips */}
+          <div className="detail-section-label">Schedule</div>
+          <div className="detail-chip-grid">
+            <div className="detail-chip">
+              <div className="detail-chip-label">Date</div>
+              <div className="detail-chip-value">
+                {m.meeting_date ? format(parseISO(m.meeting_date), 'MMM d, yyyy') : '—'}
               </div>
-            )}
-
-            {/* View content */}
-            <div className="flex-1 overflow-y-auto">
-              {loading ? (
-                <div className="h-full flex flex-col items-center justify-center gap-3 text-slate-400 dark:text-slate-500">
-                  <Loader2 className="h-8 w-8 animate-spin" />
-                </div>
-              ) : (
-                <>
-                  {view === 'month' && renderMonthView()}
-                  {view === 'week' && renderWeekView()}
-                  {view === 'day' && renderDayView()}
-                </>
-              )}
+            </div>
+            <div className="detail-chip">
+              <div className="detail-chip-label">Time</div>
+              <div className="detail-chip-value">{m.meeting_start_time?.slice(0, 5)} – {m.meeting_end_time?.slice(0, 5)}</div>
             </div>
           </div>
 
-          {/* ── DETAIL PANEL ── */}
-          {selectedMeeting && (
-            <div className="w-[340px] xl:w-[380px] shrink-0 bg-white dark:bg-slate-950 border-l border-slate-200/80 dark:border-white/10 flex flex-col overflow-hidden shadow-2xl xl:shadow-none z-20 absolute right-0 inset-y-0 xl:relative">
-
-              {/* Panel header */}
-              <div className="px-6 pt-6 pb-5 border-b border-slate-200/80 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02]">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1 min-w-0 pr-3">
-                    <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-2 truncate">{selectedMeeting.client_company || 'Independent Client'}</p>
-                    <h2 className="text-base font-bold text-slate-950 dark:text-slate-50 leading-tight line-clamp-2">
-                      {selectedMeeting.client_name}
-                      {selectedMeeting.meeting_agenda && (
-                        <span className="text-slate-500 dark:text-slate-400 font-medium"> – {selectedMeeting.meeting_agenda.slice(0, 45)}{selectedMeeting.meeting_agenda.length > 45 ? '…' : ''}</span>
-                      )}
-                    </h2>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
-                    <button
-                      onClick={() => { setDeletingMeeting(selectedMeeting); setSelectedMeeting(null); }}
-                      className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-400 border border-transparent hover:border-red-200 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 dark:hover:text-red-400 transition-colors shadow-sm"
-                    ><Trash2 className="h-4 w-4" /></button>
-                    <button
-                      onClick={() => setSelectedMeeting(null)}
-                      className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-400 border border-slate-200/80 hover:text-slate-900 hover:bg-slate-50 dark:hover:text-white dark:border-white/10 dark:hover:bg-white/10 transition-colors shadow-sm"
-                    ><X className="h-4 w-4" /></button>
-                  </div>
-                </div>
-
-                {/* Badges row */}
-                <div className="flex flex-wrap gap-2">
-                  <span className={cn("px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wide uppercase border shadow-sm", getStatusStyle(selectedMeeting.status).pill)}>
-                    {selectedMeeting.status || 'Scheduled'}
-                  </span>
-                  <span className={cn(
-                    "px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wide uppercase flex items-center gap-1.5 border shadow-sm",
-                    selectedMeeting.meeting_type === 'virtual'
-                      ? "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20"
-                      : "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20"
-                  )}>
-                    {selectedMeeting.meeting_type === 'virtual'
-                      ? <><Video className="h-3 w-3" /> Virtual</>
-                      : <><MapPin className="h-3 w-3" /> In Person</>}
-                  </span>
-                </div>
-              </div>
-
-              {/* Tabs */}
-              <Tabs defaultValue="details" className="flex flex-col flex-1 overflow-hidden">
-                <TabsList className="grid grid-cols-3 mx-5 mt-5 mb-0 bg-slate-100/80 dark:bg-slate-900/50 rounded-lg h-9 p-1 shrink-0 shadow-inner">
-                  <TabsTrigger value="details" className="text-xs font-semibold rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-sm data-[state=active]:text-blue-700 dark:data-[state=active]:text-blue-400 text-slate-500 dark:text-slate-400 transition-all border border-transparent data-[state=active]:border-slate-200/50 dark:data-[state=active]:border-slate-700/50">Details</TabsTrigger>
-                  <TabsTrigger value="contacts" className="text-xs font-semibold rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-sm data-[state=active]:text-blue-700 dark:data-[state=active]:text-blue-400 text-slate-500 dark:text-slate-400 transition-all border border-transparent data-[state=active]:border-slate-200/50 dark:data-[state=active]:border-slate-700/50">Contacts</TabsTrigger>
-                  <TabsTrigger value="agenda" className="text-xs font-semibold rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-sm data-[state=active]:text-blue-700 dark:data-[state=active]:text-blue-400 text-slate-500 dark:text-slate-400 transition-all border border-transparent data-[state=active]:border-slate-200/50 dark:data-[state=active]:border-slate-700/50">Agenda</TabsTrigger>
-                </TabsList>
-
-                {/* ── DETAILS ── */}
-                <TabsContent value="details" className="flex-1 overflow-y-auto px-5 py-5 space-y-6 mt-0">
-                  {/* Key info grid */}
-                  <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { label: 'Date', value: safeFormatDate(selectedMeeting.meeting_date, 'dd MMM yyyy') },
-                      { label: 'Time', value: `${selectedMeeting.meeting_start_time} – ${selectedMeeting.meeting_end_time}` },
-                      { label: 'Duration', value: selectedMeeting.meeting_duration ? `${selectedMeeting.meeting_duration} min` : '—' },
-                      { label: 'Status', value: null },
-                    ].map(({ label, value }) => (
-                      <div key={label} className="bg-slate-50/80 dark:bg-white/[0.02] rounded-xl p-3.5 border border-slate-200/60 dark:border-white/5 shadow-sm">
-                        <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">{label}</p>
-                        {label === 'Status' ? (
-                          <span className={cn("px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border", getStatusStyle(selectedMeeting.status).pill)}>
-                            {selectedMeeting.status || 'Scheduled'}
-                          </span>
-                        ) : (
-                          <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{value}</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Assigned consultant */}
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2.5 px-1">Assigned To</p>
-                    <div className="flex items-center gap-3.5 p-3.5 bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/5 rounded-xl shadow-sm">
-                      <div className="h-10 w-10 rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center text-sm font-bold text-slate-700 dark:text-slate-300 shrink-0 shadow-inner">
-                        {String(selectedMeeting.bcl_attendee || 'BC').slice(0, 2).toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-slate-900 dark:text-slate-100 leading-tight">{selectedMeeting.bcl_attendee || '—'}</p>
-                        <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-0.5">BCL Consultant</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Location */}
-                  <div className="bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/5 rounded-xl p-4 shadow-sm">
-                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2.5">Location / Link</p>
-                    <div className="flex items-start gap-2.5">
-                      <MapPin className="h-4 w-4 text-slate-400 dark:text-slate-500 mt-0.5 shrink-0" />
-                      <p className="text-sm font-medium text-slate-700 dark:text-slate-300 leading-relaxed break-all">
-                        {selectedMeeting.meeting_venue || selectedMeeting.meeting_venue_area || '—'}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Join button */}
-                  {selectedMeeting.meeting_type === 'virtual' && selectedMeeting.meeting_venue && (
-                    <a href={selectedMeeting.meeting_venue} target="_blank" rel="noopener noreferrer" className="block pt-2">
-                      <Button className="w-full rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm h-11 gap-2 shadow-md shadow-blue-600/20 transition-all">
-                        <Video className="h-4 w-4" /> Join Virtual Meeting
-                      </Button>
-                    </a>
-                  )}
-                </TabsContent>
-
-                {/* ── CONTACTS ── */}
-                <TabsContent value="contacts" className="flex-1 overflow-y-auto px-5 py-5 space-y-6 mt-0">
-                  {/* Client */}
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2.5 px-1">Client Details</p>
-                    <div className="flex items-center gap-3.5 p-4 bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/5 rounded-xl mb-3 shadow-sm">
-                      <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-500/20 border border-blue-200 dark:border-blue-500/30 flex items-center justify-center text-sm font-bold text-blue-700 dark:text-blue-400 shrink-0">
-                        {String(selectedMeeting.client_name || 'CL').slice(0, 2).toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{selectedMeeting.client_name}</p>
-                        <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">{selectedMeeting.client_company}</p>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      {selectedMeeting.client_email && (
-                        <a href={`mailto:${selectedMeeting.client_email}`} className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10 rounded-xl hover:border-blue-300 dark:hover:border-blue-500/30 hover:shadow-md transition-all">
-                          <div className="h-8 w-8 rounded-lg bg-slate-50 dark:bg-white/5 flex items-center justify-center shrink-0">
-                            <Mail className="h-4 w-4 text-slate-500" />
-                          </div>
-                          <span className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{selectedMeeting.client_email}</span>
-                        </a>
-                      )}
-                      {selectedMeeting.client_mobile && (
-                        <a href={`tel:${selectedMeeting.client_mobile}`} className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10 rounded-xl hover:border-blue-300 dark:hover:border-blue-500/30 hover:shadow-md transition-all">
-                          <div className="h-8 w-8 rounded-lg bg-slate-50 dark:bg-white/5 flex items-center justify-center shrink-0">
-                            <Phone className="h-4 w-4 text-slate-500" />
-                          </div>
-                          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{selectedMeeting.client_mobile}</span>
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                </TabsContent>
-
-                {/* ── AGENDA ── */}
-                <TabsContent value="agenda" className="flex-1 overflow-y-auto px-5 py-5 mt-0">
-                  <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2.5 px-1">Meeting Agenda</p>
-                  <div className="bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/5 rounded-xl p-5 shadow-sm">
-                    <p className="text-sm text-slate-700 dark:text-slate-300 font-medium leading-relaxed whitespace-pre-wrap">
-                      {selectedMeeting.meeting_agenda || 'No agenda specified for this meeting.'}
-                    </p>
-                  </div>
-                </TabsContent>
-              </Tabs>
+          {/* type */}
+          <div className="detail-section-label">Meeting Type</div>
+          <div className="detail-type-row">
+            <div className="detail-type-icon"
+              style={{ background: m.meeting_type === 'virtual' ? '#ede9fe' : '#e0f2fe' }}>
+              {m.meeting_type === 'virtual'
+                ? <Video size={15} style={{ color: '#7c3aed' }} />
+                : <MapPin size={15} style={{ color: '#0284c7' }} />}
             </div>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#003038', textTransform: 'capitalize' }}>{m.meeting_type}</div>
+              {m.meeting_venue_area && <div style={{ fontSize: 11, color: '#8ca4a8' }}>{m.meeting_venue_area}</div>}
+            </div>
+          </div>
+
+          {/* agenda */}
+          {m.meeting_agenda && (
+            <>
+              <div className="detail-section-label">Agenda</div>
+              <div className="detail-agenda">{m.meeting_agenda}</div>
+            </>
+          )}
+
+          {/* attendee */}
+          {m.bcl_attendee && (
+            <>
+              <div className="detail-section-label">BCL Attendee</div>
+              <div className="detail-attendee">
+                <div className="detail-att-avatar">{initials(m.bcl_attendee)}</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#003038' }}>{m.bcl_attendee}</div>
+              </div>
+            </>
+          )}
+
+          {/* contact */}
+          {(m.client_email || m.client_mobile) && (
+            <>
+              <div className="detail-section-label">Contact</div>
+              {m.client_email && (
+                <a href={`mailto:${m.client_email}`} className="detail-contact-link">
+                  <div className="detail-contact-icon" style={{ background: '#ede9fe' }}>
+                    <Mail size={13} style={{ color: '#7c3aed' }} />
+                  </div>
+                  <span className="detail-contact-text">{m.client_email}</span>
+                </a>
+              )}
+              {m.client_mobile && (
+                <a href={`tel:${m.client_mobile}`} className="detail-contact-link">
+                  <div className="detail-contact-icon" style={{ background: '#dcfce7' }}>
+                    <Phone size={13} style={{ color: '#16a34a' }} />
+                  </div>
+                  <span className="detail-contact-text">{m.client_mobile}</span>
+                </a>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* footer */}
+        <div className="detail-footer">
+          <button className="detail-del-btn" onClick={() => setDeletingMeeting(m)} title="Delete meeting">
+            <Trash2 size={15} />
+          </button>
+          {m.meeting_type === 'virtual'
+            ? <button className="detail-join-btn"><Video size={13} /> Join Video</button>
+            : <button className="detail-edit-btn" onClick={() => router.push(`/schedule/edit/${m.id_main}`)}>Edit Meeting</button>
+          }
+          {m.meeting_type === 'virtual' && (
+            <button className="detail-edit-btn" onClick={() => router.push(`/schedule/edit/${m.id_main}`)}>Edit</button>
           )}
         </div>
       </div>
+    );
+  };
 
-      {/* ── DELETE CONFIRMATION ── */}
-      <AlertDialog open={!!deletingMeeting} onOpenChange={(open) => !open && setDeletingMeeting(null)}>
-        <AlertDialogContent className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 shadow-2xl max-w-sm p-6 gap-6">
-          <AlertDialogHeader className="items-start text-left space-y-4">
-            <div className="h-12 w-12 bg-red-50 dark:bg-red-500/10 rounded-xl flex items-center justify-center border border-red-100 dark:border-red-500/20 shadow-sm">
-              <Trash2 className="h-6 w-6 text-red-600 dark:text-red-500" />
+  // ── ROOT RENDER ──────────────────────────────────────────────────
+  return (
+    <div className="cal-shell">
+      <CalendarStyles />
+
+      {/* TOPBAR */}
+      <div className="cal-topbar">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            width: 34, height: 34, borderRadius: 9,
+            background: 'linear-gradient(135deg, #003038, #00505e)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 3px 10px rgba(0,48,56,0.2)',
+          }}>
+            <CalendarDays size={17} color="#00d1d1" />
+          </div>
+          <div>
+            <div className="cal-topbar-title">Meeting Calendar</div>
+            <div className="cal-topbar-sub">Manage your team schedule in real time</div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div className="cal-view-pill">
+            {(['month', 'week', 'day'] as ViewType[]).map(v => (
+              <button key={v} className={cn('cal-view-btn', view === v && 'active')} onClick={() => setView(v)}>{v}</button>
+            ))}
+          </div>
+          <button className="cal-export-btn" onClick={() => exportMeetingsCSV(allMeetings)}>
+            <Download size={13} /> Export CSV
+          </button>
+          <button className="cal-add-btn" onClick={() => router.push('/schedule')}>
+            <PlusCircle size={14} /> Add Meeting
+          </button>
+        </div>
+      </div>
+
+      {/* BODY */}
+      <div className="cal-body">
+
+        {/* LEFT SIDEBAR */}
+        <div className="cal-aside">
+          {/* mini calendar panel */}
+          <div className="cal-panel">
+            <MiniCalendar
+              currentDate={currentDate}
+              selectedDate={selectedDate}
+              onSelect={(d) => { setSelectedDate(d); setCurrentDate(d); }}
+              daysWithMeetings={daysWithMeetings}
+            />
+          </div>
+
+          {/* Today's meetings panel */}
+          <div className="cal-panel" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div className="cal-panel-header">Today's Meetings</div>
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              {todayMeetings.length === 0 ? (
+                <div style={{ padding: '16px 14px', textAlign: 'center' }}>
+                  <div style={{
+                    width: 40, height: 40, borderRadius: 10,
+                    background: '#f0f4f5', margin: '0 auto 8px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  }}>
+                    <Calendar size={18} style={{ color: '#8ca4a8' }} />
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: '#64868c' }}>No meetings today</div>
+                </div>
+              ) : todayMeetings.map(m => (
+                <div key={m.id_main} className="today-item" onClick={() => setSelectedMeeting(m)}>
+                  <div className="today-dot" style={{ background: getEventColor(m) }} />
+                  <div>
+                    <div className="today-name">{m.client_name}</div>
+                    <div className="today-meta">{m.meeting_start_time?.slice(0, 5)} · {m.client_company}</div>
+                  </div>
+                </div>
+              ))}
             </div>
-            <div>
-              <AlertDialogTitle className="text-lg font-bold text-slate-900 dark:text-slate-100">Delete Meeting</AlertDialogTitle>
-              <AlertDialogDescription className="text-slate-500 dark:text-slate-400 text-sm mt-1.5 leading-relaxed">
-                Remove the booking for <span className="font-bold text-slate-900 dark:text-slate-100">{deletingMeeting?.client_name}</span>? This action cannot be undone.
-              </AlertDialogDescription>
+          </div>
+        </div>
+
+        {/* MAIN CALENDAR */}
+        <div className="cal-main">
+          {/* nav */}
+          <div className="cal-nav">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button className="cal-nav-btn" onClick={() => nav(-1)}><ChevronLeft size={15} /></button>
+              <span className="cal-nav-label">{headerLabel}</span>
+              <button className="cal-nav-btn" onClick={() => nav(1)}><ChevronRight size={15} /></button>
             </div>
+            <button className="cal-today-btn" onClick={() => { setCurrentDate(new Date()); setSelectedDate(new Date()); }}>
+              Today
+            </button>
+          </div>
+
+          {/* calendar body */}
+          <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            {loading ? (
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                <div style={{
+                  width: 44, height: 44, borderRadius: 12,
+                  background: 'linear-gradient(135deg, #003038, #00505e)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Loader2 size={20} color="#00d1d1" className="animate-spin" />
+                </div>
+                <span style={{ fontSize: 12, color: '#8ca4a8', fontWeight: 500 }}>Loading meetings…</span>
+              </div>
+            ) : (
+              <>
+                {view === 'month' && renderMonthView()}
+                {view === 'week' && renderWeekView()}
+                {view === 'day' && renderDayView()}
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* RIGHT DETAIL PANEL — always visible */}
+        {renderDetail()}
+      </div>
+
+      {/* DELETE DIALOG */}
+      <AlertDialog open={!!deletingMeeting} onOpenChange={o => !o && setDeletingMeeting(null)}>
+        <AlertDialogContent style={{ borderRadius: 16, border: 'none', padding: 28, maxWidth: 380, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+          <AlertDialogHeader>
+            <div style={{
+              width: 48, height: 48, borderRadius: 12,
+              background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              marginBottom: 12, boxShadow: '0 4px 14px rgba(239,68,68,0.3)',
+            }}>
+              <Trash2 size={20} color="#fff" />
+            </div>
+            <AlertDialogTitle style={{ fontSize: 17, fontWeight: 800, color: '#003038', fontFamily: 'Inter, sans-serif' }}>
+              Remove this meeting?
+            </AlertDialogTitle>
+            <AlertDialogDescription style={{ color: '#64868c', fontSize: 13, fontFamily: 'Inter, sans-serif' }}>
+              This will permanently remove the meeting for{' '}
+              <strong style={{ color: '#003038' }}>{deletingMeeting?.client_name}</strong>.
+            </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="flex gap-3 sm:gap-3">
-            <AlertDialogCancel className="flex-1 rounded-xl border-slate-200 dark:border-white/10 font-semibold text-sm h-11 hover:bg-slate-50 dark:hover:bg-white/5 dark:text-slate-300 mt-0">
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={deleteMeeting}
-              disabled={isDeleting}
-              className="flex-1 rounded-xl bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-600/20 font-semibold text-sm h-11 transition-all"
-            >
-              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Delete Meeting'}
+          <AlertDialogFooter style={{ marginTop: 20, gap: 8 }}>
+            <AlertDialogCancel style={{
+              borderRadius: 8, height: 38, fontWeight: 700, border: '1px solid #eef2f3',
+              background: '#f7fafa', color: '#003038', fontSize: 13, fontFamily: 'Inter, sans-serif', flex: 1,
+            }}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={deleteMeeting} disabled={isDeleting} style={{
+              borderRadius: 8, height: 38, fontWeight: 700,
+              background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+              color: '#fff', fontSize: 13, fontFamily: 'Inter, sans-serif', flex: 1, border: 'none',
+              boxShadow: '0 3px 10px rgba(239,68,68,0.3)',
+            }}>
+              {isDeleting ? <Loader2 size={15} className="animate-spin" /> : 'Delete Permanently'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

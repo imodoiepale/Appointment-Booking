@@ -2,7 +2,8 @@
 "use client"
 
 import { useEffect, useState } from 'react';
-import { Search, User, LogOut, Loader2, Sparkles, LayoutGrid } from 'lucide-react';
+import { Search, User, LogOut, Loader2, LayoutGrid, Menu, X } from 'lucide-react';
+import { useSidebar } from '@/contexts/SidebarContext';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +15,7 @@ import {
 import { NotificationBell } from './NotificationSystem';
 
 export default function Header() {
+  const { isMobileOpen, setIsMobileOpen } = useSidebar();
   const [searchQuery, setSearchQuery] = useState('');
   const [user, setUser] = useState(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -43,8 +45,15 @@ export default function Header() {
     <header className="sticky top-0 z-30 flex h-16 w-full shrink-0 items-center border-b border-zinc-200 dark:border-white/10 bg-white/80 dark:bg-zinc-950/80 px-4 md:px-6 backdrop-blur-md transition-colors">
       <div className="flex w-full items-center justify-between gap-4">
 
-        {/* Left: Search (Command Palette Style) */}
-        <div className="flex flex-1 items-center gap-4 lg:pl-0 pl-10">
+        {/* Left: Mobile menu toggle + Search */}
+        <div className="flex flex-1 items-center gap-3">
+          <button
+            onClick={() => setIsMobileOpen(!isMobileOpen)}
+            className="lg:hidden flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-white transition-colors"
+            aria-label="Toggle navigation"
+          >
+            {isMobileOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
           <div className="relative w-full max-w-md group">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-zinc-500" />
             <input
