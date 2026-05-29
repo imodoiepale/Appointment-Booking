@@ -27,6 +27,7 @@ import {
   getStatusColor,
   getStatusBadgeClasses
 } from '@/utils/meetingStatusColors';
+import { Tabs } from '@/components/ui/tabs';
 
 // ── TYPES ────────────────────────────────────────────────────────
 interface Meeting {
@@ -50,6 +51,16 @@ interface Meeting {
 }
 
 type ViewType = 'month' | 'week' | 'day';
+
+const getLightStatusColor = (status: string) => {
+  const s = status?.toLowerCase();
+  if (s === 'completed' || s === 'active') return '#f0fdfa'; // Light Teal
+  if (s === 'virtual') return '#f5f3ff'; // Light Purple
+  if (s === 'physical') return '#f0f9ff'; // Light Blue
+  if (s === 'cancelled') return '#fef2f2'; // Light Red
+  if (s === 'pending') return '#fffbeb'; // Light Amber
+  return '#f8fafc'; // Default Slate
+};
 
 // ── INJECTED STYLES — matches sidebar design language exactly ─────
 const CalendarStyles = () => (
@@ -135,8 +146,6 @@ const CalendarStyles = () => (
     .cal-add-btn {
       display: flex;
       align-items: center;
-      gap: 6px;
-      padding: 8px 16px;
       font-size: 13px;
       font-weight: 700;
       border-radius: 8px;
@@ -347,19 +356,6 @@ const CalendarStyles = () => (
       color: #ffffff;
       box-shadow: 0 2px 6px rgba(0,48,56,0.2);
     }
-    .month-event {
-      display: flex; align-items: center;
-      padding: 2px 6px;
-      border-radius: 5px;
-      font-size: 10px; font-weight: 600;
-      color: #ffffff;
-      margin-bottom: 2px;
-      cursor: pointer;
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-      transition: opacity 0.15s;
-    }
     .month-event:hover { opacity: 0.85; }
 
     /* ── WEEK VIEW ── */
@@ -409,16 +405,6 @@ const CalendarStyles = () => (
     .week-grid-row {
       height: 72px; border-bottom: 1px solid #f5f8f9;
     }
-    .week-event {
-      position: absolute; left: 4px; right: 4px;
-      border-radius: 8px;
-      padding: 5px 8px;
-      cursor: pointer;
-      z-index: 5;
-      overflow: hidden;
-      transition: all 0.2s ease;
-      color: #ffffff;
-    }
     .week-event:hover { transform: scale(1.02); z-index: 10; box-shadow: 0 6px 20px rgba(0,0,0,0.18); }
     .week-event-time { font-size: 9px; font-weight: 700; opacity: 0.85; }
     .week-event-name { font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -454,14 +440,76 @@ const CalendarStyles = () => (
     .day-grid-row {
       height: 96px; border-bottom: 1px solid #f5f8f9;
     }
-    .day-event {
-      position: absolute; left: 16px; right: 16px;
-      border-radius: 10px; overflow: hidden;
-      cursor: pointer;
-      display: flex;
-      transition: all 0.2s ease;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-    }
+    /* -- Updated Sharp Event Styles -- */
+
+/* Shared base for all event cards */
+.event-card-base {
+  border: 1px solid rgba(0,0,0,0.05);
+  border-top-width: 3px !important; /* The thick "sharp" top bar */
+  border-radius: 4px; /* "Small rounded" */
+  color: #003038;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  overflow: hidden;
+}
+
+.event-card-base:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  z-index: 20;
+}
+
+/* Month View Specific */
+.month-event {
+  display: flex;
+  flex-direction: column;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  margin-bottom: 3px;
+  height: 22px;
+  justify-content: center;
+}
+
+/* Week View Specific */
+.week-event {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Day View Specific */
+.day-event {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Typography for the "Sharp" look */
+.event-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: #003038;
+  line-height: 1.2;
+}
+.event-subtitle {
+  font-size: 10px;
+  font-weight: 500;
+  color: #64868c;
+}
+.event-avatar-mini {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  margin-top: auto;
+}
     .day-event:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.12); transform: translateX(2px); }
     .day-event-bar { width: 4px; flex-shrink: 0; }
     .day-event-body {
@@ -684,13 +732,13 @@ function MiniCalendar({ currentDate, selectedDate, onSelect, daysWithMeetings }:
   return (
     <>
       <div className="mini-cal-nav">
-        <button className="mini-cal-nav-btn" onClick={() => setMiniDate(addMonths(miniDate, -1))}>
+        <Button className="mini-cal-nav-btn" onClick={() => setMiniDate(addMonths(miniDate, -1))}>
           <ChevronLeft size={12} />
-        </button>
+        </Button>
         <span className="mini-cal-month">{format(miniDate, 'MMMM yyyy')}</span>
-        <button className="mini-cal-nav-btn" onClick={() => setMiniDate(addMonths(miniDate, 1))}>
+        <Button className="mini-cal-nav-btn" onClick={() => setMiniDate(addMonths(miniDate, 1))}>
           <ChevronRight size={12} />
-        </button>
+        </Button>
       </div>
       <div className="mini-cal-grid">
         <div className="mini-cal-dow">
@@ -703,7 +751,7 @@ function MiniCalendar({ currentDate, selectedDate, onSelect, daysWithMeetings }:
             const isNow = dateFnsIsToday(day);
             const hasMtg = !isOther && daysWithMeetings.some(d => isSameDay(d, day));
             return (
-              <button key={i} onClick={() => !isOther && onSelect(day)}
+              <Button key={i} onClick={() => !isOther && onSelect(day)}
                 className={cn('mini-day',
                   isOther && 'other-month',
                   isSel && 'selected',
@@ -711,7 +759,7 @@ function MiniCalendar({ currentDate, selectedDate, onSelect, daysWithMeetings }:
                   hasMtg && 'has-meeting',
                 )}>
                 {format(day, 'd')}
-              </button>
+              </Button>
             );
           })}
         </div>
@@ -847,10 +895,14 @@ const CalendarView = () => {
               onClick={() => { setSelectedDate(day); setCurrentDate(day); }}>
               <div className={cn('month-day-num', isNow && 'today')}>{format(day, 'd')}</div>
               {dm.slice(0, 3).map(m => (
-                <div key={m.id_main} className="month-event"
-                  style={{ background: getEventGradient(m) }}
+                <div key={m.id_main}
+                  className="month-event event-card-base"
+                  style={{
+                    borderTopColor: getStatusColor(m.status || m.meeting_type),
+                    backgroundColor: getLightStatusColor(m.status || m.meeting_type)
+                  }}
                   onClick={e => { e.stopPropagation(); setSelectedMeeting(m); }}>
-                  {m.meeting_start_time?.slice(0, 5)} {m.client_name}
+                  <span className="truncate">{m.client_name}</span>
                 </div>
               ))}
               {dm.length > 3 && (
@@ -899,12 +951,22 @@ const CalendarView = () => {
                   const top = (sh - 7) * 72 + (sm / 60) * 72;
                   const height = Math.max(((eh * 60 + em) - (sh * 60 + sm)) / 60 * 72, 36);
                   return (
-                    <div key={m.id_main} className="week-event"
-                      style={{ top, height, background: getEventGradient(m) }}
+                    <div key={m.id_main}
+                      className="week-event event-card-base"
+                      style={{
+                        top, height,
+                        borderTopColor: getStatusColor(m.status || m.meeting_type),
+                        backgroundColor: getLightStatusColor(m.status || m.meeting_type)
+                      }}
                       onClick={() => setSelectedMeeting(m)}>
-                      <div className="week-event-time">{m.meeting_start_time?.slice(0, 5)}</div>
-                      <div className="week-event-name">{m.client_name}</div>
-                      {height > 52 && <div className="week-event-co">{m.client_company}</div>}
+                      <div className="event-title">{m.meeting_agenda || 'Consultation'}</div>
+                      <div className="event-subtitle">{m.meeting_start_time?.slice(0, 5)} - {m.meeting_end_time?.slice(0, 5)}</div>
+
+                      {height > 60 && (
+                        <div className="event-avatar-mini" style={{ background: getStatusColor(m.status || m.meeting_type), display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '8px' }}>
+                          {initials(m.client_name)}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -950,29 +1012,28 @@ const CalendarView = () => {
             const height = Math.max(((eh * 60 + em) - (sh * 60 + sm2)) / 60 * 96, 68);
             const color = getEventColor(m);
             return (
-              <div key={m.id_main} className="day-event"
-                style={{ top, height }}
+              <div key={m.id_main}
+                className="day-event event-card-base"
+                style={{
+                  top, height,
+                  borderTopColor: getStatusColor(m.status || m.meeting_type),
+                  backgroundColor: getLightStatusColor(m.status || m.meeting_type)
+                }}
                 onClick={() => setSelectedMeeting(m)}>
-                <div className="day-event-bar" style={{ background: color }} />
-                <div className="day-event-body">
-                  <div className="day-event-avatar" style={{ background: getEventGradient(m) }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <div className="event-title" style={{ fontSize: '14px' }}>{m.client_name}</div>
+                    <div className="event-subtitle" style={{ fontSize: '12px' }}>{m.meeting_start_time?.slice(0, 5)} - {m.meeting_end_time?.slice(0, 5)}</div>
+                  </div>
+                  <div className="event-avatar-mini" style={{ width: '24px', height: '24px', background: getStatusColor(m.status || m.meeting_type), display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '10px' }}>
                     {initials(m.client_name)}
                   </div>
-                  <div className="day-event-info">
-                    <div className="day-event-name">{m.client_name}</div>
-                    <div className="day-event-meta">
-                      {m.meeting_start_time?.slice(0, 5)} – {m.meeting_end_time?.slice(0, 5)} · {m.client_company}
-                    </div>
-                    {height > 84 && m.meeting_agenda && (
-                      <div style={{ fontSize: 11, color: '#a0b4b8', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {m.meeting_agenda}
-                      </div>
-                    )}
-                  </div>
-                  <div className="day-event-pill" style={{ fontSize: 10, ...getStatusBadgeClasses(m.status || m.meeting_type) }}>
-                    {getLabel(m)}
-                  </div>
                 </div>
+                {height > 100 && (
+                  <div style={{ marginTop: '8px', fontSize: '12px', color: '#64868c' }}>
+                    {m.meeting_agenda}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -1007,7 +1068,7 @@ const CalendarView = () => {
           <div style={{ position: 'relative', zIndex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
               <span className={cn('detail-status-pill')}>{getLabel(m)}</span>
-              <button className="detail-close" onClick={() => setSelectedMeeting(null)}><X size={12} /></button>
+              <Button className="detail-close" onClick={() => setSelectedMeeting(null)}><X size={12} /></Button>
             </div>
             <div className="detail-avatar">{initials(m.client_name)}</div>
             <div className="detail-name">{m.client_name}</div>
@@ -1092,15 +1153,15 @@ const CalendarView = () => {
 
         {/* footer */}
         <div className="detail-footer">
-          <button className="detail-del-btn" onClick={() => setDeletingMeeting(m)} title="Delete meeting">
+          <Button className="detail-del-btn" onClick={() => setDeletingMeeting(m)} title="Delete meeting">
             <Trash2 size={15} />
-          </button>
+          </Button>
           {m.meeting_type === 'virtual'
-            ? <button className="detail-join-btn"><Video size={13} /> Join Video</button>
-            : <button className="detail-edit-btn" onClick={() => router.push(`/schedule/edit/${m.id_main}`)}>Edit Meeting</button>
+            ? <Button className="detail-join-btn"><Video size={13} /> Join Video</Button>
+            : <Button className="detail-edit-btn" onClick={() => router.push(`/schedule/edit/${m.id_main}`)}>Edit Meeting</Button>
           }
           {m.meeting_type === 'virtual' && (
-            <button className="detail-edit-btn" onClick={() => router.push(`/schedule/edit/${m.id_main}`)}>Edit</button>
+            <Button className="detail-edit-btn" onClick={() => router.push(`/schedule/edit/${m.id_main}`)}>Edit</Button>
           )}
         </div>
       </div>
@@ -1132,15 +1193,15 @@ const CalendarView = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div className="cal-view-pill">
             {(['month', 'week', 'day'] as ViewType[]).map(v => (
-              <button key={v} className={cn('cal-view-btn', view === v && 'active')} onClick={() => setView(v)}>{v}</button>
+              <Button key={v} className={cn('cal-view-btn', view === v && 'active')} onClick={() => setView(v)}>{v}</Button>
             ))}
           </div>
-          <button className="cal-export-btn" onClick={() => exportMeetingsCSV(allMeetings)}>
+          <Button className="cal-export-btn" onClick={() => exportMeetingsCSV(allMeetings)}>
             <Download size={13} /> Export CSV
-          </button>
-          <button className="cal-add-btn" onClick={() => router.push('/schedule')}>
+          </Button>
+          <Button className="cal-add-btn" onClick={() => router.push('/schedule')}>
             <PlusCircle size={14} /> Add Meeting
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -1192,13 +1253,13 @@ const CalendarView = () => {
           {/* nav */}
           <div className="cal-nav">
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <button className="cal-nav-btn" onClick={() => nav(-1)}><ChevronLeft size={15} /></button>
+              <Button className="cal-nav-btn" onClick={() => nav(-1)}><ChevronLeft size={15} /></Button>
               <span className="cal-nav-label">{headerLabel}</span>
-              <button className="cal-nav-btn" onClick={() => nav(1)}><ChevronRight size={15} /></button>
+              <Button className="cal-nav-btn" onClick={() => nav(1)}><ChevronRight size={15} /></Button>
             </div>
-            <button className="cal-today-btn" onClick={() => { setCurrentDate(new Date()); setSelectedDate(new Date()); }}>
+            <Button className="cal-today-btn" onClick={() => { setCurrentDate(new Date()); setSelectedDate(new Date()); }}>
               Today
-            </button>
+            </Button>
           </div>
 
           {/* calendar body */}
