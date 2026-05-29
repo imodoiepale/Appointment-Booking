@@ -26,6 +26,7 @@ import {
     Search,
     ChevronDown,
     ChevronUp,
+    PartyPopper,
 } from 'lucide-react';
 
 /* ─────────────────────────────────────────────────────────────
@@ -201,6 +202,7 @@ const Sidebar = () => {
 
     const mainNav = [
         { name: 'Overview', href: '/dashboard', icon: LayoutDashboard },
+        { name: 'Events', href: '/events', icon: PartyPopper },
         { name: 'Calendar', href: '/calendar', icon: CalendarDays },
         { name: 'Notifications', href: '/notifications', icon: Bell, count: 3 },
     ];

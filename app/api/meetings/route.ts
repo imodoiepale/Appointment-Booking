@@ -151,6 +151,27 @@ export async function POST(request: NextRequest) {
           { status: 409 }
         );
       }
+
+      // ── Cross-check: events on the same date ────────────────────────────
+      const { data: existingEvents, error: evErr } = await supabase
+        .from('bcl_events')
+        .select('id, event_start_time, event_end_time, event_name')
+        .eq('event_date', payload.meeting_date)
+        .in('status', ['upcoming', 'confirmed']);
+
+      if (!evErr) {
+        const evConflict = (existingEvents ?? []).find((ev) => {
+          const s = timeToMinutes(ev.event_start_time);
+          const e = timeToMinutes(ev.event_end_time);
+          return s !== null && e !== null && newSlotStart < e && s < newSlotEnd;
+        });
+        if (evConflict) {
+          return NextResponse.json(
+            { error: `This time slot conflicts with the event "${evConflict.event_name}".` },
+            { status: 409 }
+          );
+        }
+      }
     }
 
     const { data, error } = await supabase

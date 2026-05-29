@@ -416,3 +416,195 @@ export async function syncMeetingsToCalendar(): Promise<void> {
     console.error('Error in syncMeetingsToCalendar:', error.message);
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BCL EVENTS  (weddings, fundraisers, tech events, etc.)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface BclEventRecord {
+  id: number;
+  event_name: string;
+  event_type: string;
+  event_date: string;
+  event_start_time: string;
+  event_end_time: string;
+  event_duration?: number;
+  event_venue?: string;
+  event_venue_area?: string;
+  event_description?: string;
+  organizer_name?: string;
+  organizer_company?: string;
+  organizer_mobile?: string;
+  organizer_email?: string;
+  expected_attendees?: number;
+  status?: string;
+  badge_status?: string;
+  created_by?: string;
+  updated_by?: string;
+}
+
+const EVENT_TYPE_LABEL: Record<string, string> = {
+  wedding: 'Wedding',
+  fundraiser: 'Fundraiser',
+  tech_event: 'Tech Event',
+  conference: 'Conference',
+  birthday: 'Birthday',
+  party: 'Party',
+  gala: 'Gala',
+  seminar: 'Seminar',
+  workshop: 'Workshop',
+  other: 'Event',
+};
+
+function buildBclEventDescription(ev: BclEventRecord): string {
+  const typeLabel = EVENT_TYPE_LABEL[ev.event_type] ?? 'Event';
+  const lines: string[] = [
+    `── ${typeLabel.toUpperCase()} ──`,
+    `Event:    ${ev.event_name}`,
+    `Type:     ${typeLabel}`,
+    '',
+    '── SCHEDULE ──',
+    `Date:     ${ev.event_date}`,
+    `Time:     ${toHHMM(ev.event_start_time)} → ${toHHMM(ev.event_end_time)}  (${ev.event_duration ?? '?'} min)`,
+  ];
+
+  if (ev.event_venue || ev.event_venue_area) {
+    lines.push('', '── VENUE ──');
+    if (ev.event_venue) lines.push(`Venue:    ${ev.event_venue}`);
+    if (ev.event_venue_area) lines.push(`Area:     ${ev.event_venue_area}`);
+  }
+
+  if (ev.organizer_name || ev.organizer_company) {
+    lines.push('', '── ORGANIZER ──');
+    if (ev.organizer_name) lines.push(`Name:     ${ev.organizer_name}`);
+    if (ev.organizer_company) lines.push(`Company:  ${ev.organizer_company}`);
+    if (ev.organizer_mobile) lines.push(`Mobile:   ${ev.organizer_mobile}`);
+    if (ev.organizer_email) lines.push(`Email:    ${ev.organizer_email}`);
+  }
+
+  if (ev.expected_attendees) {
+    lines.push('', `── ATTENDANCE ──`, `Expected: ${ev.expected_attendees} guests`);
+  }
+
+  if (ev.event_description) {
+    lines.push('', '── NOTES ──', ev.event_description);
+  }
+
+  lines.push(
+    '',
+    '── STATUS ──',
+    `Status:       ${ev.status || 'upcoming'}`,
+    `Confirmation: ${ev.badge_status || 'Open'}`,
+    ...(ev.created_by ? ['', `Created by: ${ev.created_by}`] : []),
+  );
+
+  return lines.join('\n');
+}
+
+function buildGCalEventFromBclEvent(ev: BclEventRecord) {
+  const typeLabel = EVENT_TYPE_LABEL[ev.event_type] ?? 'Event';
+  const summary = ev.organizer_name
+    ? `${typeLabel}: ${ev.event_name} (${ev.organizer_name})`
+    : `${typeLabel}: ${ev.event_name}`;
+
+  return {
+    summary,
+    description: buildBclEventDescription(ev),
+    location: ev.event_venue || ev.event_venue_area || undefined,
+    start: {
+      dateTime: `${ev.event_date}T${toHHMM(ev.event_start_time)}:00+03:00`,
+      timeZone: 'Africa/Nairobi',
+    },
+    end: {
+      dateTime: `${ev.event_date}T${toHHMM(ev.event_end_time)}:00+03:00`,
+      timeZone: 'Africa/Nairobi',
+    },
+    reminders: {
+      useDefault: false,
+      overrides: [
+        { method: 'email', minutes: 24 * 60 },
+        { method: 'popup', minutes: 60 },
+        { method: 'popup', minutes: 30 },
+      ],
+    },
+  };
+}
+
+export async function createGoogleCalendarEntryForEvent(ev: BclEventRecord): Promise<string> {
+  try {
+    const calendar = await getGoogleCalendarClient();
+    const response = await calendar.events.insert({
+      calendarId: 'primary',
+      requestBody: buildGCalEventFromBclEvent(ev),
+    });
+
+    const gCalId = response.data?.id || '';
+
+    await supabase
+      .from('bcl_events')
+      .update({ google_event_id: gCalId })
+      .eq('id', ev.id);
+
+    return gCalId;
+  } catch (error: any) {
+    console.error('Error creating Google Calendar entry for event:', error.message);
+    throw error;
+  }
+}
+
+export async function updateGoogleCalendarEntryForEvent(ev: BclEventRecord): Promise<string> {
+  try {
+    const calendar = await getGoogleCalendarClient();
+    const { data: stored } = await supabase
+      .from('bcl_events')
+      .select('google_event_id')
+      .eq('id', ev.id)
+      .single();
+
+    if (!stored?.google_event_id) {
+      return createGoogleCalendarEntryForEvent(ev);
+    }
+
+    const existing = await calendar.events.get({
+      calendarId: 'primary',
+      eventId: stored.google_event_id,
+    });
+
+    await calendar.events.update({
+      calendarId: 'primary',
+      eventId: stored.google_event_id,
+      requestBody: { ...existing.data, ...buildGCalEventFromBclEvent(ev) },
+    });
+
+    return stored.google_event_id;
+  } catch (error: any) {
+    console.error('Error updating Google Calendar entry for event:', error.message);
+    throw error;
+  }
+}
+
+export async function deleteGoogleCalendarEntryForEvent(eventId: number): Promise<void> {
+  try {
+    const calendar = await getGoogleCalendarClient();
+    const { data: stored } = await supabase
+      .from('bcl_events')
+      .select('google_event_id')
+      .eq('id', eventId)
+      .single();
+
+    if (!stored?.google_event_id) return;
+
+    await calendar.events.delete({
+      calendarId: 'primary',
+      eventId: stored.google_event_id,
+    });
+
+    await supabase
+      .from('bcl_events')
+      .update({ google_event_id: null })
+      .eq('id', eventId);
+  } catch (error: any) {
+    console.error('Error deleting Google Calendar entry for event:', error.message);
+    throw error;
+  }
+}

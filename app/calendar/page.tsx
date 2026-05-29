@@ -11,7 +11,8 @@ import {
   ChevronLeft, ChevronRight, Trash2, Loader2, Video,
   MapPin, Phone, Mail, PlusCircle, X, Download,
   CalendarDays, Calendar, Users, Clock, AlertCircle,
-  CheckCircle2, XCircle, Sparkles
+  CheckCircle2, XCircle, Sparkles, PartyPopper, Heart,
+  DollarSign, Cpu, Gift, Star, BookOpen, Hammer,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -51,6 +52,58 @@ interface Meeting {
 }
 
 type ViewType = 'month' | 'week' | 'day';
+type ContentFilter = 'meetings' | 'events' | 'all';
+
+interface BclEvent {
+  id: number;
+  event_name: string;
+  event_type: string;
+  event_date: string;
+  event_start_time: string;
+  event_end_time: string;
+  event_duration?: number;
+  event_venue?: string;
+  event_venue_area?: string;
+  event_description?: string;
+  organizer_name?: string;
+  organizer_company?: string;
+  organizer_email?: string;
+  organizer_mobile?: string;
+  expected_attendees?: number;
+  status?: string;
+  badge_status?: string;
+  google_event_id?: string;
+}
+
+const EVENT_TYPE_COLORS: Record<string, { bg: string; light: string; gradient: string }> = {
+  wedding: { bg: '#ec4899', light: '#fdf2f8', gradient: 'linear-gradient(135deg,#ec4899,#db2777)' },
+  fundraiser: { bg: '#f97316', light: '#fff7ed', gradient: 'linear-gradient(135deg,#f97316,#ea580c)' },
+  tech_event: { bg: '#8b5cf6', light: '#f5f3ff', gradient: 'linear-gradient(135deg,#8b5cf6,#7c3aed)' },
+  conference: { bg: '#3b82f6', light: '#eff6ff', gradient: 'linear-gradient(135deg,#3b82f6,#2563eb)' },
+  birthday: { bg: '#f59e0b', light: '#fffbeb', gradient: 'linear-gradient(135deg,#f59e0b,#d97706)' },
+  party: { bg: '#e879f9', light: '#fdf4ff', gradient: 'linear-gradient(135deg,#e879f9,#c026d3)' },
+  gala: { bg: '#d97706', light: '#fffbeb', gradient: 'linear-gradient(135deg,#d97706,#b45309)' },
+  seminar: { bg: '#10b981', light: '#f0fdf4', gradient: 'linear-gradient(135deg,#10b981,#059669)' },
+  workshop: { bg: '#06b6d4', light: '#ecfeff', gradient: 'linear-gradient(135deg,#06b6d4,#0891b2)' },
+  other: { bg: '#6b7280', light: '#f9fafb', gradient: 'linear-gradient(135deg,#6b7280,#4b5563)' },
+};
+const getEvTypeCol = (t: string) => EVENT_TYPE_COLORS[t?.toLowerCase()] ?? EVENT_TYPE_COLORS.other;
+
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  wedding: 'Wedding', fundraiser: 'Fundraiser', tech_event: 'Tech Event',
+  conference: 'Conference', birthday: 'Birthday', party: 'Party',
+  gala: 'Gala', seminar: 'Seminar', workshop: 'Workshop', other: 'Event',
+};
+
+const EVENT_TYPE_ICON_MAP: Record<string, any> = {
+  wedding: Heart, fundraiser: DollarSign, tech_event: Cpu,
+  conference: Users, birthday: Gift, party: Star,
+  gala: Sparkles, seminar: BookOpen, workshop: Hammer, other: PartyPopper,
+};
+const EvTypeIcon = ({ type, size = 11 }: { type: string; size?: number }) => {
+  const Icon = EVENT_TYPE_ICON_MAP[type?.toLowerCase()] ?? PartyPopper;
+  return <Icon size={size} />;
+};
 
 const getLightStatusColor = (status: string) => {
   const s = status?.toLowerCase();
@@ -126,6 +179,15 @@ const CalendarStyles = () => (
       color: #ffffff;
       box-shadow: 0 2px 8px rgba(0,209,209,0.25);
     }
+
+    /* Content type switcher */
+    .cal-content-switcher { display: flex; align-items: center; gap: 6px; padding: 4px; background: #f0f4f5; border-radius: 10px; }
+    .cal-content-btn { padding: 6px 14px; font-size: 12px; font-weight: 700; border-radius: 7px; border: none; cursor: pointer; transition: all 0.15s ease; color: #64868c; background: transparent; display: flex; align-items: center; gap: 6px; }
+    .cal-content-btn:hover { color: #003038; background: rgba(0,48,56,0.06); }
+    .cal-content-btn.active { background: #ffffff; color: #003038; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+    .cal-content-btn.active.ct-meetings { color: #0284c7; }
+    .cal-content-btn.active.ct-events   { color: #7c3aed; }
+    .cal-content-btn.active.ct-all      { color: #003038; }
 
     .cal-export-btn {
       display: flex;
@@ -586,15 +648,7 @@ const CalendarStyles = () => (
       transition: background 0.15s;
     }
     .detail-close:hover { background: rgba(255,255,255,0.25); }
-    .detail-avatar {
-      width: 42px; height: 42px; border-radius: 10px;
-      background: rgba(255,255,255,0.25);
-      border: 1.5px solid rgba(255,255,255,0.35);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 14px; font-weight: 800; color: #ffffff;
-      margin-bottom: 8px;
-    }
-    .detail-name { font-size: 15px; font-weight: 800; color: #ffffff; letter-spacing: -0.01em; }
+      .detail-name { font-size: 15px; font-weight: 800; letter-spacing: -0.01em; }
     .detail-company { font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 2px; }
 
     .detail-body { flex: 1; overflow-y: auto; padding: 14px; }
@@ -713,7 +767,10 @@ const CalendarStyles = () => (
 const getEventGradient = (m: Meeting) => getStatusGradient(m.status || m.meeting_type);
 const getEventColor = (m: Meeting) => getStatusColor(m.status || m.meeting_type);
 const getLabel = (m: Meeting) => m.status || m.meeting_type || 'Meeting';
-const initials = (n: string) => n?.split(' ').map(c => c[0]).join('').slice(0, 2).toUpperCase() ?? '??';
+const initials = (n: string) => {
+  if (!n || typeof n !== 'string') return '??';
+  return n.split(' ').filter(Boolean).map(c => c[0]).join('').slice(0, 2).toUpperCase();
+};
 
 // ── CONSTANTS ────────────────────────────────────────────────────
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -800,8 +857,10 @@ const CalendarView = () => {
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [allMeetings, setAllMeetings] = useState<Meeting[]>([]);
+  const [allEvents, setAllEvents] = useState<BclEvent[]>([]);
+  const [contentType, setContentType] = useState<ContentFilter>('meetings');
   const [loading, setLoading] = useState(true);
-  const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
+  const [selectedMeeting, setSelectedMeeting] = useState<any>(null);
   const [deletingMeeting, setDeletingMeeting] = useState<Meeting | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [view, setView] = useState<ViewType>('week');
@@ -809,14 +868,22 @@ const CalendarView = () => {
   const fetchMeetings = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('bcl_meetings_meetings').select('*')
-        .order('meeting_date', { ascending: true })
-        .order('meeting_start_time', { ascending: true });
-      if (error) throw error;
-      if (data) setAllMeetings(data as Meeting[]);
+      const [mtgRes, evsRes] = await Promise.all([
+        supabase.from('bcl_meetings_meetings').select('*')
+          .order('meeting_date', { ascending: true })
+          .order('meeting_start_time', { ascending: true }),
+        supabase.from('bcl_events').select('*')
+          .order('event_date', { ascending: true })
+          .order('event_start_time', { ascending: true })
+      ]);
+
+      if (mtgRes.error) throw mtgRes.error;
+      if (evsRes.error) throw evsRes.error;
+
+      if (mtgRes.data) setAllMeetings(mtgRes.data as Meeting[]);
+      if (evsRes.data) setAllEvents(evsRes.data as BclEvent[]);
     } catch (e: any) {
-      toast({ title: 'Error fetching meetings', description: e.message, variant: 'destructive' });
+      toast({ title: 'Error fetching calendar data', description: e.message, variant: 'destructive' });
     } finally { setLoading(false); }
   }, [toast]);
 
@@ -836,8 +903,12 @@ const CalendarView = () => {
 
   useEffect(() => {
     fetchMeetings();
-    const ch = supabase.channel('mtg').on('postgres_changes', { event: '*', schema: 'public', table: 'bcl_meetings_meetings' }, fetchMeetings).subscribe();
-    return () => { supabase.removeChannel(ch); };
+    const chMtg = supabase.channel('mtg').on('postgres_changes', { event: '*', schema: 'public', table: 'bcl_meetings_meetings' }, fetchMeetings).subscribe();
+    const chEvt = supabase.channel('evt').on('postgres_changes', { event: '*', schema: 'public', table: 'bcl_events' }, fetchMeetings).subscribe();
+    return () => {
+      supabase.removeChannel(chMtg);
+      supabase.removeChannel(chEvt);
+    };
   }, [fetchMeetings]);
 
   const nav = (dir: 1 | -1) => {
@@ -846,8 +917,20 @@ const CalendarView = () => {
     else setCurrentDate(addDays(currentDate, dir));
   };
 
-  const daysWithMeetings = useMemo(() =>
-    Array.from(new Set(allMeetings.map(m => m.meeting_date))).map(d => parseISO(d)), [allMeetings]);
+  const visibleItems = useMemo(() => {
+    const meetings = (contentType === 'meetings' || contentType === 'all')
+      ? allMeetings.map(m => ({ ...m, _kind: 'meeting' as const }))
+      : [];
+    const events = (contentType === 'events' || contentType === 'all')
+      ? allEvents.map(e => ({ ...e, _kind: 'event' as const }))
+      : [];
+    return [...meetings, ...events];
+  }, [allMeetings, allEvents, contentType]);
+
+  const daysWithMeetings = useMemo(() => {
+    const dates = visibleItems.map(item => item._kind === 'meeting' ? item.meeting_date : item.event_date);
+    return Array.from(new Set(dates)).map(d => parseISO(d));
+  }, [visibleItems]);
 
   const calendarDays = useMemo(() => {
     const ms = startOfMonth(currentDate);
@@ -862,8 +945,11 @@ const CalendarView = () => {
 
   const todayMeetings = useMemo(() => {
     const t = format(new Date(), 'yyyy-MM-dd');
-    return allMeetings.filter(m => m.meeting_date === t);
-  }, [allMeetings]);
+    return visibleItems.filter(item => {
+      const date = item._kind === 'meeting' ? item.meeting_date : item.event_date;
+      return date === t;
+    });
+  }, [visibleItems]);
 
   const headerLabel = useMemo(() => {
     if (view === 'week') {
@@ -886,7 +972,10 @@ const CalendarView = () => {
       <div className="month-grid" style={{ flex: 1 }}>
         {calendarDays.map((day, idx) => {
           const ds = format(day, 'yyyy-MM-dd');
-          const dm = allMeetings.filter(m => m.meeting_date === ds);
+          const dm = visibleItems.filter(item => {
+            const date = item._kind === 'meeting' ? item.meeting_date : item.event_date;
+            return date === ds;
+          });
           const isCur = day.getMonth() === currentDate.getMonth();
           const isSel = isSameDay(day, selectedDate);
           const isNow = dateFnsIsToday(day);
@@ -894,17 +983,41 @@ const CalendarView = () => {
             <div key={idx} className={cn('month-cell', !isCur && 'other-month', isSel && 'selected')}
               onClick={() => { setSelectedDate(day); setCurrentDate(day); }}>
               <div className={cn('month-day-num', isNow && 'today')}>{format(day, 'd')}</div>
-              {dm.slice(0, 3).map(m => (
-                <div key={m.id_main}
-                  className="month-event event-card-base"
-                  style={{
-                    borderTopColor: getStatusColor(m.status || m.meeting_type),
-                    backgroundColor: getLightStatusColor(m.status || m.meeting_type)
-                  }}
-                  onClick={e => { e.stopPropagation(); setSelectedMeeting(m); }}>
-                  <span className="truncate">{m.client_name}</span>
-                </div>
-              ))}
+              {dm.slice(0, 3).map(item => {
+                const isMtg = item._kind === 'meeting';
+                const key = isMtg ? `m-${item.id_main}` : `e-${item.id}`;
+                const borderTopColor = isMtg ? getStatusColor(item.status || item.meeting_type) : getEvTypeCol(item.event_type).bg;
+                const backgroundColor = isMtg ? getLightStatusColor(item.status || item.meeting_type) : getEvTypeCol(item.event_type).light;
+                const startTime = isMtg ? item.meeting_start_time : item.event_start_time;
+                const title = isMtg ? item.client_name : item.event_name;
+                
+                return (
+                  <div key={key}
+                    className="month-event event-card-base"
+                    style={{
+                      borderTopColor,
+                      backgroundColor,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 3,
+                    }}
+                    onClick={e => { e.stopPropagation(); setSelectedMeeting(item); }}>
+                    {isMtg ? (
+                      item.meeting_type === 'virtual'
+                        ? <Video size={8} style={{ flexShrink: 0, opacity: 0.55 }} />
+                        : <MapPin size={8} style={{ flexShrink: 0, opacity: 0.55 }} />
+                    ) : (
+                      <EvTypeIcon type={item.event_type} size={8} />
+                    )}
+                    <span style={{ fontSize: 9, fontWeight: 600, flexShrink: 0, opacity: 0.75, color: '#64868c' }}>
+                      {startTime?.slice(0, 5)}
+                    </span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 700, fontSize: 10 }}>
+                      {title}
+                    </span>
+                  </div>
+                );
+              })}
               {dm.length > 3 && (
                 <div style={{ fontSize: 10, fontWeight: 700, color: '#8ca4a8', padding: '1px 2px' }}>
                   +{dm.length - 3} more
@@ -934,7 +1047,10 @@ const CalendarView = () => {
         {weekDays.map(day => {
           const isNow = dateFnsIsToday(day);
           const ds = format(day, 'yyyy-MM-dd');
-          const dm = allMeetings.filter(m => m.meeting_date === ds);
+          const dm = visibleItems.filter(item => {
+            const date = item._kind === 'meeting' ? item.meeting_date : item.event_date;
+            return date === ds;
+          });
           return (
             <div key={day.toString()} className="week-day-col">
               <div className={cn('week-day-header', isNow && 'today-col')}>
@@ -943,28 +1059,63 @@ const CalendarView = () => {
               </div>
               <div style={{ position: 'relative' }}>
                 {TIME_SLOTS.map((_, i) => <div key={i} className="week-grid-row" />)}
-                {dm.map(m => {
-                  const sh = parseInt(m.meeting_start_time.split(':')[0]);
-                  const sm = parseInt(m.meeting_start_time.split(':')[1]);
-                  const eh = m.meeting_end_time ? parseInt(m.meeting_end_time.split(':')[0]) : sh + 1;
-                  const em = m.meeting_end_time ? parseInt(m.meeting_end_time.split(':')[1]) : 0;
+                {dm.map(item => {
+                  const isMtg = item._kind === 'meeting';
+                  const key = isMtg ? `m-${item.id_main}` : `e-${item.id}`;
+                  const startTime = isMtg ? item.meeting_start_time : item.event_start_time;
+                  const endTime = isMtg ? item.meeting_end_time : item.event_end_time;
+                  const title = isMtg ? item.client_name : item.event_name;
+                  const borderTopColor = isMtg ? getStatusColor(item.status || item.meeting_type) : getEvTypeCol(item.event_type).bg;
+                  const backgroundColor = isMtg ? getLightStatusColor(item.status || item.meeting_type) : getEvTypeCol(item.event_type).light;
+                  
+                  const sh = parseInt(startTime.split(':')[0]);
+                  const sm = parseInt(startTime.split(':')[1]);
+                  const eh = endTime ? parseInt(endTime.split(':')[0]) : sh + 1;
+                  const em = endTime ? parseInt(endTime.split(':')[1]) : 0;
                   const top = (sh - 7) * 72 + (sm / 60) * 72;
                   const height = Math.max(((eh * 60 + em) - (sh * 60 + sm)) / 60 * 72, 36);
+
                   return (
-                    <div key={m.id_main}
+                    <div key={key}
                       className="week-event event-card-base"
                       style={{
                         top, height,
-                        borderTopColor: getStatusColor(m.status || m.meeting_type),
-                        backgroundColor: getLightStatusColor(m.status || m.meeting_type)
+                        borderTopColor,
+                        backgroundColor
                       }}
-                      onClick={() => setSelectedMeeting(m)}>
-                      <div className="event-title">{m.meeting_agenda || 'Consultation'}</div>
-                      <div className="event-subtitle">{m.meeting_start_time?.slice(0, 5)} - {m.meeting_end_time?.slice(0, 5)}</div>
-
+                      onClick={() => setSelectedMeeting(item)}>
+                      <div className="event-title">{title}</div>
+                      <div className="event-subtitle" style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                        <Clock size={8} style={{ flexShrink: 0, opacity: 0.7 }} />
+                        {startTime?.slice(0, 5)} – {endTime?.slice(0, 5)}
+                      </div>
+                      {height > 54 && (isMtg ? item.meeting_agenda : item.event_description) && (
+                        <div style={{ fontSize: 10, color: '#64868c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>
+                          {isMtg ? item.meeting_agenda : item.event_description}
+                        </div>
+                      )}
+                      {height > 72 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 2 }}>
+                          {isMtg ? (
+                            item.meeting_type === 'virtual'
+                              ? <Video size={9} style={{ flexShrink: 0, opacity: 0.6 }} />
+                              : <MapPin size={9} style={{ flexShrink: 0, opacity: 0.6 }} />
+                          ) : (
+                            <EvTypeIcon type={item.event_type} size={9} />
+                          )}
+                          <span style={{ fontSize: 9, color: '#64868c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {isMtg ? (item.meeting_venue_area || item.meeting_type) : (item.event_venue_area || item.event_type)}
+                          </span>
+                        </div>
+                      )}
                       {height > 60 && (
-                        <div className="event-avatar-mini" style={{ background: getStatusColor(m.status || m.meeting_type), display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '8px' }}>
-                          {initials(m.client_name)}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 'auto' }}>
+                          <div className="event-avatar-mini" style={{ background: borderTopColor, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '8px', borderRadius: 4 }}>
+                            {initials(isMtg ? item.client_name : (item.organizer_name || item.event_name))}
+                          </div>
+                          <span style={{ fontSize: 9, fontWeight: 700, color: borderTopColor, textTransform: 'capitalize' }}>
+                            {isMtg ? getLabel(item) : (EVENT_TYPE_LABELS[item.event_type] ?? item.event_type)}
+                          </span>
                         </div>
                       )}
                     </div>
@@ -980,7 +1131,11 @@ const CalendarView = () => {
 
   // ── DAY VIEW ────────────────────────────────────────────────────
   const renderDayView = () => {
-    const dm = allMeetings.filter(m => m.meeting_date === format(currentDate, 'yyyy-MM-dd'));
+    const formattedDate = format(currentDate, 'yyyy-MM-dd');
+    const dm = visibleItems.filter(item => {
+      const date = item._kind === 'meeting' ? item.meeting_date : item.event_date;
+      return date === formattedDate;
+    });
     const isNow = dateFnsIsToday(currentDate);
     return (
       <div className="day-layout" style={{ height: '100%' }}>
@@ -999,39 +1154,85 @@ const CalendarView = () => {
             </div>
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, color: '#003038' }}>{format(currentDate, 'EEEE, MMMM d')}</div>
-              <div style={{ fontSize: 11, color: '#8ca4a8' }}>{dm.length} meeting{dm.length !== 1 ? 's' : ''}</div>
+              <div style={{ fontSize: 11, color: '#8ca4a8' }}>{dm.length} schedule item{dm.length !== 1 ? 's' : ''}</div>
             </div>
           </div>
           {TIME_SLOTS.map((_, i) => <div key={i} className="day-grid-row" />)}
-          {dm.map(m => {
-            const sh = parseInt(m.meeting_start_time.split(':')[0]);
-            const sm2 = parseInt(m.meeting_start_time.split(':')[1]);
-            const eh = m.meeting_end_time ? parseInt(m.meeting_end_time.split(':')[0]) : sh + 1;
-            const em = m.meeting_end_time ? parseInt(m.meeting_end_time.split(':')[1]) : 0;
+          {dm.map(item => {
+            const isMtg = item._kind === 'meeting';
+            const key = isMtg ? `m-${item.id_main}` : `e-${item.id}`;
+            const startTime = isMtg ? item.meeting_start_time : item.event_start_time;
+            const endTime = isMtg ? item.meeting_end_time : item.event_end_time;
+            const title = isMtg ? item.client_name : item.event_name;
+            const borderTopColor = isMtg ? getStatusColor(item.status || item.meeting_type) : getEvTypeCol(item.event_type).bg;
+            const backgroundColor = isMtg ? getLightStatusColor(item.status || item.meeting_type) : getEvTypeCol(item.event_type).light;
+
+            const sh = parseInt(startTime.split(':')[0]);
+            const sm2 = parseInt(startTime.split(':')[1]);
+            const eh = endTime ? parseInt(endTime.split(':')[0]) : sh + 1;
+            const em = endTime ? parseInt(endTime.split(':')[1]) : 0;
             const top = 56 + (sh - 7) * 96 + (sm2 / 60) * 96;
             const height = Math.max(((eh * 60 + em) - (sh * 60 + sm2)) / 60 * 96, 68);
-            const color = getEventColor(m);
+            const durationMin = (eh * 60 + em) - (sh * 60 + sm2);
             return (
-              <div key={m.id_main}
+              <div key={key}
                 className="day-event event-card-base"
                 style={{
                   top, height,
-                  borderTopColor: getStatusColor(m.status || m.meeting_type),
-                  backgroundColor: getLightStatusColor(m.status || m.meeting_type)
+                  borderTopColor,
+                  backgroundColor
                 }}
-                onClick={() => setSelectedMeeting(m)}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <div className="event-title" style={{ fontSize: '14px' }}>{m.client_name}</div>
-                    <div className="event-subtitle" style={{ fontSize: '12px' }}>{m.meeting_start_time?.slice(0, 5)} - {m.meeting_end_time?.slice(0, 5)}</div>
+                onClick={() => setSelectedMeeting(item)}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="event-title" style={{ fontSize: 13, fontWeight: 800 }}>{title}</div>
+                    {(isMtg ? item.client_company : item.organizer_name) && (
+                      <div style={{ fontSize: 11, color: '#64868c', fontWeight: 500, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {isMtg ? item.client_company : (item.organizer_company || item.organizer_name)}
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                        <Clock size={10} style={{ color: '#8ca4a8', flexShrink: 0 }} />
+                        <span style={{ fontSize: 10, color: '#64868c', fontWeight: 500 }}>{startTime?.slice(0, 5)} – {endTime?.slice(0, 5)}</span>
+                      </div>
+                      {durationMin > 0 && (
+                        <span style={{ fontSize: 9, fontWeight: 700, color: '#8ca4a8' }}>{durationMin}m</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="event-avatar-mini" style={{ width: '24px', height: '24px', background: getStatusColor(m.status || m.meeting_type), display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '10px' }}>
-                    {initials(m.client_name)}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 7, background: borderTopColor, display: 'flex', alignItems: 'center', justify: 'center', color: 'white', fontSize: 10, fontWeight: 700 }}>
+                      {initials(isMtg ? item.client_name : (item.organizer_name || item.event_name))}
+                    </div>
+                    <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, backgroundColor: borderTopColor + '15', color: borderTopColor, border: `1px solid ${borderTopColor}40`, textTransform: 'capitalize' }}>
+                      {isMtg ? getLabel(item) : (EVENT_TYPE_LABELS[item.event_type] ?? item.event_type)}
+                    </span>
                   </div>
                 </div>
                 {height > 100 && (
-                  <div style={{ marginTop: '8px', fontSize: '12px', color: '#64868c' }}>
-                    {m.meeting_agenda}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 8 }}>
+                    {isMtg ? (
+                      item.meeting_type === 'virtual'
+                        ? <Video size={10} style={{ color: '#7c3aed', flexShrink: 0 }} />
+                        : <MapPin size={10} style={{ color: '#0284c7', flexShrink: 0 }} />
+                    ) : (
+                      <EvTypeIcon type={item.event_type} size={10} />
+                    )}
+                    <span style={{ fontSize: 11, color: '#64868c' }}>
+                      {isMtg ? (item.meeting_venue_area || (item.meeting_type === 'virtual' ? 'Virtual Meeting' : 'Physical Meeting')) : (item.event_venue_area || 'Physical Event')}
+                    </span>
+                  </div>
+                )}
+                {height > 132 && (isMtg ? item.meeting_agenda : item.event_description) && (
+                  <div style={{ marginTop: 6, fontSize: 11, color: '#64868c', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                    {isMtg ? item.meeting_agenda : item.event_description}
+                  </div>
+                )}
+                {height > 164 && (isMtg ? item.bcl_attendee : item.expected_attendees != null) && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 6 }}>
+                    <Users size={10} style={{ color: '#8ca4a8', flexShrink: 0 }} />
+                    <span style={{ fontSize: 10, color: '#8ca4a8' }}>{isMtg ? item.bcl_attendee : `${item.expected_attendees} Expected Guests`}</span>
                   </div>
                 )}
               </div>
@@ -1047,32 +1248,53 @@ const CalendarView = () => {
     if (!selectedMeeting) {
       return (
         <div className="cal-detail">
-          <div className="cal-panel-header">Meeting Details</div>
+          <div className="cal-panel-header">Details</div>
           <div className="cal-detail-empty">
             <div className="cal-detail-icon-wrap">
               <CalendarDays size={22} style={{ color: '#8ca4a8' }} />
             </div>
-            <div className="cal-detail-empty-title">No meeting selected</div>
-            <div className="cal-detail-empty-sub">Click any event on the calendar to view its details here</div>
+            <div className="cal-detail-empty-title">No item selected</div>
+            <div className="cal-detail-empty-sub">Click any item on the calendar to view its details here</div>
           </div>
         </div>
       );
     }
-    const m = selectedMeeting;
-    const gradient = getEventGradient(m);
+
+    const item = selectedMeeting;
+    const isMtg = item._kind === 'meeting';
+
+    const gradient = isMtg 
+      ? getStatusGradient(item.status || item.meeting_type)
+      : getEvTypeCol(item.event_type).gradient;
+
+    const label = isMtg 
+      ? getLabel(item)
+      : (EVENT_TYPE_LABELS[item.event_type] ?? item.event_type);
+
+    const title = isMtg ? item.client_name : item.event_name;
+    const subtitle = isMtg ? item.client_company : (item.organizer_name || 'Event Organizer');
+
+    const dateStr = isMtg ? item.meeting_date : item.event_date;
+    const startTime = isMtg ? item.meeting_start_time : item.event_start_time;
+    const endTime = isMtg ? item.meeting_end_time : item.event_end_time;
+    const duration = isMtg ? item.meeting_duration : item.event_duration;
+    const description = isMtg ? item.meeting_agenda : item.event_description;
+
     return (
       <div className="cal-detail">
         {/* colored header */}
         <div className="detail-color-header" style={{ background: gradient }}>
           <div className="detail-header-shine" />
-          <div style={{ position: 'relative', zIndex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <span className={cn('detail-status-pill')}>{getLabel(m)}</span>
+          <div className='flex-col gap-4 text-white'>
+            <div style={{ display: 'flex', alignItems: 'center', justify: 'space-between', marginBottom: 10 }}>
+              <span className="detail-status-pill">{label}</span>
               <Button className="detail-close" onClick={() => setSelectedMeeting(null)}><X size={12} /></Button>
             </div>
-            <div className="detail-avatar">{initials(m.client_name)}</div>
-            <div className="detail-name">{m.client_name}</div>
-            <div className="detail-company">{m.client_company}</div>
+            <div className="w-12 h-12 rounded-full flex items-center justify-center font-semibold text-2xl text-[#003038] bg-white/90 mb-2">
+              {initials(isMtg ? item.client_name : (item.organizer_name || item.event_name))}
+            </div>
+            <div className="text-xl font-bold uppercase overflow-hidden text-ellipsis whitespace-nowrap">{title}</div>
+            <div className="text-xs font-semibold text-white/80 overflow-hidden text-ellipsis whitespace-nowrap">{subtitle}</div>
           </div>
         </div>
 
@@ -1084,84 +1306,180 @@ const CalendarView = () => {
             <div className="detail-chip">
               <div className="detail-chip-label">Date</div>
               <div className="detail-chip-value">
-                {m.meeting_date ? format(parseISO(m.meeting_date), 'MMM d, yyyy') : '—'}
+                {dateStr ? format(parseISO(dateStr), 'MMM d, yyyy') : '—'}
+              </div>
+            </div>
+            <div className="detail-chip">
+              <div className="detail-chip-label">Day</div>
+              <div className="detail-chip-value">
+                {dateStr ? format(parseISO(dateStr), 'EEEE') : '—'}
               </div>
             </div>
             <div className="detail-chip">
               <div className="detail-chip-label">Time</div>
-              <div className="detail-chip-value">{m.meeting_start_time?.slice(0, 5)} – {m.meeting_end_time?.slice(0, 5)}</div>
+              <div className="detail-chip-value">{startTime?.slice(0, 5)} – {endTime?.slice(0, 5)}</div>
+            </div>
+            <div className="detail-chip">
+              <div className="detail-chip-label">Duration</div>
+              <div className="detail-chip-value">
+                {duration
+                  ? `${duration} min`
+                  : (() => {
+                    if (!startTime || !endTime) return '—';
+                    const [sh, sm] = startTime.split(':').map(Number);
+                    const [eh, em] = endTime.split(':').map(Number);
+                    const diff = (eh * 60 + em) - (sh * 60 + sm);
+                    return diff > 0 ? `${diff} min` : '—';
+                  })()}
+              </div>
             </div>
           </div>
 
-          {/* type */}
-          <div className="detail-section-label">Meeting Type</div>
+          {/* logistics */}
+          <div className="detail-section-label">Logistics</div>
           <div className="detail-type-row">
             <div className="detail-type-icon"
-              style={{ background: m.meeting_type === 'virtual' ? '#ede9fe' : '#e0f2fe' }}>
-              {m.meeting_type === 'virtual'
-                ? <Video size={15} style={{ color: '#7c3aed' }} />
-                : <MapPin size={15} style={{ color: '#0284c7' }} />}
+              style={{ background: isMtg ? (item.meeting_type === 'virtual' ? '#ede9fe' : '#e0f2fe') : '#ede9fe' }}>
+              {isMtg ? (
+                item.meeting_type === 'virtual'
+                  ? <Video size={15} style={{ color: '#7c3aed' }} />
+                  : <MapPin size={15} style={{ color: '#0284c7' }} />
+              ) : (
+                <EvTypeIcon type={item.event_type} size={15} />
+              )}
             </div>
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#003038', textTransform: 'capitalize' }}>{m.meeting_type}</div>
-              {m.meeting_venue_area && <div style={{ fontSize: 11, color: '#8ca4a8' }}>{m.meeting_venue_area}</div>}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#003038', textTransform: 'capitalize' }}>
+                {isMtg ? item.meeting_type : (EVENT_TYPE_LABELS[item.event_type] ?? item.event_type)}
+              </div>
+              {(isMtg ? item.meeting_venue_area : item.event_venue_area) && (
+                <div style={{ fontSize: 11, color: '#8ca4a8' }}>
+                  {isMtg ? item.meeting_venue_area : item.event_venue_area}
+                </div>
+              )}
+              {isMtg ? item.meeting_venue : item.event_venue && (
+                <div style={{ fontSize: 10, color: '#b0c4c8', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {isMtg ? item.meeting_venue : item.event_venue}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* agenda */}
-          {m.meeting_agenda && (
+          {/* description / agenda */}
+          {description && (
             <>
-              <div className="detail-section-label">Agenda</div>
-              <div className="detail-agenda">{m.meeting_agenda}</div>
+              <div className="detail-section-label">{isMtg ? 'Agenda' : 'Description'}</div>
+              <div className="detail-agenda">{description}</div>
             </>
           )}
 
-          {/* attendee */}
-          {m.bcl_attendee && (
-            <>
-              <div className="detail-section-label">BCL Attendee</div>
-              <div className="detail-attendee">
-                <div className="detail-att-avatar">{initials(m.bcl_attendee)}</div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: '#003038' }}>{m.bcl_attendee}</div>
-              </div>
-            </>
+          {/* attendee / organizer */}
+          {isMtg ? (
+            item.bcl_attendee && (
+              <>
+                <div className="detail-section-label">BCL Attendee</div>
+                <div className="detail-attendee">
+                  <div className="detail-att-avatar">{initials(item.bcl_attendee)}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#003038' }}>{item.bcl_attendee}</div>
+                    {item.bcl_attendee_mobile && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                        <Phone size={9} style={{ color: '#8ca4a8', flexShrink: 0 }} />
+                        <span style={{ fontSize: 10, color: '#8ca4a8' }}>{item.bcl_attendee_mobile}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )
+          ) : (
+            (item.organizer_name || item.organizer_email || item.organizer_mobile) && (
+              <>
+                <div className="detail-section-label">Organizer</div>
+                <div className="detail-attendee">
+                  <div className="detail-att-avatar" style={{ background: getEvTypeCol(item.event_type).bg }}>
+                    {initials(item.organizer_name || item.event_name)}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#003038' }}>{item.organizer_name || '—'}</div>
+                    {item.organizer_company && <div style={{ fontSize: 10, color: '#8ca4a8' }}>{item.organizer_company}</div>}
+                  </div>
+                </div>
+              </>
+            )
           )}
 
-          {/* contact */}
-          {(m.client_email || m.client_mobile) && (
-            <>
-              <div className="detail-section-label">Contact</div>
-              {m.client_email && (
-                <a href={`mailto:${m.client_email}`} className="detail-contact-link">
-                  <div className="detail-contact-icon" style={{ background: '#ede9fe' }}>
-                    <Mail size={13} style={{ color: '#7c3aed' }} />
-                  </div>
-                  <span className="detail-contact-text">{m.client_email}</span>
-                </a>
-              )}
-              {m.client_mobile && (
-                <a href={`tel:${m.client_mobile}`} className="detail-contact-link">
-                  <div className="detail-contact-icon" style={{ background: '#dcfce7' }}>
-                    <Phone size={13} style={{ color: '#16a34a' }} />
-                  </div>
-                  <span className="detail-contact-text">{m.client_mobile}</span>
-                </a>
-              )}
-            </>
+          {/* contact details */}
+          {isMtg ? (
+            (item.client_email || item.client_mobile) && (
+              <>
+                <div className="detail-section-label">Contact</div>
+                {item.client_email && (
+                  <a href={`mailto:${item.client_email}`} className="detail-contact-link">
+                    <div className="detail-contact-icon" style={{ background: '#ede9fe' }}>
+                      <Mail size={13} style={{ color: '#7c3aed' }} />
+                    </div>
+                    <span className="detail-contact-text">{item.client_email}</span>
+                  </a>
+                )}
+                {item.client_mobile && (
+                  <a href={`tel:${item.client_mobile}`} className="detail-contact-link">
+                    <div className="detail-contact-icon" style={{ background: '#dcfce7' }}>
+                      <Phone size={13} style={{ color: '#16a34a' }} />
+                    </div>
+                    <span className="detail-contact-text">{item.client_mobile}</span>
+                  </a>
+                )}
+              </>
+            )
+          ) : (
+            (item.organizer_email || item.organizer_mobile) && (
+              <>
+                <div className="detail-section-label">Organizer Contact</div>
+                {item.organizer_email && (
+                  <a href={`mailto:${item.organizer_email}`} className="detail-contact-link">
+                    <div className="detail-contact-icon" style={{ background: '#ede9fe' }}>
+                      <Mail size={13} style={{ color: '#7c3aed' }} />
+                    </div>
+                    <span className="detail-contact-text">{item.organizer_email}</span>
+                  </a>
+                )}
+                {item.organizer_mobile && (
+                  <a href={`tel:${item.organizer_mobile}`} className="detail-contact-link">
+                    <div className="detail-contact-icon" style={{ background: '#dcfce7' }}>
+                      <Phone size={13} style={{ color: '#16a34a' }} />
+                    </div>
+                    <span className="detail-contact-text">{item.organizer_mobile}</span>
+                  </a>
+                )}
+              </>
+            )
           )}
         </div>
 
         {/* footer */}
         <div className="detail-footer">
-          <Button className="detail-del-btn" onClick={() => setDeletingMeeting(m)} title="Delete meeting">
-            <Trash2 size={15} />
-          </Button>
-          {m.meeting_type === 'virtual'
-            ? <Button className="detail-join-btn"><Video size={13} /> Join Video</Button>
-            : <Button className="detail-edit-btn" onClick={() => router.push(`/schedule/edit/${m.id_main}`)}>Edit Meeting</Button>
-          }
-          {m.meeting_type === 'virtual' && (
-            <Button className="detail-edit-btn" onClick={() => router.push(`/schedule/edit/${m.id_main}`)}>Edit</Button>
+          {isMtg ? (
+            <>
+              <Button className="detail-del-btn" onClick={() => setDeletingMeeting(item)} title="Delete meeting">
+                <Trash2 size={15} />
+              </Button>
+              {item.meeting_type === 'virtual' && item.google_meet_link ? (
+                <Button className="detail-join-btn" onClick={() => window.open(item.google_meet_link, '_blank')}>
+                  <Video size={13} /> Join Video
+                </Button>
+              ) : (
+                <Button className="detail-edit-btn" onClick={() => router.push(`/schedule/edit/${item.id_main}`)}>
+                  Edit Meeting
+                </Button>
+              )}
+            </>
+          ) : (
+            <>
+              <Button className="detail-edit-btn" style={{ flex: 1 }} onClick={() => router.push('/events')}>
+                Manage Events Page
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -1191,6 +1509,19 @@ const CalendarView = () => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Content type switcher */}
+          <div className="cal-content-switcher">
+            {([
+              { id: 'meetings', label: 'Meetings', icon: Calendar },
+              { id: 'events',   label: 'Events',   icon: PartyPopper },
+              { id: 'all',      label: 'All',       icon: Users },
+            ] as const).map(({ id, label, icon: Icon }) => (
+              <button key={id} className={cn('cal-content-btn', contentType === id && `active ct-${id}`)}
+                onClick={() => { setContentType(id); setSelectedMeeting(null); }}>
+                <Icon size={13} /> {label}
+              </button>
+            ))}
+          </div>
           <div className="cal-view-pill">
             {(['month', 'week', 'day'] as ViewType[]).map(v => (
               <Button key={v} className={cn('cal-view-btn', view === v && 'active')} onClick={() => setView(v)}>{v}</Button>
@@ -1222,7 +1553,7 @@ const CalendarView = () => {
 
           {/* Today's meetings panel */}
           <div className="cal-panel" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <div className="cal-panel-header">Today's Meetings</div>
+            <div className="cal-panel-header">Today's Schedule</div>
             <div style={{ flex: 1, overflowY: 'auto' }}>
               {todayMeetings.length === 0 ? (
                 <div style={{ padding: '16px 14px', textAlign: 'center' }}>
@@ -1233,17 +1564,26 @@ const CalendarView = () => {
                   }}>
                     <Calendar size={18} style={{ color: '#8ca4a8' }} />
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: '#64868c' }}>No meetings today</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: '#64868c' }}>No items today</div>
                 </div>
-              ) : todayMeetings.map(m => (
-                <div key={m.id_main} className="today-item" onClick={() => setSelectedMeeting(m)}>
-                  <div className="today-dot" style={{ background: getEventColor(m) }} />
-                  <div>
-                    <div className="today-name">{m.client_name}</div>
-                    <div className="today-meta">{m.meeting_start_time?.slice(0, 5)} · {m.client_company}</div>
+              ) : todayMeetings.map(item => {
+                const isMtg = item._kind === 'meeting';
+                const key = isMtg ? `m-${item.id_main}` : `e-${item.id}`;
+                const color = isMtg ? getStatusColor(item.status || item.meeting_type) : getEvTypeCol(item.event_type).bg;
+                const name = isMtg ? item.client_name : item.event_name;
+                const meta = isMtg 
+                  ? `${item.meeting_start_time?.slice(0, 5)} · ${item.client_company}` 
+                  : `${item.event_start_time?.slice(0, 5)} · ${EVENT_TYPE_LABELS[item.event_type] ?? item.event_type}`;
+                return (
+                  <div key={key} className="today-item" onClick={() => setSelectedMeeting(item)}>
+                    <div className="today-dot" style={{ background: color }} />
+                    <div>
+                      <div className="today-name">{name}</div>
+                      <div className="today-meta">{meta}</div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

@@ -16,7 +16,7 @@ import {
   Calendar, Clock, Building, MapPin, CheckCircle, XCircle, Table2, LayoutGrid,
   Video, Trash2, Loader2, CloudOff, Cloud, ChevronLeft, ChevronRight, Search,
   MoreHorizontal, Plus, Download, Hash, Globe, CheckCircle2, CalendarClock,
-  Edit2, Ban, UserCheck, AlertCircle
+  Edit2, Ban, UserCheck, AlertCircle, PartyPopper, Users,
 } from 'lucide-react';
 import { getStatusColors, getBadgeStatusColor } from '@/utils/statusColors';
 import { formatTime } from './format';
@@ -347,6 +347,22 @@ const DashboardStyles = () => (
 
     /* delete dialog */
     .db-delete-dialog { border-radius: 14px !important; border: 1px solid #eef2f3 !important; background: #ffffff !important; box-shadow: 0 16px 48px rgba(0,48,56,0.12) !important; max-width: 380px !important; }
+
+    /* ── CONTENT TYPE SWITCHER ── */
+    .db-content-switcher { display:flex; align-items:center; gap:6px; padding:4px; background:#f0f4f5; border-radius:10px; }
+    .db-content-btn { padding:6px 14px; font-size:12px; font-weight:700; border-radius:7px; border:none; cursor:pointer; transition:all .15s ease; color:#64868c; background:transparent; display:flex; align-items:center; gap:6px; }
+    .db-content-btn:hover { color:#003038; background:rgba(0,48,56,.06); }
+    .db-content-btn.active { background:#ffffff; color:#003038; box-shadow:0 1px 4px rgba(0,0,0,.08); }
+    .db-content-btn.active.ct-meetings { color:#0284c7; }
+    .db-content-btn.active.ct-events   { color:#7c3aed; }
+    .db-content-btn.active.ct-all      { color:#003038; }
+
+    /* events inline table rows */
+    .ev-type-chip { display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase; }
+    .pill-event-upcoming  { background:#ede9fe; color:#5b21b6; border:1px solid #ddd6fe; }
+    .pill-event-confirmed { background:#ccfbf1; color:#065f46; border:1px solid #99f6e4; }
+    .pill-event-completed { background:#dcfce7; color:#166534; border:1px solid #bbf7d0; }
+    .pill-event-cancelled { background:#fee2e2; color:#991b1b; border:1px solid #fecaca; }
   `}</style>
 );
 
@@ -451,9 +467,11 @@ const DashboardContent = () => {
   const statusParam = searchParams.get('status');
 
   const [appointments, setAppointments] = useState([]);
+  const [allEvents, setAllEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [activeTab, setActiveTab] = useState(statusParam ?? 'upcoming');
+  const [contentType, setContentType] = useState<'meetings' | 'events' | 'all'>('meetings');
   const [calendarConnectionStatus, setCalendarConnectionStatus] = useState('checking');
   const [currentUserId, setCurrentUserId] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -480,9 +498,10 @@ const DashboardContent = () => {
     const init = async () => {
       setLoading(true);
       try {
-        const [userRes, meetingsRes, calRes] = await Promise.all([
+        const [userRes, meetingsRes, eventsRes, calRes] = await Promise.all([
           fetch('/api/users/me'),
           fetch('/api/meetings'),
+          fetch('/api/events'),
           fetch('/api/auth/google/status'),
         ]);
         if (userRes.ok) {
@@ -493,6 +512,10 @@ const DashboardContent = () => {
         if (meetingsRes.ok) {
           const data = await meetingsRes.json();
           setAppointments(Array.isArray(data) ? data : []);
+        }
+        if (eventsRes.ok) {
+          const data = await eventsRes.json();
+          setAllEvents(Array.isArray(data) ? data : []);
         }
         const calStatus = await calRes.json();
         setCalendarConnectionStatus(calStatus.connected ? 'connected' : 'disconnected');
@@ -635,8 +658,40 @@ const DashboardContent = () => {
     }
   }, [scopedAppointments, activeTab]);
 
-  const paginated = activeAppointments.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage);
-  const totalPages = Math.ceil(activeAppointments.length / itemsPerPage);
+  // ── Events filtering (mirrors meetings logic) ───────────────────────────
+  const activeEvents = useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    let list = allEvents;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter((e: any) => e.event_name?.toLowerCase().includes(q) || e.organizer_name?.toLowerCase().includes(q) || String(e.id).includes(q));
+    }
+    switch (activeTab) {
+      case 'today':     return list.filter((e: any) => e.event_date === todayStr);
+      case 'pending':   return list.filter((e: any) => e.status === 'upcoming');
+      case 'completed': return list.filter((e: any) => e.status === 'completed');
+      case 'canceled':  return list.filter((e: any) => e.status === 'cancelled');
+      default:          return list.filter((e: any) => ['upcoming', 'confirmed'].includes(e.status ?? 'upcoming'));
+    }
+  }, [allEvents, activeTab, searchQuery]);
+
+  // ── Combined list for "All" tab ─────────────────────────────────────────
+  const combinedList = useMemo(() => {
+    const mtg = activeAppointments.map((a: any) => ({ ...a, _kind: 'meeting' }));
+    const evs = activeEvents.map((e: any) => ({ ...e, _kind: 'event' }));
+    return [...mtg, ...evs].sort((a: any, b: any) => {
+      const da = a.meeting_date ?? a.event_date ?? '';
+      const db2 = b.meeting_date ?? b.event_date ?? '';
+      return da.localeCompare(db2) || (a.meeting_start_time ?? a.event_start_time ?? '').localeCompare(b.meeting_start_time ?? b.event_start_time ?? '');
+    });
+  }, [activeAppointments, activeEvents]);
+
+  const activeList = contentType === 'meetings' ? activeAppointments
+    : contentType === 'events' ? activeEvents
+    : combinedList;
+
+  const paginated = activeList.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage);
+  const totalPages = Math.ceil(activeList.length / itemsPerPage);
 
   const apt = selectedAppointment;
   const displayApt = apt ? checkAppointmentStatus(apt) : null;
@@ -660,9 +715,22 @@ const DashboardContent = () => {
       <div className="db-header">
         <div>
           <div className="db-title">Meetings & Schedule</div>
-          <div className="db-subtitle">Manage your client engagements and team schedule</div>
+          <div className="db-subtitle">Manage your client engagements, events and team schedule</div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Content type switcher */}
+          <div className="db-content-switcher">
+            {([
+              { id: 'meetings', label: 'Meetings', icon: Calendar },
+              { id: 'events',   label: 'Events',   icon: PartyPopper },
+              { id: 'all',      label: 'All',       icon: Users },
+            ] as const).map(({ id, label, icon: Icon }) => (
+              <button key={id} className={`db-content-btn ${contentType === id ? `active ct-${id}` : ''}`}
+                onClick={() => { setContentType(id); setCurrentPage(0); }}>
+                <Icon size={13} /> {label}
+              </button>
+            ))}
+          </div>
           <div className="cal-status">
             <div className={`cal-dot ${calendarConnectionStatus === 'connected' ? 'cal-dot-connected' : 'cal-dot-disconnected'}`} />
             Calendar {calendarConnectionStatus}
@@ -670,9 +738,10 @@ const DashboardContent = () => {
           <button className="db-btn-outline" onClick={() => { }}>
             <Download size={13} /> Export
           </button>
-          <button className="db-btn-primary" onClick={() => router.push('/schedule')}>
-            <Plus size={14} /> New Meeting
-          </button>
+          {contentType === 'events'
+            ? <button className="db-btn-primary" onClick={() => router.push('/events')}><Plus size={14} /> New Event</button>
+            : <button className="db-btn-primary" onClick={() => router.push('/schedule')}><Plus size={14} /> New Meeting</button>
+          }
         </div>
       </div>
 
@@ -712,50 +781,68 @@ const DashboardContent = () => {
               <thead>
                 <tr>
                   <th style={{ width: 40, paddingLeft: 18 }}></th>
-                  <th>Meeting & Client</th>
+                  {contentType === 'all' && <th style={{ width: 70 }}>Type</th>}
+                  <th>{contentType === 'events' ? 'Event' : 'Meeting & Client'}</th>
                   <th>Date</th>
                   <th>Time</th>
-                  <th>Attendee</th>
+                  <th>{contentType === 'events' ? 'Organizer' : 'Attendee'}</th>
                   <th>Status</th>
                   <th style={{ width: 80, textAlign: 'right', paddingRight: 16 }}></th>
                 </tr>
               </thead>
               <tbody>
-                {paginated.length > 0 ? paginated.map(app => {
-                  const name = app.bcl_attendee_name || parseBclAttendees(app.bcl_attendee)[0] || '—';
+                {paginated.length > 0 ? paginated.map((row: any) => {
+                  const isMtg = row._kind !== 'event' && !row.event_name;
+                  const rowKey = isMtg ? `m-${row.id_main}` : `e-${row.id}`;
+                  const name = isMtg
+                    ? (row.bcl_attendee_name || parseBclAttendees(row.bcl_attendee)[0] || '—')
+                    : (row.organizer_name || '—');
+                  const date = isMtg ? row.meeting_date : row.event_date;
+                  const startTime = isMtg ? row.meeting_start_time : row.event_start_time;
+                  const title = isMtg ? (row.meeting_agenda || `${row.client_name} Meeting`) : row.event_name;
+                  const subtitle = isMtg ? `#${row.id_main} · ${row.client_name}` : `#${row.id} · ${row.event_type}`;
+                  const status = row.status ?? 'upcoming';
+
                   return (
-                    <tr key={app.id_main} onClick={() => setSelectedAppointment(app)}>
+                    <tr key={rowKey} onClick={() => isMtg ? setSelectedAppointment(row) : router.push('/events')}>
                       <td style={{ paddingLeft: 18 }}>
                         <div style={{ width: 16, height: 16, borderRadius: 4, border: '1.5px solid #d0dfe1', background: '#fff' }} />
                       </td>
+                      {contentType === 'all' && (
+                        <td>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', background: isMtg ? '#e0f2fe' : '#ede9fe', color: isMtg ? '#0284c7' : '#7c3aed' }}>
+                            {isMtg ? <Video size={9} /> : <PartyPopper size={9} />}
+                            {isMtg ? 'Mtg' : 'Evt'}
+                          </span>
+                        </td>
+                      )}
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div className={`db-type-icon ${app.meeting_type === 'virtual' ? 'db-type-virtual' : 'db-type-physical'}`}>
-                            {app.meeting_type === 'virtual' ? <Video size={15} /> : <MapPin size={15} />}
-                          </div>
+                          {isMtg
+                            ? <div className={`db-type-icon ${row.meeting_type === 'virtual' ? 'db-type-virtual' : 'db-type-physical'}`}>{row.meeting_type === 'virtual' ? <Video size={15} /> : <MapPin size={15} />}</div>
+                            : <div style={{ width: 36, height: 36, borderRadius: 9, background: '#ede9fe', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><PartyPopper size={15} /></div>
+                          }
                           <div>
-                            <div className="db-cell-main">{app.meeting_agenda || `${app.client_name} Meeting`}</div>
-                            <div className="db-cell-sub">#{app.id_main} · {app.client_name}</div>
+                            <div className="db-cell-main">{title}</div>
+                            <div className="db-cell-sub">{subtitle}</div>
                           </div>
                         </div>
                       </td>
-                      <td><div className="db-cell-date">{new Date(app.meeting_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div></td>
-                      <td><div className="db-cell-time"><Clock size={12} />{formatTime(app.meeting_start_time)}</div></td>
+                      <td><div className="db-cell-date">{new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div></td>
+                      <td><div className="db-cell-time"><Clock size={12} />{formatTime(startTime)}</div></td>
                       <td>
                         <div className="db-attendee">
                           <div className="db-avatar-sm">{initials(name)}</div>
                           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 120 }}>{name}</span>
                         </div>
                       </td>
-                      <td><span className={getPillClass(app.status)}>{app.status}</span></td>
+                      <td><span className={getPillClass(status)}>{status}</span></td>
                       <td style={{ textAlign: 'right', paddingRight: 12 }} onClick={e => e.stopPropagation()}>
                         <div className="db-row-actions">
-                          {app.google_meet_link && (
-                            <button className="db-row-btn" style={{ color: '#7c3aed' }} onClick={() => window.open(app.google_meet_link, '_blank')} title="Join meeting">
-                              <Video size={14} />
-                            </button>
+                          {isMtg && row.google_meet_link && (
+                            <button className="db-row-btn" style={{ color: '#7c3aed' }} onClick={() => window.open(row.google_meet_link, '_blank')} title="Join meeting"><Video size={14} /></button>
                           )}
-                          <button className="db-row-btn" onClick={() => setSelectedAppointment(app)} title="View details">
+                          <button className="db-row-btn" onClick={() => isMtg ? setSelectedAppointment(row) : router.push('/events')} title="View details">
                             <MoreHorizontal size={14} />
                           </button>
                         </div>
@@ -764,11 +851,13 @@ const DashboardContent = () => {
                   );
                 }) : (
                   <tr>
-                    <td colSpan={7}>
+                    <td colSpan={contentType === 'all' ? 8 : 7}>
                       <div className="db-empty">
-                        <div className="db-empty-icon"><Calendar size={20} color="#8ca4a8" /></div>
-                        <div className="db-empty-title">No meetings found</div>
-                        <div className="db-empty-sub">No meetings match this filter</div>
+                        <div className="db-empty-icon">
+                          {contentType === 'events' ? <PartyPopper size={20} color="#8ca4a8" /> : <Calendar size={20} color="#8ca4a8" />}
+                        </div>
+                        <div className="db-empty-title">No {contentType === 'events' ? 'events' : 'meetings'} found</div>
+                        <div className="db-empty-sub">No items match this filter</div>
                       </div>
                     </td>
                   </tr>
@@ -778,14 +867,47 @@ const DashboardContent = () => {
           </div>
         ) : (
           <div className="db-cards-grid">
-            {paginated.map(app => (
-              <AppointmentCard key={app.id_main} appointment={app} onClick={() => setSelectedAppointment(app)} />
-            ))}
+            {paginated.map((row: any) => {
+              const isMtg = row._kind !== 'event' && !row.event_name;
+              return isMtg
+                ? <AppointmentCard key={`m-${row.id_main}`} appointment={row} onClick={() => setSelectedAppointment(row)} />
+                : (
+                  <div key={`e-${row.id}`} className="db-card" style={{ borderLeftColor: '#8b5cf6', cursor: 'pointer' }} onClick={() => router.push('/events')}>
+                    <div className="db-card-body">
+                      <div className="db-card-badges">
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 5, fontSize: 10, fontWeight: 700, background: '#ede9fe', color: '#7c3aed', border: '1px solid #ddd6fe' }}>
+                          <PartyPopper size={10} /> {row.event_type}
+                        </span>
+                      </div>
+                      <div className="db-card-name">{row.event_name}</div>
+                      <div className="db-card-company"><Globe size={11} />{row.organizer_name || 'No organizer'}</div>
+                      <div className="db-card-info-row">
+                        <div className="db-card-info-left">
+                          <div className="db-card-info-icon"><Calendar size={14} style={{ color: '#64868c' }} /></div>
+                          <div>
+                            <div className="db-card-date">{new Date(row.event_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                            <div className="db-card-dow">{new Date(row.event_date).toLocaleDateString('en-GB', { weekday: 'short' })}</div>
+                          </div>
+                        </div>
+                        <div>
+                          <div className="db-card-time">{formatTime(row.event_start_time)}</div>
+                          {row.event_duration && <div className="db-card-dur">{row.event_duration}m</div>}
+                        </div>
+                      </div>
+                      {row.event_venue_area && <div className="db-card-venue"><MapPin size={12} />{row.event_venue_area}</div>}
+                    </div>
+                    <div className="db-card-footer">
+                      <div className="db-card-id"><Hash size={10} />{row.id}</div>
+                      <span className={`pill pill-${row.status ?? 'upcoming'}`}>{row.status ?? 'upcoming'}</span>
+                    </div>
+                  </div>
+                );
+            })}
             {paginated.length === 0 && (
               <div style={{ gridColumn: '1/-1' }}>
                 <div className="db-empty">
                   <div className="db-empty-icon"><Calendar size={20} color="#8ca4a8" /></div>
-                  <div className="db-empty-title">No meetings found</div>
+                  <div className="db-empty-title">No items found</div>
                 </div>
               </div>
             )}
@@ -795,7 +917,7 @@ const DashboardContent = () => {
         {/* PAGINATION */}
         <div className="db-pagination">
           <div className="db-pagination-info">
-            Showing <b>{activeAppointments.length > 0 ? currentPage * itemsPerPage + 1 : 0}</b> to <b>{Math.min((currentPage + 1) * itemsPerPage, activeAppointments.length)}</b> of <b>{activeAppointments.length}</b>
+            Showing <b>{activeList.length > 0 ? currentPage * itemsPerPage + 1 : 0}</b> to <b>{Math.min((currentPage + 1) * itemsPerPage, activeList.length)}</b> of <b>{activeList.length}</b>
           </div>
           <div className="db-page-btns">
             <button className="db-page-btn" onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 0}>
