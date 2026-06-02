@@ -1,194 +1,43 @@
 // @ts-nocheck
 "use client"
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import { usePathname, useSearchParams } from 'next/navigation';
-import { useTheme } from 'next-themes';
-import { useSidebar } from '@/contexts/SidebarContext';
+import React, { useEffect, useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useTheme } from "next-themes";
 import {
-    Calendar,
-    CheckCircle,
-    PlusCircle,
-    HelpCircle,
-    CalendarDays,
-    LayoutDashboard,
+    AlertCircle,
     Bell,
-    Settings,
+    Calendar,
+    CalendarDays,
+    CheckCircle,
     Clock,
-    XCircle,
-    Sun,
+    HelpCircle,
+    LayoutDashboard,
     Moon,
     PanelLeftClose,
     PanelLeftOpen,
-    AlertCircle,
-    Search,
-    ChevronDown,
-    ChevronUp,
     PartyPopper,
-} from 'lucide-react';
+    PlusCircle,
+    Search,
+    Settings,
+    Sun,
+    XCircle,
+} from "lucide-react";
 
-/* ─────────────────────────────────────────────────────────────
-   Injected Styles - Deep Teal / Cyan UI Scheme
-───────────────────────────────────────────────────────────── */
-/* ─────────────────────────────────────────────────────────────
-   Injected Styles - Deep Teal / Cyan UI Scheme (Themed)
-───────────────────────────────────────────────────────────── */
-const SidebarStyles = () => (
-    <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
-        :root {
-            /* Dark Mode (Default) */
-            --sb-bg: #003038;
-            --sb-active-bg: rgba(255, 255, 255, 0.08);
-            --sb-accent: #00d1d1;
-            --sb-text: #ffffff;
-            --sb-muted: #a3c6cc;
-            --sb-border: rgba(255, 255, 255, 0.05);
-            --sb-search-bg: rgba(255, 255, 255, 0.1);
-            --sb-search-border: rgba(255, 255, 255, 0.1);
-            --sb-search-placeholder: rgba(255, 255, 255, 0.4);
-            --sb-brand-text: #ffffff;
-            --sb-nav-hover: rgba(255, 255, 255, 0.04);
-            --sb-section-label: rgba(255, 255, 255, 0.3);
-        }
-
-        [data-theme='light'] {
-            /* Light Mode */
-            --sb-bg: #ffffff;
-            --sb-active-bg: rgba(0, 209, 209, 0.1);
-            --sb-accent: #00a3a3; /* Slightly deeper cyan for better contrast on white */
-            --sb-text: #003038;
-            --sb-muted: #64868c;
-            --sb-border: #eef2f3;
-            --sb-search-bg: #f0f4f5;
-            --sb-search-border: #e2e8e9;
-            --sb-search-placeholder: #8ca4a8;
-            --sb-brand-text: #003038;
-            --sb-nav-hover: #f7fafa;
-            --sb-section-label: #8ca4a8;
-        }
-
-        .sb-shell {
-            background-color: var(--sb-bg);
-            font-family: 'Inter', sans-serif;
-            color: var(--sb-text);
-            border-right: 1px solid var(--sb-border);
-            transition: background-color 0.3s ease, border-color 0.3s ease;
-        }
-
-        /* Branding */
-        .sb-brand-name { font-weight: 700; font-size: 15px; color: var(--sb-brand-text); }
-        .sb-brand-sub { font-size: 11px; color: var(--sb-muted); }
-
-        /* Search Bar */
-        .sb-search-box {
-            background: var(--sb-search-bg);
-            border: 1px solid var(--sb-search-border);
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            padding: 8px 12px;
-            margin: 0 16px 24px 16px;
-        }
-        .sb-search-input {
-            background: transparent;
-            border: none;
-            outline: none;
-            color: var(--sb-text);
-            font-size: 13px;
-            width: 100%;
-            margin-left: 8px;
-        }
-        .sb-search-input::placeholder { color: var(--sb-search-placeholder); }
-
-        /* Navigation Links */
-        .sb-link {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 16px;
-            color: var(--sb-muted);
-            font-size: 14px;
-            text-decoration: none;
-            transition: all 0.2s ease;
-            position: relative;
-        }
-        .sb-link:hover { color: var(--sb-text); background: var(--sb-nav-hover); }
-        
-        .sb-link-active {
-            color: var(--sb-text);
-            background: var(--sb-active-bg);
-            font-weight: 500;
-        }
-        .sb-link-active::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 20%;
-            bottom: 20%;
-            width: 3px;
-            background: var(--sb-accent);
-            border-radius: 0 4px 4px 0;
-        }
-
-        .sb-section-label {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--sb-section-label);
-            padding: 20px 16px 8px 16px;
-            font-weight: 600;
-        }
-
-        /* Create Meeting Button */
-        .sb-create-btn {
-            margin: 20px 16px;
-            background: linear-gradient(135deg, #00d1d1 0%, #00a3a3 100%);
-            color: #ffffff; /* Keep white for readability on gradient */
-            border: none;
-            border-radius: 10px;
-            padding: 12px;
-            font-weight: 700;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            box-shadow: 0 4px 15px rgba(0, 209, 209, 0.2);
-        }
-        [data-theme='light'] .sb-create-btn {
-            color: #ffffff; /* Ensure white text on cyan button in light mode */
-        }
-        .sb-create-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0, 209, 209, 0.3); }
-
-        /* Badge/Count */
-        .sb-count {
-            margin-left: auto;
-            background: var(--sb-active-bg);
-            font-size: 10px;
-            padding: 2px 6px;
-            border-radius: 4px;
-            color: var(--sb-accent);
-            font-weight: 600;
-        }
-
-        .sb-status-dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            margin-left: auto;
-        }
-
-        .sb-utility-border {
-            border-top: 1px solid var(--sb-border);
-        }
-    `}</style>
-);
+import { useSidebar } from "@/contexts/SidebarContext";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const Sidebar = () => {
     const pathname = usePathname();
@@ -197,153 +46,271 @@ const Sidebar = () => {
     const [mounted, setMounted] = useState(false);
     const { isMobileOpen, setIsMobileOpen } = useSidebar();
     const [isCollapsed, setIsCollapsed] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
 
     useEffect(() => setMounted(true), []);
 
     const mainNav = [
-        { name: 'Overview', href: '/dashboard', icon: LayoutDashboard },
-        { name: 'Events', href: '/events', icon: PartyPopper },
-        { name: 'Calendar', href: '/calendar', icon: CalendarDays },
-        { name: 'Notifications', href: '/notifications', icon: Bell, count: 3 },
+        { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
+        { name: "Events", href: "/events", icon: PartyPopper },
+        { name: "Calendar", href: "/calendar", icon: CalendarDays },
+        { name: "Notifications", href: "/notifications", icon: Bell, count: 3 },
     ];
 
     const statusViews = [
-        { name: 'Upcoming', href: '/dashboard?status=upcoming', status: 'upcoming', icon: Clock, color: '#6b8afd', count: 8 },
-        { name: 'Today', href: '/dashboard?status=today', status: 'today', icon: Calendar, color: '#00d1d1', count: 2 },
-        { name: 'Pending', href: '/dashboard?status=pending', status: 'pending', icon: AlertCircle, color: '#f5a623', count: 5 },
-        { name: 'Completed', href: '/dashboard?status=completed', status: 'completed', icon: CheckCircle, color: '#48c78e' },
-        { name: 'Canceled', href: '/dashboard?status=canceled', status: 'canceled', icon: XCircle, color: 'rgba(255,255,255,0.2)' },
+        { name: "Upcoming", href: "/dashboard?status=upcoming", status: "upcoming", icon: Clock, color: "#ffffff", count: 8 },
+        { name: "Today", href: "/dashboard?status=today", status: "today", icon: Calendar, color: "#ffffff", count: 2 },
+        { name: "Pending", href: "/dashboard?status=pending", status: "pending", icon: AlertCircle, color: "#ffffff", count: 5 },
+        { name: "Completed", href: "/dashboard?status=completed", status: "completed", icon: CheckCircle, color: "#ffffff" },
+        { name: "Canceled", href: "/dashboard?status=canceled", status: "canceled", icon: XCircle, color: "rgba(255,255,255,0.45)" },
     ];
 
-    const isNavActive = (href: string) => {
-        if (href === '/dashboard') return pathname === '/dashboard' && !searchParams.get('status');
-        return pathname === href;
-    };
-    const isStatusActive = (status: string) => pathname === '/dashboard' && searchParams.get('status') === status;
+    const isNavActive = (href: string) =>
+        href === "/dashboard"
+            ? pathname === "/dashboard" && !searchParams.get("status")
+            : pathname === href;
 
-    const toggleTheme = () => {
-        setTheme(theme === 'dark' ? 'light' : 'dark');
+    const isStatusActive = (status: string) =>
+        pathname === "/dashboard" && searchParams.get("status") === status;
+
+    const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
+
+    const normalizedSearch = searchQuery.trim().toLowerCase();
+    const filteredMainNav = normalizedSearch
+        ? mainNav.filter((item) => item.name.toLowerCase().includes(normalizedSearch))
+        : mainNav;
+    const filteredStatusViews = normalizedSearch
+        ? statusViews.filter((item) => item.name.toLowerCase().includes(normalizedSearch))
+        : statusViews;
+    const hasSearchResults = filteredMainNav.length > 0 || filteredStatusViews.length > 0;
+
+    const NavItem = ({ href, icon: Icon, name, count, statusColor }: {
+        href: string;
+        icon: any;
+        name: string;
+        count?: number;
+        statusColor?: string;
+    }) => {
+        const active = isNavActive(href) || isStatusActive(
+            new URLSearchParams(href.split("?")[1] ?? "").get("status") ?? ""
+        );
+
+        const inner = (
+            <Link
+                href={href}
+                className={cn(
+                    "relative flex items-center gap-3.5 rounded-xl px-4 py-3 text-[12px] text-sidebar-foreground transition-all duration-200 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:shadow-sm",
+                    active && "bg-sidebar-accent font-semibold text-sidebar-accent-foreground shadow-sm ring-1 ring-sidebar-border/70 before:absolute before:left-0 before:top-1/4 before:bottom-1/4 before:w-[4px] before:rounded-r-full before:bg-sidebar-primary",
+                    isCollapsed && "justify-center px-0"
+                )}
+            >
+                <Icon className={cn("h-5 w-5 shrink-0", active ? "text-sidebar-primary" : "opacity-80")} />
+                {!isCollapsed && (
+                    <>
+                        <span className="flex-1 truncate">{name}</span>
+                        {count != null ? (
+                            <Badge variant="secondary" className="ml-auto h-6 rounded-md border border-sidebar-border bg-background/80 px-2 text-[11px] font-bold text-sidebar-primary shadow-sm dark:bg-white/10 dark:text-white">
+                                {count}
+                            </Badge>
+                        ) : statusColor ? (
+                            <span className="ml-auto h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: statusColor }} />
+                        ) : null}
+                    </>
+                )}
+            </Link>
+        );
+
+        if (!isCollapsed) return inner;
+
+        return (
+            <Tooltip>
+                <TooltipTrigger asChild>{inner}</TooltipTrigger>
+                <TooltipContent side="right" className="text-sm font-medium">{name}</TooltipContent>
+            </Tooltip>
+        );
     };
+
+    const utilityButtonClass = cn(
+        "h-auto w-full justify-start gap-3.5 rounded-xl px-4 py-3 text-[12px] font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+        isCollapsed && "justify-center px-0"
+    );
 
     return (
-        <>
-            <SidebarStyles />
-
+        <TooltipProvider delayDuration={100}>
             <aside
-                className={`sb-shell fixed inset-y-0 left-0 z-40 flex flex-col h-screen transition-all duration-300
-                    ${isCollapsed ? 'w-[70px]' : 'w-[240px]'}
-                    ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-                    lg:sticky lg:top-0`}
+                className={cn(
+                    "fixed inset-y-0 left-0 z-40 flex h-screen flex-col border-r border-sidebar-border bg-sidebar/95 text-sidebar-foreground shadow-2xl shadow-[#00adcc]/10 backdrop-blur-xl transition-all duration-300 ease-in-out dark:shadow-black/30 lg:sticky lg:top-0",
+                    isCollapsed ? "w-[80px]" : "w-[250px]",
+                    isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+                )}
             >
-                {/* Branding Section */}
-                <div className="flex items-center justify-between p-4 mb-2">
-                    <div className="flex items-center gap-3 overflow-hidden">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center font-bold text-[#003038]">
-                            <Image src="/logo.png" alt="Logo" width={40} height={40} />
-                        </div>
-                        {!isCollapsed && (
-                            <div className="whitespace-nowrap">
-                                <div className="sb-brand-name">BCL Meetings</div>
-                                <div className="sb-brand-sub">Booksmart</div>
+                {/* Header / Logo Section */}
+                <div className={cn("px-4 pt-5", isCollapsed && "px-3")}>
+                    <div className="rounded-xl border border-sidebar-border/80 bg-background/70 p-3 shadow-sm dark:bg-white/[0.03]">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3 overflow-hidden">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm ring-1 ring-sidebar-border">
+                                    <Image src="/logo.png" alt="Logo" width={32} height={32} />
+                                </div>
+                                {!isCollapsed && (
+                                    <div className="whitespace-nowrap">
+                                        <div className="text-[16px] font-black leading-tight tracking-tight text-sidebar-primary">BCL Meetings</div>
+                                        <div className="text-[12px] font-medium text-sidebar-foreground/60 uppercase tracking-wider">Booksmart</div>
+                                    </div>
+                                )}
                             </div>
-                        )}
+
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setIsCollapsed(!isCollapsed)}
+                                className="hidden h-8 w-8 text-sidebar-foreground hover:bg-sidebar-accent lg:flex"
+                                aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                            >
+                                {isCollapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+                            </Button>
+                        </div>
                     </div>
-                    <button
-                        onClick={() => setIsCollapsed(!isCollapsed)}
-                        className="hidden lg:block text-white/30 hover:text-white"
-                    >
-                        {isCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
-                    </button>
                 </div>
 
-                {/* Search Bar */}
+                {/* Search Section */}
                 {!isCollapsed && (
-                    <div className="sb-search-box">
-                        <Search size={16} className="text-white/40" />
-                        <input type="text" placeholder="Search keyword" className="sb-search-input" />
+                    <div className="relative mx-4 mb-2 mt-6">
+                        <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sidebar-foreground/50" />
+                        <Input
+                            type="text"
+                            placeholder="Search navigation..."
+                            value={searchQuery}
+                            onChange={(event) => setSearchQuery(event.target.value)}
+                            className="h-11 rounded-xl border-sidebar-border bg-background/80 pl-10 pr-9 text-sm text-sidebar-primary shadow-sm placeholder:text-sidebar-foreground/50 focus-visible:ring-sidebar-ring dark:bg-white/[0.04]"
+                        />
+                        {searchQuery && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setSearchQuery("")}
+                                className="absolute right-1.5 top-1/2 h-8 w-8 -translate-y-1/2 text-sidebar-foreground/50 hover:text-sidebar-foreground"
+                            >
+                                <XCircle className="h-4 w-4" />
+                            </Button>
+                        )}
                     </div>
                 )}
 
-                {/* Main Navigation */}
-                <div className="flex-1 overflow-y-auto scrollbar-hide">
-                    {!isCollapsed && <div className="sb-section-label">Navigate</div>}
-                    <nav className="space-y-1">
-                        {mainNav.map((item) => (
-                            <Link
-                                key={item.name}
-                                href={item.href}
-                                className={`sb-link ${isNavActive(item.href) ? 'sb-link-active' : ''}`}
-                            >
-                                <item.icon size={20} />
-                                {!isCollapsed && (
-                                    <>
-                                        <span className="flex-1">{item.name}</span>
-                                        {item.count && <span className="sb-count">{item.count}</span>}
-                                    </>
-                                )}
-                            </Link>
+                {/* Navigation Content */}
+                <div className={cn("sidebar-scroll mt-4 flex-1 overflow-y-auto px-3 pb-4", isCollapsed && "px-2")}>
+                    {!isCollapsed && (
+                        <div className="mb-2 px-3 text-[13px] font-bold uppercase tracking-[0.1em] text-sidebar-foreground/40">
+                            Main Menu
+                        </div>
+                    )}
+                    <nav className="space-y-1.5">
+                        {filteredMainNav.map((item) => (
+                            <NavItem key={item.name} href={item.href} icon={item.icon} name={item.name} count={item.count} />
                         ))}
                     </nav>
 
-                    {!isCollapsed && <div className="sb-section-label">Filter by status</div>}
-                    <nav className="space-y-1">
-                        {statusViews.map((item) => (
-                            <Link
+                    {!isCollapsed && (
+                        <div className="mb-2 mt-8 px-3 text-[13px] font-bold uppercase tracking-[0.1em] text-sidebar-foreground/40">
+                            Filter Status
+                        </div>
+                    )}
+                    <nav className="mt-1.5 space-y-1.5">
+                        {filteredStatusViews.map((item) => (
+                            <NavItem
                                 key={item.status}
                                 href={item.href}
-                                className={`sb-link ${isStatusActive(item.status) ? 'sb-link-active' : ''}`}
-                            >
-                                <item.icon size={20} />
-                                {!isCollapsed && (
-                                    <>
-                                        <span className="flex-1">{item.name}</span>
-                                        {item.count ? (
-                                            <span className="sb-count">{item.count}</span>
-                                        ) : (
-                                            <span className="sb-status-dot" style={{ backgroundColor: item.color }} />
-                                        )}
-                                    </>
-                                )}
-                            </Link>
+                                icon={item.icon}
+                                name={item.name}
+                                count={item.count}
+                                statusColor={item.color}
+                            />
                         ))}
                     </nav>
 
-                    {/* Create Meeting Button (Replacement for Upgrade Card) */}
-                    <button className={`sb-create-btn ${isCollapsed ? 'mx-auto w-10 h-10 p-0' : 'w-[calc(100%-32px)]'}`}>
-                        <PlusCircle size={isCollapsed ? 20 : 18} />
-                        {!isCollapsed && <span>Create Meeting</span>}
-                    </button>
+                    {!isCollapsed && !hasSearchResults && (
+                        <div className="mx-2 mt-6 rounded-xl border border-dashed border-sidebar-border bg-background/40 px-4 py-8 text-center text-sm text-sidebar-foreground/60">
+                            No results found.
+                        </div>
+                    )}
+
+                    {/* Action Button */}
+                    <div className="mt-8 px-1">
+                        <Button
+                            className={cn(
+                                "w-full bg-sidebar-primary py-6 text-[12px] font-bold text-sidebar-primary-foreground shadow-lg shadow-[#00adcc]/20 transition-all hover:scale-[1.02] hover:bg-sidebar-primary/90 hover:shadow-xl",
+                                isCollapsed ? "h-12 w-12 p-0 rounded-xl" : "rounded-xl"
+                            )}
+                            aria-label="Create Meeting"
+                        >
+                            <PlusCircle className={cn(isCollapsed ? "h-6 w-6" : "mr-2 h-5 w-5")} />
+                            {!isCollapsed && <span>Create Meeting</span>}
+                        </Button>
+                    </div>
                 </div>
 
-                {/* Bottom Utilities */}
-                <div className="p-4 border-t border-white/5 space-y-1">
-                    <Link href="/settings" className="sb-link">
-                        <Settings size={20} />
-                        {!isCollapsed && <span>Settings</span>}
-                    </Link>
-                    <Link href="/help" className="sb-link">
-                        <HelpCircle size={20} />
-                        {!isCollapsed && <span>Support</span>}
-                    </Link>
+                {/* Footer Section */}
+                <div className={cn("mt-auto border-t border-sidebar-border/60 bg-background/50 p-4 backdrop-blur-md", isCollapsed && "p-2")}>
+                    <div className="flex flex-col gap-1">
+                        <NavItemComponent
+                            isCollapsed={isCollapsed}
+                            href="/settings"
+                            icon={Settings}
+                            label="Settings"
+                            className={utilityButtonClass}
+                        />
+                        <NavItemComponent
+                            isCollapsed={isCollapsed}
+                            href="/help"
+                            icon={HelpCircle}
+                            label="Support"
+                            className={utilityButtonClass}
+                        />
 
-                    {/* Single Mode Toggle */}
-                    {mounted && (
-                        <button onClick={toggleTheme} className="sb-link w-full text-left">
-                            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-                            {!isCollapsed && <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>}
-                        </button>
-                    )}
+                        {mounted && (
+                            <Button
+                                variant="ghost"
+                                className={utilityButtonClass}
+                                onClick={toggleTheme}
+                                aria-label="Toggle theme"
+                            >
+                                {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                                {!isCollapsed && <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>}
+                            </Button>
+                        )}
+                    </div>
                 </div>
             </aside>
 
-            {/* Mobile backdrop */}
+            {/* Mobile Overlay */}
             {isMobileOpen && (
                 <div
-                    className="fixed inset-0 bg-black/60 z-30 lg:hidden backdrop-blur-sm"
+                    className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm lg:hidden"
                     onClick={() => setIsMobileOpen(false)}
                 />
             )}
-        </>
+        </TooltipProvider>
+    );
+};
+
+// Helper for Footer Buttons to reduce repetition
+const NavItemComponent = ({ isCollapsed, href, icon: Icon, label, className }) => {
+    const content = (
+        <Link href={href} className={className}>
+            <Icon className="h-5 w-5 shrink-0 opacity-80" />
+            {!isCollapsed && <span>{label}</span>}
+        </Link>
+    );
+
+    if (!isCollapsed) return content;
+
+    return (
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <div className="flex justify-center">{content}</div>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="text-sm font-medium">{label}</TooltipContent>
+        </Tooltip>
     );
 };
 

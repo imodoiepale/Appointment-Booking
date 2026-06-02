@@ -122,7 +122,7 @@ const CalendarStyles = () => (
 
     .cal-shell {
       font-family: 'Inter', sans-serif;
-      background-color: #f0f4f5;
+      background-color: #f4f7f8;
       height: 100vh;
       display: flex;
       flex-direction: column;
@@ -139,11 +139,11 @@ const CalendarStyles = () => (
       align-items: center;
       justify-content: space-between;
       flex-shrink: 0;
+      box-shadow: 0 10px 30px rgba(0,48,56,0.05);
     }
     .cal-topbar-title {
       font-size: 15px;
       font-weight: 700;
-      color: #003038;
       letter-spacing: -0.01em;
     }
     .cal-topbar-sub {
@@ -155,7 +155,7 @@ const CalendarStyles = () => (
     /* View switcher — mirrors sb-link style */
     .cal-view-pill {
       display: flex;
-      background: #f0f4f5;
+      background: hsl(var(--secondary));
       border-radius: 8px;
       padding: 3px;
       gap: 2px;
@@ -168,26 +168,26 @@ const CalendarStyles = () => (
       border: none;
       cursor: pointer;
       transition: all 0.2s ease;
-      color: #64868c;
+      color: hsl(var(--muted-foreground));
       background: transparent;
       text-transform: capitalize;
       letter-spacing: 0.01em;
     }
-    .cal-view-btn:hover { color: #003038; background: rgba(0,48,56,0.06); }
+    .cal-view-btn:hover { color: hsl(var(--foreground)); background: hsl(var(--accent)); }
     .cal-view-btn.active {
-      background: linear-gradient(135deg, #00d1d1 0%, #00a3a3 100%);
-      color: #ffffff;
-      box-shadow: 0 2px 8px rgba(0,209,209,0.25);
+      background: hsl(var(--primary));
+      color: hsl(var(--primary-foreground));
+      box-shadow: 0 2px 8px hsl(var(--primary) / 0.22);
     }
 
     /* Content type switcher */
-    .cal-content-switcher { display: flex; align-items: center; gap: 6px; padding: 4px; background: #f0f4f5; border-radius: 10px; }
-    .cal-content-btn { padding: 6px 14px; font-size: 12px; font-weight: 700; border-radius: 7px; border: none; cursor: pointer; transition: all 0.15s ease; color: #64868c; background: transparent; display: flex; align-items: center; gap: 6px; }
-    .cal-content-btn:hover { color: #003038; background: rgba(0,48,56,0.06); }
-    .cal-content-btn.active { background: #ffffff; color: #003038; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
-    .cal-content-btn.active.ct-meetings { color: #0284c7; }
-    .cal-content-btn.active.ct-events   { color: #7c3aed; }
-    .cal-content-btn.active.ct-all      { color: #003038; }
+    .cal-content-switcher { display: flex; align-items: center; gap: 6px; padding: 4px; background: hsl(var(--secondary)); border-radius: 10px; }
+    .cal-content-btn { padding: 6px 14px; font-size: 12px; font-weight: 700; border-radius: 7px; border: none; cursor: pointer; transition: all 0.15s ease; color: hsl(var(--muted-foreground)); background: transparent; display: flex; align-items: center; gap: 6px; }
+    .cal-content-btn:hover { color: hsl(var(--foreground)); background: hsl(var(--accent)); }
+    .cal-content-btn.active { background: hsl(var(--card)); color: hsl(var(--primary)); box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+    .cal-content-btn.active.ct-meetings,
+    .cal-content-btn.active.ct-events,
+    .cal-content-btn.active.ct-all { color: hsl(var(--primary)); }
 
     .cal-export-btn {
       display: flex;
@@ -197,13 +197,13 @@ const CalendarStyles = () => (
       font-size: 12px;
       font-weight: 600;
       border-radius: 8px;
-      border: 1px solid #e2e8e9;
-      background: #ffffff;
-      color: #003038;
+      border: 1px solid hsl(var(--border));
+      background: hsl(var(--card));
+      color: hsl(var(--foreground));
       cursor: pointer;
       transition: all 0.2s ease;
     }
-    .cal-export-btn:hover { background: #f0f4f5; border-color: #c8d6d8; }
+    .cal-export-btn:hover { background: hsl(var(--secondary)); border-color: hsl(var(--ring) / 0.35); }
 
     .cal-add-btn {
       display: flex;
@@ -212,13 +212,13 @@ const CalendarStyles = () => (
       font-weight: 700;
       border-radius: 8px;
       border: none;
-      background: linear-gradient(135deg, #00d1d1 0%, #00a3a3 100%);
-      color: #ffffff;
+      background: hsl(var(--primary));
+      color: hsl(var(--primary-foreground));
       cursor: pointer;
-      box-shadow: 0 4px 14px rgba(0,209,209,0.3);
+      box-shadow: 0 4px 14px hsl(var(--primary) / 0.24);
       transition: all 0.2s ease;
     }
-    .cal-add-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,209,209,0.35); }
+    .cal-add-btn:hover { transform: translateY(-1px); background: hsl(var(--primary) / 0.92); box-shadow: 0 6px 18px hsl(var(--primary) / 0.3); }
 
     /* ── BODY LAYOUT ── */
     .cal-body {
@@ -243,6 +243,7 @@ const CalendarStyles = () => (
       border-radius: 12px;
       border: 1px solid #eef2f3;
       overflow: hidden;
+      box-shadow: 0 14px 35px rgba(0,48,56,0.07);
     }
 
     .cal-panel-header {
@@ -261,18 +262,18 @@ const CalendarStyles = () => (
       justify-content: space-between;
       padding: 14px 14px 10px;
     }
-    .mini-cal-month { font-size: 13px; font-weight: 700; color: #003038; }
+    .mini-cal-month { font-size: 13px; font-weight: 700; color: #1d4ed8; }
     .mini-cal-nav-btn {
       width: 26px; height: 26px;
       border-radius: 6px;
-      border: 1px solid #eef2f3;
-      background: #f7fafa;
-      color: #64868c;
+      border: 1px solid hsl(var(--border));
+      background: hsl(var(--secondary));
+      color: hsl(var(--muted-foreground));
       display: flex; align-items: center; justify-content: center;
       cursor: pointer;
       transition: all 0.15s ease;
     }
-    .mini-cal-nav-btn:hover { background: #003038; color: #fff; border-color: #003038; }
+    .mini-cal-nav-btn:hover { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); border-color: hsl(var(--primary)); }
 
     .mini-cal-grid { padding: 0 10px 12px; }
     .mini-cal-dow {
@@ -291,7 +292,7 @@ const CalendarStyles = () => (
       font-size: 11px; font-weight: 500;
       border-radius: 6px;
       cursor: pointer;
-      color: #003038;
+      color: #f2f2f2;
       transition: all 0.15s ease;
       position: relative;
     }
@@ -303,7 +304,7 @@ const CalendarStyles = () => (
       font-weight: 700;
     }
     .mini-day.selected {
-      background: linear-gradient(135deg, #003038, #005060);
+      background: linear-gradient(135deg, #1d4ed8, #005060);
       color: #ffffff;
       font-weight: 700;
       box-shadow: 0 2px 8px rgba(0,48,56,0.25);
@@ -331,7 +332,7 @@ const CalendarStyles = () => (
     .today-item:last-child { border-bottom: none; }
     .today-item:hover { background: #f7fafa; }
     .today-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
-    .today-name { font-size: 12px; font-weight: 600; color: #003038; }
+    .today-name { font-size: 12px; font-weight: 600; color: #1d4ed8; }
     .today-meta { font-size: 11px; color: #8ca4a8; margin-top: 2px; }
 
     /* ── MAIN CALENDAR AREA ── */
@@ -344,6 +345,7 @@ const CalendarStyles = () => (
       border: 1px solid #eef2f3;
       overflow: hidden;
       min-width: 0;
+      box-shadow: 0 18px 45px rgba(0,48,56,0.08);
     }
 
     /* Calendar nav bar */
@@ -356,25 +358,25 @@ const CalendarStyles = () => (
       background: #ffffff;
     }
     .cal-nav-label {
-      font-size: 14px; font-weight: 700; color: #003038;
+      font-size: 14px; font-weight: 700; color: #1d4ed8;
       min-width: 200px; text-align: center;
       letter-spacing: -0.01em;
     }
     .cal-nav-btn {
       width: 30px; height: 30px;
-      border-radius: 8px; border: 1px solid #eef2f3;
-      background: #f7fafa; color: #64868c;
+      border-radius: 8px; border: 1px solid hsl(var(--border));
+      background: hsl(var(--secondary)); color: hsl(var(--muted-foreground));
       display: flex; align-items: center; justify-content: center;
       cursor: pointer; transition: all 0.15s ease;
     }
-    .cal-nav-btn:hover { background: #003038; color: #fff; border-color: #003038; }
+    .cal-nav-btn:hover { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); border-color: hsl(var(--primary)); }
     .cal-today-btn {
       padding: 5px 14px; font-size: 12px; font-weight: 600;
-      border-radius: 8px; border: 1px solid #eef2f3;
-      background: #f7fafa; color: #003038; cursor: pointer;
+      border-radius: 8px; border: 1px solid hsl(var(--border));
+      background: hsl(var(--secondary)); color: hsl(var(--foreground)); cursor: pointer;
       transition: all 0.15s ease;
     }
-    .cal-today-btn:hover { background: rgba(0,209,209,0.08); border-color: #00d1d1; color: #007a7a; }
+    .cal-today-btn:hover { background: hsl(var(--accent)); border-color: hsl(var(--ring)); color: hsl(var(--primary)); }
 
     /* ── MONTH VIEW ── */
     .month-dow-header {
@@ -386,6 +388,10 @@ const CalendarStyles = () => (
       text-align: center; font-size: 10px; font-weight: 700;
       text-transform: uppercase; letter-spacing: 0.05em;
       color: #8ca4a8; padding: 10px 0;
+      border-right: 1px solid #e8eef0;
+    }
+    .month-dow-cell:last-child {
+      border-right: none;
     }
     .month-grid {
       display: grid; grid-template-columns: repeat(7,1fr);
@@ -395,8 +401,8 @@ const CalendarStyles = () => (
       overflow: hidden;
     }
     .month-cell {
-      border-right: 1px solid #f0f4f5;
-      border-bottom: 1px solid #f0f4f5;
+      border-right: 1px solid #e8eef0;
+      border-bottom: 1px solid #e8eef0;
       padding: 6px;
       cursor: pointer;
       min-height: 0;
@@ -414,7 +420,7 @@ const CalendarStyles = () => (
       margin-bottom: 4px;
     }
     .month-day-num.today {
-      background: linear-gradient(135deg, #003038, #005060);
+      background: linear-gradient(135deg, #1d4ed8, #005060);
       color: #ffffff;
       box-shadow: 0 2px 6px rgba(0,48,56,0.2);
     }
@@ -424,12 +430,12 @@ const CalendarStyles = () => (
     .week-layout { display: flex; flex: 1; overflow: hidden; }
     .week-time-col {
       width: 52px; flex-shrink: 0;
-      border-right: 1px solid #f0f4f5;
+      border-right: 1px solid #e8eef0;
       background: #ffffff;
     }
     .week-time-header { height: 56px; border-bottom: 1px solid #eef2f3; }
     .week-time-slot {
-      height: 72px; border-bottom: 1px solid #f5f8f9;
+      height: 72px; border-bottom: 1px solid #e8eef0;
       position: relative;
     }
     .week-time-label {
@@ -440,7 +446,7 @@ const CalendarStyles = () => (
     .week-days-scroll { flex: 1; overflow-x: auto; display: flex; }
     .week-day-col {
       flex: 1; min-width: 100px;
-      border-right: 1px solid #f0f4f5;
+      border-right: 1px solid #e8eef0;
       position: relative;
     }
     .week-day-col:last-child { border-right: none; }
@@ -457,15 +463,15 @@ const CalendarStyles = () => (
       width: 28px; height: 28px; margin-top: 3px;
       border-radius: 8px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 13px; font-weight: 700; color: #003038;
+      font-size: 13px; font-weight: 700; color: #1d4ed8;
     }
     .week-date.today {
-      background: linear-gradient(135deg, #003038, #00505e);
+      background: linear-gradient(135deg, #1d4ed8, #00505e);
       color: #ffffff;
       box-shadow: 0 2px 8px rgba(0,48,56,0.25);
     }
     .week-grid-row {
-      height: 72px; border-bottom: 1px solid #f5f8f9;
+      height: 72px; border-bottom: 1px solid #e8eef0;
     }
     .week-event:hover { transform: scale(1.02); z-index: 10; box-shadow: 0 6px 20px rgba(0,0,0,0.18); }
     .week-event-time { font-size: 9px; font-weight: 700; opacity: 0.85; }
@@ -476,7 +482,7 @@ const CalendarStyles = () => (
     .day-layout { display: flex; flex: 1; overflow: hidden; }
     .day-time-col {
       width: 52px; flex-shrink: 0;
-      border-right: 1px solid #f0f4f5;
+      border-right: 1px solid #e8eef0;
       background: #ffffff;
     }
     .day-time-header { height: 56px; border-bottom: 1px solid #eef2f3; }
@@ -495,12 +501,12 @@ const CalendarStyles = () => (
       flex-shrink: 0;
     }
     .day-big-num.today {
-      background: linear-gradient(135deg, #003038, #00505e);
+      background: linear-gradient(135deg, #1d4ed8, #00505e);
       color: #fff; box-shadow: 0 3px 10px rgba(0,48,56,0.25);
     }
-    .day-big-num.not-today { background: #f0f4f5; color: #003038; }
+    .day-big-num.not-today { background: #f0f4f5; color: #1d4ed8; }
     .day-grid-row {
-      height: 96px; border-bottom: 1px solid #f5f8f9;
+      height: 96px; border-bottom: 1px solid #e8eef0;
     }
     /* -- Updated Sharp Event Styles -- */
 
@@ -509,7 +515,7 @@ const CalendarStyles = () => (
   border: 1px solid rgba(0,0,0,0.05);
   border-top-width: 3px !important; /* The thick "sharp" top bar */
   border-radius: 4px; /* "Small rounded" */
-  color: #003038;
+  color: #1d4ed8;
   box-shadow: 0 2px 4px rgba(0,0,0,0.02);
   transition: transform 0.1s ease, box-shadow 0.1s ease;
   overflow: hidden;
@@ -558,7 +564,7 @@ const CalendarStyles = () => (
 .event-title {
   font-size: 11px;
   font-weight: 800;
-  color: #003038;
+  color: #1d4ed8;
   line-height: 1.2;
 }
 .event-subtitle {
@@ -589,7 +595,7 @@ const CalendarStyles = () => (
       font-size: 11px; font-weight: 700; color: #ffffff;
     }
     .day-event-info { flex: 1; min-width: 0; }
-    .day-event-name { font-size: 13px; font-weight: 700; color: #003038; }
+    .day-event-name { font-size: 13px; font-weight: 700; color: #1d4ed8; }
     .day-event-meta { font-size: 11px; color: #8ca4a8; margin-top: 2px; }
     .day-event-pill {
       padding: 3px 10px; border-radius: 5px;
@@ -617,7 +623,7 @@ const CalendarStyles = () => (
       display: flex; align-items: center; justify-content: center;
       margin-bottom: 12px;
     }
-    .cal-detail-empty-title { font-size: 13px; font-weight: 700; color: #003038; }
+    .cal-detail-empty-title { font-size: 13px; font-weight: 700; color: #1d4ed8; }
     .cal-detail-empty-sub { font-size: 12px; color: #8ca4a8; margin-top: 4px; line-height: 1.5; }
 
     .detail-color-header {
@@ -664,7 +670,7 @@ const CalendarStyles = () => (
       padding: 10px 12px;
     }
     .detail-chip-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #8ca4a8; margin-bottom: 3px; }
-    .detail-chip-value { font-size: 12px; font-weight: 700; color: #003038; }
+    .detail-chip-value { font-size: 12px; font-weight: 700; color: #1d4ed8; }
 
     .detail-type-row {
       display: flex; align-items: center; gap: 10px;
@@ -691,7 +697,7 @@ const CalendarStyles = () => (
     }
     .detail-att-avatar {
       width: 30px; height: 30px; border-radius: 7px;
-      background: linear-gradient(135deg, #003038, #005060);
+      background: linear-gradient(135deg, #1d4ed8, #005060);
       display: flex; align-items: center; justify-content: center;
       font-size: 10px; font-weight: 700; color: #fff; flex-shrink: 0;
     }
@@ -711,7 +717,7 @@ const CalendarStyles = () => (
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
     }
-    .detail-contact-text { font-size: 11px; font-weight: 500; color: #003038; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .detail-contact-text { font-size: 11px; font-weight: 500; color: #1d4ed8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     /* Detail footer */
     .detail-footer {
@@ -728,20 +734,20 @@ const CalendarStyles = () => (
     .detail-del-btn:hover { background: #ffe0e0; }
     .detail-join-btn {
       flex: 1; height: 36px; border-radius: 8px; border: none;
-      background: linear-gradient(135deg, #00d1d1 0%, #00a3a3 100%);
-      color: #fff; font-size: 12px; font-weight: 700;
+      background: hsl(var(--primary));
+      color: hsl(var(--primary-foreground)); font-size: 12px; font-weight: 700;
       cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
-      box-shadow: 0 3px 10px rgba(0,209,209,0.25);
+      box-shadow: 0 3px 10px hsl(var(--primary) / 0.22);
       transition: all 0.2s ease;
     }
-    .detail-join-btn:hover { box-shadow: 0 5px 15px rgba(0,209,209,0.35); transform: translateY(-1px); }
+    .detail-join-btn:hover { box-shadow: 0 5px 15px hsl(var(--primary) / 0.3); transform: translateY(-1px); }
     .detail-edit-btn {
       flex: 1; height: 36px; border-radius: 8px;
-      border: 1px solid #eef2f3; background: #f7fafa;
-      color: #003038; font-size: 12px; font-weight: 700;
+      border: 1px solid hsl(var(--border)); background: hsl(var(--secondary));
+      color: hsl(var(--foreground)); font-size: 12px; font-weight: 700;
       cursor: pointer; transition: all 0.15s ease;
     }
-    .detail-edit-btn:hover { background: #eef2f3; }
+    .detail-edit-btn:hover { background: hsl(var(--accent)); }
 
     /* Status pill styles */
     .pill-completed { background: #dcfce7; color: #166534; }
@@ -792,7 +798,7 @@ function MiniCalendar({ currentDate, selectedDate, onSelect, daysWithMeetings }:
         <Button className="mini-cal-nav-btn" onClick={() => setMiniDate(addMonths(miniDate, -1))}>
           <ChevronLeft size={12} />
         </Button>
-        <span className="mini-cal-month">{format(miniDate, 'MMMM yyyy')}</span>
+        <span className="text-slate-800 font-bold text-lg">{format(miniDate, 'MMMM yyyy')}</span>
         <Button className="mini-cal-nav-btn" onClick={() => setMiniDate(addMonths(miniDate, 1))}>
           <ChevronRight size={12} />
         </Button>
@@ -990,7 +996,7 @@ const CalendarView = () => {
                 const backgroundColor = isMtg ? getLightStatusColor(item.status || item.meeting_type) : getEvTypeCol(item.event_type).light;
                 const startTime = isMtg ? item.meeting_start_time : item.event_start_time;
                 const title = isMtg ? item.client_name : item.event_name;
-                
+
                 return (
                   <div key={key}
                     className="month-event event-card-base"
@@ -1067,7 +1073,7 @@ const CalendarView = () => {
                   const title = isMtg ? item.client_name : item.event_name;
                   const borderTopColor = isMtg ? getStatusColor(item.status || item.meeting_type) : getEvTypeCol(item.event_type).bg;
                   const backgroundColor = isMtg ? getLightStatusColor(item.status || item.meeting_type) : getEvTypeCol(item.event_type).light;
-                  
+
                   const sh = parseInt(startTime.split(':')[0]);
                   const sm = parseInt(startTime.split(':')[1]);
                   const eh = endTime ? parseInt(endTime.split(':')[0]) : sh + 1;
@@ -1153,7 +1159,7 @@ const CalendarView = () => {
               {format(currentDate, 'd')}
             </div>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#003038' }}>{format(currentDate, 'EEEE, MMMM d')}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#1d4ed8' }}>{format(currentDate, 'EEEE, MMMM d')}</div>
               <div style={{ fontSize: 11, color: '#8ca4a8' }}>{dm.length} schedule item{dm.length !== 1 ? 's' : ''}</div>
             </div>
           </div>
@@ -1253,8 +1259,8 @@ const CalendarView = () => {
             <div className="cal-detail-icon-wrap">
               <CalendarDays size={22} style={{ color: '#8ca4a8' }} />
             </div>
-            <div className="cal-detail-empty-title">No item selected</div>
-            <div className="cal-detail-empty-sub">Click any item on the calendar to view its details here</div>
+            <div className="text-slate-800 text-2xl font-bold">No item selected</div>
+            <div className="text-slate-400 text-sm font-semibold">Click any item on the calendar to view its details here</div>
           </div>
         </div>
       );
@@ -1263,11 +1269,11 @@ const CalendarView = () => {
     const item = selectedMeeting;
     const isMtg = item._kind === 'meeting';
 
-    const gradient = isMtg 
+    const gradient = isMtg
       ? getStatusGradient(item.status || item.meeting_type)
       : getEvTypeCol(item.event_type).gradient;
 
-    const label = isMtg 
+    const label = isMtg
       ? getLabel(item)
       : (EVENT_TYPE_LABELS[item.event_type] ?? item.event_type);
 
@@ -1290,7 +1296,7 @@ const CalendarView = () => {
               <span className="detail-status-pill">{label}</span>
               <Button className="detail-close" onClick={() => setSelectedMeeting(null)}><X size={12} /></Button>
             </div>
-            <div className="w-12 h-12 rounded-full flex items-center justify-center font-semibold text-2xl text-[#003038] bg-white/90 mb-2">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center font-semibold text-2xl text-[#1d4ed8] bg-white/90 mb-2">
               {initials(isMtg ? item.client_name : (item.organizer_name || item.event_name))}
             </div>
             <div className="text-xl font-bold uppercase overflow-hidden text-ellipsis whitespace-nowrap">{title}</div>
@@ -1349,7 +1355,7 @@ const CalendarView = () => {
               )}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#003038', textTransform: 'capitalize' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#1d4ed8', textTransform: 'capitalize' }}>
                 {isMtg ? item.meeting_type : (EVENT_TYPE_LABELS[item.event_type] ?? item.event_type)}
               </div>
               {(isMtg ? item.meeting_venue_area : item.event_venue_area) && (
@@ -1381,7 +1387,7 @@ const CalendarView = () => {
                 <div className="detail-attendee">
                   <div className="detail-att-avatar">{initials(item.bcl_attendee)}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: '#003038' }}>{item.bcl_attendee}</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#1d4ed8' }}>{item.bcl_attendee}</div>
                     {item.bcl_attendee_mobile && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
                         <Phone size={9} style={{ color: '#8ca4a8', flexShrink: 0 }} />
@@ -1401,7 +1407,7 @@ const CalendarView = () => {
                     {initials(item.organizer_name || item.event_name)}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: '#003038' }}>{item.organizer_name || '—'}</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#1d4ed8' }}>{item.organizer_name || '—'}</div>
                     {item.organizer_company && <div style={{ fontSize: 10, color: '#8ca4a8' }}>{item.organizer_company}</div>}
                   </div>
                 </div>
@@ -1496,14 +1502,13 @@ const CalendarView = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
             width: 34, height: 34, borderRadius: 9,
-            background: 'linear-gradient(135deg, #003038, #00505e)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             boxShadow: '0 3px 10px rgba(0,48,56,0.2)',
           }}>
-            <CalendarDays size={17} color="#00d1d1" />
+            <CalendarDays size={17} color="#1d4ed8" />
           </div>
           <div>
-            <div className="cal-topbar-title">Meeting Calendar</div>
+            <div className="text-slate-800 text-2xl font-bold">Meeting Calendar</div>
             <div className="cal-topbar-sub">Manage your team schedule in real time</div>
           </div>
         </div>
@@ -1513,13 +1518,13 @@ const CalendarView = () => {
           <div className="cal-content-switcher">
             {([
               { id: 'meetings', label: 'Meetings', icon: Calendar },
-              { id: 'events',   label: 'Events',   icon: PartyPopper },
-              { id: 'all',      label: 'All',       icon: Users },
+              { id: 'events', label: 'Events', icon: PartyPopper },
+              { id: 'all', label: 'All', icon: Users },
             ] as const).map(({ id, label, icon: Icon }) => (
-              <button key={id} className={cn('cal-content-btn', contentType === id && `active ct-${id}`)}
+              <Button key={id} className={cn('cal-content-btn h-auto', contentType === id && `active ct-${id}`)}
                 onClick={() => { setContentType(id); setSelectedMeeting(null); }}>
                 <Icon size={13} /> {label}
-              </button>
+              </Button>
             ))}
           </div>
           <div className="cal-view-pill">
@@ -1553,7 +1558,7 @@ const CalendarView = () => {
 
           {/* Today's meetings panel */}
           <div className="cal-panel" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <div className="cal-panel-header">Today's Schedule</div>
+            <div className="cal-panel-header">Today&apos;s Schedule</div>
             <div style={{ flex: 1, overflowY: 'auto' }}>
               {todayMeetings.length === 0 ? (
                 <div style={{ padding: '16px 14px', textAlign: 'center' }}>
@@ -1571,8 +1576,8 @@ const CalendarView = () => {
                 const key = isMtg ? `m-${item.id_main}` : `e-${item.id}`;
                 const color = isMtg ? getStatusColor(item.status || item.meeting_type) : getEvTypeCol(item.event_type).bg;
                 const name = isMtg ? item.client_name : item.event_name;
-                const meta = isMtg 
-                  ? `${item.meeting_start_time?.slice(0, 5)} · ${item.client_company}` 
+                const meta = isMtg
+                  ? `${item.meeting_start_time?.slice(0, 5)} · ${item.client_company}`
                   : `${item.event_start_time?.slice(0, 5)} · ${EVENT_TYPE_LABELS[item.event_type] ?? item.event_type}`;
                 return (
                   <div key={key} className="today-item" onClick={() => setSelectedMeeting(item)}>
@@ -1594,7 +1599,7 @@ const CalendarView = () => {
           <div className="cal-nav">
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <Button className="cal-nav-btn" onClick={() => nav(-1)}><ChevronLeft size={15} /></Button>
-              <span className="cal-nav-label">{headerLabel}</span>
+              <span className="text-slate-800 font-bold text-lg">{headerLabel}</span>
               <Button className="cal-nav-btn" onClick={() => nav(1)}><ChevronRight size={15} /></Button>
             </div>
             <Button className="cal-today-btn" onClick={() => { setCurrentDate(new Date()); setSelectedDate(new Date()); }}>
@@ -1608,7 +1613,7 @@ const CalendarView = () => {
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
                 <div style={{
                   width: 44, height: 44, borderRadius: 12,
-                  background: 'linear-gradient(135deg, #003038, #00505e)',
+                  background: 'linear-gradient(135deg, #1d4ed8, #00505e)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
                   <Loader2 size={20} color="#00d1d1" className="animate-spin" />
@@ -1641,18 +1646,18 @@ const CalendarView = () => {
             }}>
               <Trash2 size={20} color="#fff" />
             </div>
-            <AlertDialogTitle style={{ fontSize: 17, fontWeight: 800, color: '#003038', fontFamily: 'Inter, sans-serif' }}>
+            <AlertDialogTitle style={{ fontSize: 17, fontWeight: 800, color: '#1d4ed8', fontFamily: 'Inter, sans-serif' }}>
               Remove this meeting?
             </AlertDialogTitle>
             <AlertDialogDescription style={{ color: '#64868c', fontSize: 13, fontFamily: 'Inter, sans-serif' }}>
               This will permanently remove the meeting for{' '}
-              <strong style={{ color: '#003038' }}>{deletingMeeting?.client_name}</strong>.
+              <strong style={{ color: '#1d4ed8' }}>{deletingMeeting?.client_name}</strong>.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter style={{ marginTop: 20, gap: 8 }}>
             <AlertDialogCancel style={{
               borderRadius: 8, height: 38, fontWeight: 700, border: '1px solid #eef2f3',
-              background: '#f7fafa', color: '#003038', fontSize: 13, fontFamily: 'Inter, sans-serif', flex: 1,
+              background: '#f7fafa', color: '#1d4ed8', fontSize: 13, fontFamily: 'Inter, sans-serif', flex: 1,
             }}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={deleteMeeting} disabled={isDeleting} style={{
               borderRadius: 8, height: 38, fontWeight: 700,

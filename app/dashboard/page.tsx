@@ -7,9 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -28,14 +30,14 @@ const DashboardStyles = () => (
 
     .db-shell {
       font-family: 'Inter', sans-serif;
-      background-color: #f0f4f5;
+      background: #f4f7f8;
       min-height: 100vh;
-      padding: 20px 24px;
+      padding: 24px;
     }
 
     /* ── TOPBAR ── */
     .db-header { margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
-    .db-title { font-size: 18px; font-weight: 800; color: #003038; letter-spacing: -0.02em; }
+    .db-title { font-size: 18px; font-weight: 800; color: #1d4ed8; letter-spacing: -0.02em; }
     .db-subtitle { font-size: 12px; color: #64868c; margin-top: 2px; }
 
     /* ── BUTTONS — mirrors sidebar create btn ── */
@@ -43,34 +45,35 @@ const DashboardStyles = () => (
       display: inline-flex; align-items: center; gap: 6px;
       padding: 8px 16px; font-size: 13px; font-weight: 700;
       border-radius: 8px; border: none;
-      background: linear-gradient(135deg, #00d1d1 0%, #00a3a3 100%);
-      color: #ffffff; cursor: pointer;
-      box-shadow: 0 4px 14px rgba(0,209,209,0.28);
+      background: hsl(var(--primary));
+      color: hsl(var(--primary-foreground)); cursor: pointer;
+      box-shadow: 0 4px 14px hsl(var(--primary) / 0.22);
       transition: all 0.2s ease;
     }
-    .db-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,209,209,0.35); }
+    .db-btn-primary:hover { transform: translateY(-1px); background: hsl(var(--primary) / 0.92); box-shadow: 0 6px 18px hsl(var(--primary) / 0.3); }
 
     .db-btn-outline {
       display: inline-flex; align-items: center; gap: 6px;
       padding: 7px 14px; font-size: 12px; font-weight: 600;
-      border-radius: 8px; border: 1px solid #e2e8e9;
-      background: #ffffff; color: #003038;
+      border-radius: 8px; border: 1px solid hsl(var(--border));
+      background: hsl(var(--card)); color: hsl(var(--foreground));
       cursor: pointer; transition: all 0.15s ease;
     }
-    .db-btn-outline:hover { background: #f0f4f5; border-color: #c8d6d8; }
+    .db-btn-outline:hover { background: hsl(var(--secondary)); border-color: hsl(var(--ring) / 0.35); }
 
     .db-btn-ghost {
       display: inline-flex; align-items: center; gap: 6px;
       padding: 6px 12px; font-size: 12px; font-weight: 600;
       border-radius: 8px; border: none; background: transparent;
-      color: #64868c; cursor: pointer; transition: all 0.15s ease;
+      color: hsl(var(--muted-foreground)); cursor: pointer; transition: all 0.15s ease;
     }
-    .db-btn-ghost:hover { background: #f0f4f5; color: #003038; }
+    .db-btn-ghost:hover { background: hsl(var(--secondary)); color: hsl(var(--foreground)); }
 
     /* ── PANELS ── */
     .db-panel {
       background: #ffffff; border-radius: 12px;
       border: 1px solid #eef2f3; overflow: hidden;
+      box-shadow: 0 18px 45px rgba(0,48,56,0.08);
     }
 
     /* ── TOOLBAR ── */
@@ -83,20 +86,20 @@ const DashboardStyles = () => (
     .db-tab {
       padding: 7px 14px; font-size: 12px; font-weight: 700;
       border-radius: 7px; border: 1px solid transparent;
-      background: transparent; color: #8ca4a8; cursor: pointer;
+      background: transparent; color: hsl(var(--muted-foreground)); cursor: pointer;
       transition: all 0.15s ease; text-transform: capitalize;
     }
-    .db-tab:hover { color: #003038; background: rgba(0,48,56,0.04); }
+    .db-tab:hover { color: hsl(var(--foreground)); background: hsl(var(--secondary)); }
     .db-tab.active {
-      background: #ffffff; color: #003038;
-      border-color: #eef2f3;
+      background: hsl(var(--card)); color: hsl(var(--primary));
+      border-color: hsl(var(--border));
       box-shadow: 0 1px 4px rgba(0,0,0,0.06);
     }
-    .db-tab.active.tab-upcoming { color: #0284c7; }
-    .db-tab.active.tab-today    { color: #007a7a; }
-    .db-tab.active.tab-pending  { color: #b45309; }
-    .db-tab.active.tab-completed{ color: #15803d; }
-    .db-tab.active.tab-canceled { color: #dc2626; }
+    .db-tab.active.tab-upcoming,
+    .db-tab.active.tab-today,
+    .db-tab.active.tab-pending,
+    .db-tab.active.tab-completed,
+    .db-tab.active.tab-canceled { color: hsl(var(--primary)); }
 
     /* search + view toggle */
     .db-toolbar-right { flex: 1; display: flex; align-items: center; gap: 10px; padding: 10px 12px; justify-content: flex-end; }
@@ -106,37 +109,37 @@ const DashboardStyles = () => (
       width: 100%; height: 36px; padding: 0 12px 0 34px;
       font-size: 13px; font-weight: 500; font-family: 'Inter', sans-serif;
       border: 1px solid #e2e8e9; border-radius: 8px;
-      background: #ffffff; color: #003038; outline: none;
+      background: #ffffff; color: #1d4ed8; outline: none;
       transition: all 0.15s ease;
     }
-    .db-search:focus { border-color: #00d1d1; box-shadow: 0 0 0 3px rgba(0,209,209,0.12); }
+    .db-search:focus { border-color: hsl(var(--ring)); box-shadow: 0 0 0 3px hsl(var(--ring) / 0.14); }
     .db-search::placeholder { color: #8ca4a8; }
 
-    .db-view-toggle { display: flex; background: #eef2f3; border-radius: 8px; padding: 3px; gap: 2px; }
+    .db-view-toggle { display: flex; background: hsl(var(--secondary)); border-radius: 8px; padding: 3px; gap: 2px; }
     .db-view-btn {
       display: flex; align-items: center; gap: 5px;
       padding: 5px 10px; font-size: 11px; font-weight: 700;
       border-radius: 5px; border: none; cursor: pointer;
-      color: #8ca4a8; background: transparent; transition: all 0.15s ease;
+      color: hsl(var(--muted-foreground)); background: transparent; transition: all 0.15s ease;
     }
-    .db-view-btn:hover { color: #003038; }
+    .db-view-btn:hover { color: hsl(var(--foreground)); }
     .db-view-btn.active {
-      background: #ffffff; color: #003038;
+      background: hsl(var(--card)); color: hsl(var(--primary));
       box-shadow: 0 1px 3px rgba(0,0,0,0.08);
     }
 
     /* ── TABLE ── */
-    .db-table-wrap { overflow-x: auto; }
+    .db-table-wrap { overflow-x: auto; padding: 12px; background: #ffffff; }
     .db-table { width: 100%; border-collapse: collapse; }
     .db-table th {
       padding: 10px 16px; text-align: left;
       font-size: 9px; font-weight: 700; text-transform: uppercase;
       letter-spacing: 0.07em; color: #8ca4a8;
-      background: #f7fafa; border-bottom: 1px solid #eef2f3;
+      background: #f7fafa; border: 1px solid #e2e8e9;
       white-space: nowrap;
     }
-    .db-table td { padding: 13px 16px; border-bottom: 1px solid #f5f8f9; vertical-align: middle; }
-    .db-table tr:last-child td { border-bottom: none; }
+    .db-table td { padding: 13px 16px; border: 1px solid #e8eef0; vertical-align: middle; }
+    .db-table tr:last-child td { border-bottom: 1px solid #e8eef0; }
     .db-table tr { cursor: pointer; transition: background 0.12s ease; }
     .db-table tr:hover td { background: #f7fafa; }
 
@@ -148,15 +151,15 @@ const DashboardStyles = () => (
     .db-type-virtual { background: #ede9fe; color: #7c3aed; }
     .db-type-physical { background: #e0f2fe; color: #0284c7; }
 
-    .db-cell-main { font-size: 13px; font-weight: 700; color: #003038; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+    .db-cell-main { font-size: 13px; font-weight: 700; color: #1d4ed8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
     .db-cell-sub { font-size: 11px; color: #8ca4a8; margin-top: 2px; }
-    .db-cell-date { font-size: 12px; font-weight: 700; color: #003038; white-space: nowrap; }
+    .db-cell-date { font-size: 12px; font-weight: 700; color: #1d4ed8; white-space: nowrap; }
     .db-cell-time { font-size: 12px; font-weight: 600; color: #64868c; display: flex; align-items: center; gap: 5px; white-space: nowrap; }
     .db-avatar-sm {
       width: 26px; height: 26px; border-radius: 6px;
       display: flex; align-items: center; justify-content: center;
       font-size: 9px; font-weight: 800;
-      background: linear-gradient(135deg, #003038, #00505e);
+      background: linear-gradient(135deg, #1d4ed8, #00505e);
       color: #ffffff; flex-shrink: 0;
     }
     .db-attendee { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; color: #64868c; }
@@ -169,7 +172,7 @@ const DashboardStyles = () => (
       display: flex; align-items: center; justify-content: center;
       cursor: pointer; transition: all 0.12s ease; background: transparent; color: #8ca4a8;
     }
-    .db-row-btn:hover { background: #eef2f3; color: #003038; }
+    .db-row-btn:hover { background: hsl(var(--secondary)); color: hsl(var(--foreground)); }
 
     /* ── STATUS PILLS ── */
     .pill {
@@ -196,7 +199,7 @@ const DashboardStyles = () => (
     .db-card:hover { box-shadow: 0 6px 20px rgba(0,48,56,0.1); transform: translateY(-2px); border-color: #d0dfe1; }
     .db-card-body { padding: 14px 16px; }
     .db-card-badges { display: flex; gap: 5px; margin-bottom: 10px; flex-wrap: wrap; }
-    .db-card-name { font-size: 14px; font-weight: 800; color: #003038; margin-bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .db-card-name { font-size: 14px; font-weight: 800; color: #1d4ed8; margin-bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .db-card-company { font-size: 11px; color: #8ca4a8; display: flex; align-items: center; gap: 4px; margin-bottom: 12px; }
     .db-card-info-row {
       display: flex; align-items: center; justify-content: space-between;
@@ -205,9 +208,9 @@ const DashboardStyles = () => (
     }
     .db-card-info-left { display: flex; align-items: center; gap: 10px; }
     .db-card-info-icon { width: 30px; height: 30px; border-radius: 7px; background: #eef2f3; display: flex; align-items: center; justify-content: center; }
-    .db-card-date { font-size: 12px; font-weight: 700; color: #003038; }
+    .db-card-date { font-size: 12px; font-weight: 700; color: #1d4ed8; }
     .db-card-dow { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #8ca4a8; margin-top: 2px; }
-    .db-card-time { font-size: 12px; font-weight: 700; color: #003038; text-align: right; }
+    .db-card-time { font-size: 12px; font-weight: 700; color: #1d4ed8; text-align: right; }
     .db-card-dur { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #8ca4a8; text-align: right; margin-top: 2px; }
     .db-card-venue { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #8ca4a8; padding: 0 2px; }
     .db-card-footer {
@@ -220,23 +223,23 @@ const DashboardStyles = () => (
     /* ── PAGINATION ── */
     .db-pagination { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-top: 1px solid #eef2f3; }
     .db-pagination-info { font-size: 12px; font-weight: 600; color: #8ca4a8; }
-    .db-pagination-info b { color: #003038; font-weight: 700; }
+    .db-pagination-info b { color: #1d4ed8; font-weight: 700; }
     .db-page-btns { display: flex; align-items: center; gap: 4px; }
     .db-page-btn {
       width: 30px; height: 30px; border-radius: 7px; border: 1px solid #eef2f3;
-      background: #ffffff; color: #64868c;
+      background: hsl(var(--card)); color: hsl(var(--muted-foreground));
       display: flex; align-items: center; justify-content: center;
       font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.12s ease;
     }
-    .db-page-btn:hover:not(:disabled) { background: #003038; color: #ffffff; border-color: #003038; }
-    .db-page-btn.active { background: linear-gradient(135deg, #00d1d1, #00a3a3); color: #fff; border-color: transparent; box-shadow: 0 2px 8px rgba(0,209,209,0.3); }
+    .db-page-btn:hover:not(:disabled) { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); border-color: hsl(var(--primary)); }
+    .db-page-btn.active { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); border-color: transparent; box-shadow: 0 2px 8px hsl(var(--primary) / 0.25); }
     .db-page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
     /* ── DETAIL DIALOG ── */
     .db-dialog { border-radius: 14px !important; border: 1px solid #eef2f3 !important; overflow: hidden; box-shadow: 0 20px 60px rgba(0,48,56,0.15) !important; }
     .db-dialog-header { padding: 20px 24px; background: #f7fafa; border-bottom: 1px solid #eef2f3; }
     .db-dialog-id { font-size: 10px; font-weight: 700; color: #8ca4a8; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
-    .db-dialog-name { font-size: 20px; font-weight: 800; color: #003038; letter-spacing: -0.02em; }
+    .db-dialog-name { font-size: 20px; font-weight: 800; color: #1d4ed8; letter-spacing: -0.02em; }
     .db-dialog-company { font-size: 13px; color: #64868c; display: flex; align-items: center; gap: 5px; margin-top: 4px; }
     .db-dialog-body { display: grid; grid-template-columns: 1fr; max-height: 55vh; overflow: hidden; }
     @media (min-width: 768px) { .db-dialog-body { grid-template-columns: 7fr 5fr; } }
@@ -248,7 +251,7 @@ const DashboardStyles = () => (
     .db-agenda-box { font-size: 13px; font-weight: 500; color: #64868c; background: #f7fafa; border: 1px solid #eef2f3; border-radius: 10px; padding: 14px 16px; line-height: 1.6; white-space: pre-wrap; }
     .db-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; }
     .db-meta-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #8ca4a8; margin-bottom: 4px; }
-    .db-meta-value { font-size: 13px; font-weight: 700; color: #003038; }
+    .db-meta-value { font-size: 13px; font-weight: 700; color: #1d4ed8; }
     .db-meta-value a { color: #00a3a3; text-decoration: none; }
     .db-meta-value a:hover { text-decoration: underline; }
     .db-participant {
@@ -262,16 +265,16 @@ const DashboardStyles = () => (
       font-size: 12px; font-weight: 800;
       flex-shrink: 0;
     }
-    .db-participant-internal { background: linear-gradient(135deg, #003038, #00505e); color: #fff; }
+    .db-participant-internal { background: linear-gradient(135deg, #1d4ed8, #00505e); color: #fff; }
     .db-participant-external { background: #eef2f3; color: #64868c; }
-    .db-participant-name { font-size: 13px; font-weight: 700; color: #003038; }
+    .db-participant-name { font-size: 13px; font-weight: 700; color: #1d4ed8; }
     .db-participant-role { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #8ca4a8; margin-top: 2px; }
 
     .db-contact-box { background: #ffffff; border-radius: 10px; border: 1px solid #eef2f3; overflow: hidden; }
     .db-contact-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid #f5f8f9; }
     .db-contact-row:last-child { border-bottom: none; }
     .db-contact-label { font-size: 11px; font-weight: 600; color: #8ca4a8; }
-    .db-contact-value { font-size: 12px; font-weight: 700; color: #003038; }
+    .db-contact-value { font-size: 12px; font-weight: 700; color: #1d4ed8; }
 
     .db-sync-box { border-radius: 10px; border: 1px solid; display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; }
     .db-sync-icon { width: 34px; height: 34px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -289,48 +292,48 @@ const DashboardStyles = () => (
       white-space: nowrap;
     }
     .db-action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .db-action-confirm { background: #003038; color: #fff; border-color: #003038; }
-    .db-action-confirm:hover:not(:disabled) { background: #00505e; }
-    .db-action-done { background: linear-gradient(135deg,#00d1d1,#00a3a3); color:#fff; border-color: transparent; box-shadow: 0 2px 8px rgba(0,209,209,0.25); }
-    .db-action-done:hover:not(:disabled) { box-shadow: 0 4px 14px rgba(0,209,209,0.35); }
-    .db-action-neutral { background: #ffffff; color: #64868c; border-color: #e2e8e9; }
-    .db-action-neutral:hover:not(:disabled) { background: #f0f4f5; color: #003038; border-color: #c8d6d8; }
-    .db-action-danger { background: #fff5f5; color: #dc2626; border-color: #fecaca; }
-    .db-action-danger:hover:not(:disabled) { background: #fee2e2; }
-    .db-action-close { background: transparent; color: #8ca4a8; border-color: transparent; }
-    .db-action-close:hover { background: #f0f4f5; color: #003038; border-color: #eef2f3; }
+    .db-action-confirm { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); border-color: hsl(var(--primary)); }
+    .db-action-confirm:hover:not(:disabled) { background: hsl(var(--primary) / 0.92); }
+    .db-action-done { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); border-color: transparent; box-shadow: 0 2px 8px hsl(var(--primary) / 0.22); }
+    .db-action-done:hover:not(:disabled) { box-shadow: 0 4px 14px hsl(var(--primary) / 0.3); }
+    .db-action-neutral { background: hsl(var(--card)); color: hsl(var(--muted-foreground)); border-color: hsl(var(--border)); }
+    .db-action-neutral:hover:not(:disabled) { background: hsl(var(--secondary)); color: hsl(var(--foreground)); border-color: hsl(var(--ring) / 0.35); }
+    .db-action-danger { background: hsl(var(--destructive) / 0.08); color: hsl(var(--destructive)); border-color: hsl(var(--destructive) / 0.24); }
+    .db-action-danger:hover:not(:disabled) { background: hsl(var(--destructive) / 0.14); }
+    .db-action-close { background: transparent; color: hsl(var(--muted-foreground)); border-color: transparent; }
+    .db-action-close:hover { background: hsl(var(--secondary)); color: hsl(var(--foreground)); border-color: hsl(var(--border)); }
 
     /* ── FORM DIALOGS ── */
     .db-form-dialog { border-radius: 14px !important; border: 1px solid #eef2f3 !important; background: #ffffff !important; box-shadow: 0 16px 48px rgba(0,48,56,0.12) !important; }
-    .db-form-title { font-size: 16px; font-weight: 800; color: #003038; display: flex; align-items: center; gap: 8px; }
+    .db-form-title { font-size: 16px; font-weight: 800; color: #1d4ed8; display: flex; align-items: center; gap: 8px; }
     .db-field-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #8ca4a8; display: block; margin-bottom: 6px; }
     .db-input {
       width: 100%; height: 38px; padding: 0 12px;
       font-size: 13px; font-weight: 500; font-family: 'Inter', sans-serif;
       border: 1px solid #e2e8e9; border-radius: 8px;
-      background: #ffffff; color: #003038; outline: none;
+      background: #ffffff; color: #1d4ed8; outline: none;
       transition: all 0.15s ease; box-sizing: border-box;
     }
-    .db-input:focus { border-color: #00d1d1; box-shadow: 0 0 0 3px rgba(0,209,209,0.12); }
+    .db-input:focus { border-color: hsl(var(--ring)); box-shadow: 0 0 0 3px hsl(var(--ring) / 0.14); }
     .db-textarea {
       width: 100%; padding: 10px 12px; min-height: 80px;
       font-size: 13px; font-weight: 500; font-family: 'Inter', sans-serif;
       border: 1px solid #e2e8e9; border-radius: 8px;
-      background: #ffffff; color: #003038; outline: none; resize: vertical;
+      background: #ffffff; color: #1d4ed8; outline: none; resize: vertical;
       transition: all 0.15s ease; box-sizing: border-box;
     }
-    .db-textarea:focus { border-color: #00d1d1; box-shadow: 0 0 0 3px rgba(0,209,209,0.12); }
+    .db-textarea:focus { border-color: hsl(var(--ring)); box-shadow: 0 0 0 3px hsl(var(--ring) / 0.14); }
     .db-select-trigger {
       width: 100%; height: 38px; padding: 0 12px;
       font-size: 13px; font-weight: 500; font-family: 'Inter', sans-serif;
       border: 1px solid #e2e8e9; border-radius: 8px;
-      background: #ffffff; color: #003038;
+      background: #ffffff; color: #1d4ed8;
     }
     .db-form-footer { display: flex; gap: 8px; margin-top: 20px; }
-    .db-form-cancel { flex: 1; height: 38px; border-radius: 8px; border: 1px solid #e2e8e9; background: #f7fafa; color: #64868c; font-size: 13px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.15s ease; }
-    .db-form-cancel:hover { background: #eef2f3; color: #003038; }
-    .db-form-submit { flex: 1; height: 38px; border-radius: 8px; border: none; background: linear-gradient(135deg, #00d1d1, #00a3a3); color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; box-shadow: 0 3px 10px rgba(0,209,209,0.25); transition: all 0.2s ease; }
-    .db-form-submit:hover:not(:disabled) { box-shadow: 0 5px 14px rgba(0,209,209,0.35); }
+    .db-form-cancel { flex: 1; height: 38px; border-radius: 8px; border: 1px solid hsl(var(--border)); background: hsl(var(--secondary)); color: hsl(var(--muted-foreground)); font-size: 13px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.15s ease; }
+    .db-form-cancel:hover { background: hsl(var(--accent)); color: hsl(var(--foreground)); }
+    .db-form-submit { flex: 1; height: 38px; border-radius: 8px; border: none; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); font-size: 13px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; box-shadow: 0 3px 10px hsl(var(--primary) / 0.22); transition: all 0.2s ease; }
+    .db-form-submit:hover:not(:disabled) { box-shadow: 0 5px 14px hsl(var(--primary) / 0.3); }
     .db-form-submit:disabled { opacity: 0.55; cursor: not-allowed; }
 
     /* ── EMPTY STATE ── */
@@ -349,13 +352,13 @@ const DashboardStyles = () => (
     .db-delete-dialog { border-radius: 14px !important; border: 1px solid #eef2f3 !important; background: #ffffff !important; box-shadow: 0 16px 48px rgba(0,48,56,0.12) !important; max-width: 380px !important; }
 
     /* ── CONTENT TYPE SWITCHER ── */
-    .db-content-switcher { display:flex; align-items:center; gap:6px; padding:4px; background:#f0f4f5; border-radius:10px; }
-    .db-content-btn { padding:6px 14px; font-size:12px; font-weight:700; border-radius:7px; border:none; cursor:pointer; transition:all .15s ease; color:#64868c; background:transparent; display:flex; align-items:center; gap:6px; }
-    .db-content-btn:hover { color:#003038; background:rgba(0,48,56,.06); }
-    .db-content-btn.active { background:#ffffff; color:#003038; box-shadow:0 1px 4px rgba(0,0,0,.08); }
-    .db-content-btn.active.ct-meetings { color:#0284c7; }
-    .db-content-btn.active.ct-events   { color:#7c3aed; }
-    .db-content-btn.active.ct-all      { color:#003038; }
+    .db-content-switcher { display:flex; align-items:center; gap:6px; padding:4px; background:hsl(var(--secondary)); border-radius:10px; }
+    .db-content-btn { padding:6px 14px; font-size:12px; font-weight:700; border-radius:7px; border:none; cursor:pointer; transition:all .15s ease; color:hsl(var(--muted-foreground)); background:transparent; display:flex; align-items:center; gap:6px; }
+    .db-content-btn:hover { color:hsl(var(--foreground)); background:hsl(var(--accent)); }
+    .db-content-btn.active { background:hsl(var(--card)); color:hsl(var(--primary)); box-shadow:0 1px 4px rgba(0,0,0,.08); }
+    .db-content-btn.active.ct-meetings,
+    .db-content-btn.active.ct-events,
+    .db-content-btn.active.ct-all { color:hsl(var(--primary)); }
 
     /* events inline table rows */
     .ev-type-chip { display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase; }
@@ -667,11 +670,11 @@ const DashboardContent = () => {
       list = list.filter((e: any) => e.event_name?.toLowerCase().includes(q) || e.organizer_name?.toLowerCase().includes(q) || String(e.id).includes(q));
     }
     switch (activeTab) {
-      case 'today':     return list.filter((e: any) => e.event_date === todayStr);
-      case 'pending':   return list.filter((e: any) => e.status === 'upcoming');
+      case 'today': return list.filter((e: any) => e.event_date === todayStr);
+      case 'pending': return list.filter((e: any) => e.status === 'upcoming');
       case 'completed': return list.filter((e: any) => e.status === 'completed');
-      case 'canceled':  return list.filter((e: any) => e.status === 'cancelled');
-      default:          return list.filter((e: any) => ['upcoming', 'confirmed'].includes(e.status ?? 'upcoming'));
+      case 'canceled': return list.filter((e: any) => e.status === 'cancelled');
+      default: return list.filter((e: any) => ['upcoming', 'confirmed'].includes(e.status ?? 'upcoming'));
     }
   }, [allEvents, activeTab, searchQuery]);
 
@@ -688,7 +691,7 @@ const DashboardContent = () => {
 
   const activeList = contentType === 'meetings' ? activeAppointments
     : contentType === 'events' ? activeEvents
-    : combinedList;
+      : combinedList;
 
   const paginated = activeList.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage);
   const totalPages = Math.ceil(activeList.length / itemsPerPage);
@@ -700,7 +703,7 @@ const DashboardContent = () => {
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
-      <div style={{ width: 48, height: 48, borderRadius: 12, background: 'linear-gradient(135deg,#003038,#00505e)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 48, height: 48, borderRadius: 12, background: 'linear-gradient(135deg,#1d4ed8,#00505e)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Loader2 size={22} color="#00d1d1" className="animate-spin" />
       </div>
     </div>
@@ -722,25 +725,25 @@ const DashboardContent = () => {
           <div className="db-content-switcher">
             {([
               { id: 'meetings', label: 'Meetings', icon: Calendar },
-              { id: 'events',   label: 'Events',   icon: PartyPopper },
-              { id: 'all',      label: 'All',       icon: Users },
+              { id: 'events', label: 'Events', icon: PartyPopper },
+              { id: 'all', label: 'All', icon: Users },
             ] as const).map(({ id, label, icon: Icon }) => (
-              <button key={id} className={`db-content-btn ${contentType === id ? `active ct-${id}` : ''}`}
+              <Button key={id} className={`db-content-btn h-auto ${contentType === id ? `active ct-${id}` : ''}`}
                 onClick={() => { setContentType(id); setCurrentPage(0); }}>
                 <Icon size={13} /> {label}
-              </button>
+              </Button>
             ))}
           </div>
           <div className="cal-status">
             <div className={`cal-dot ${calendarConnectionStatus === 'connected' ? 'cal-dot-connected' : 'cal-dot-disconnected'}`} />
             Calendar {calendarConnectionStatus}
           </div>
-          <button className="db-btn-outline" onClick={() => { }}>
+          <Button className="db-btn-outline h-auto" onClick={() => { }}>
             <Download size={13} /> Export
-          </button>
+          </Button>
           {contentType === 'events'
-            ? <button className="db-btn-primary" onClick={() => router.push('/events')}><Plus size={14} /> New Event</button>
-            : <button className="db-btn-primary" onClick={() => router.push('/schedule')}><Plus size={14} /> New Meeting</button>
+            ? <Button className="db-btn-primary h-auto" onClick={() => router.push('/events')}><Plus size={14} /> New Event</Button>
+            : <Button className="db-btn-primary h-auto" onClick={() => router.push('/schedule')}><Plus size={14} /> New Meeting</Button>
           }
         </div>
       </div>
@@ -751,25 +754,25 @@ const DashboardContent = () => {
         <div className="db-toolbar">
           <div className="db-tabs">
             {['upcoming', 'today', 'pending', 'completed', 'canceled'].map(tab => (
-              <button key={tab} className={`db-tab ${activeTab === tab ? `active tab-${tab}` : ''}`}
+              <Button key={tab} className={`db-tab h-auto ${activeTab === tab ? `active tab-${tab}` : ''}`}
                 onClick={() => { setActiveTab(tab); setCurrentPage(0); }}>
                 {tab}
-              </button>
+              </Button>
             ))}
           </div>
           <div className="db-toolbar-right">
             <div className="db-search-wrap">
               <Search size={14} className="db-search-icon" />
-              <input className="db-search" placeholder="Search clients or ID…"
+              <Input className="db-search" placeholder="Search clients or ID…"
                 value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setCurrentPage(0); }} />
             </div>
             <div className="db-view-toggle">
-              <button className={`db-view-btn ${viewMode === 'table' ? 'active' : ''}`} onClick={() => setViewMode('table')}>
+              <Button className={`db-view-btn h-auto ${viewMode === 'table' ? 'active' : ''}`} onClick={() => setViewMode('table')}>
                 <Table2 size={12} /> Table
-              </button>
-              <button className={`db-view-btn ${viewMode === 'cards' ? 'active' : ''}`} onClick={() => setViewMode('cards')}>
+              </Button>
+              <Button className={`db-view-btn h-auto ${viewMode === 'cards' ? 'active' : ''}`} onClick={() => setViewMode('cards')}>
                 <LayoutGrid size={12} /> Grid
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -840,11 +843,11 @@ const DashboardContent = () => {
                       <td style={{ textAlign: 'right', paddingRight: 12 }} onClick={e => e.stopPropagation()}>
                         <div className="db-row-actions">
                           {isMtg && row.google_meet_link && (
-                            <button className="db-row-btn" style={{ color: '#7c3aed' }} onClick={() => window.open(row.google_meet_link, '_blank')} title="Join meeting"><Video size={14} /></button>
+                            <Button className="db-row-btn" style={{ color: '#7c3aed' }} onClick={() => window.open(row.google_meet_link, '_blank')} title="Join meeting"><Video size={14} /></Button>
                           )}
-                          <button className="db-row-btn" onClick={() => isMtg ? setSelectedAppointment(row) : router.push('/events')} title="View details">
+                          <Button className="db-row-btn" onClick={() => isMtg ? setSelectedAppointment(row) : router.push('/events')} title="View details">
                             <MoreHorizontal size={14} />
-                          </button>
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -920,20 +923,20 @@ const DashboardContent = () => {
             Showing <b>{activeList.length > 0 ? currentPage * itemsPerPage + 1 : 0}</b> to <b>{Math.min((currentPage + 1) * itemsPerPage, activeList.length)}</b> of <b>{activeList.length}</b>
           </div>
           <div className="db-page-btns">
-            <button className="db-page-btn" onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 0}>
+            <Button className="db-page-btn" onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 0}>
               <ChevronLeft size={14} />
-            </button>
+            </Button>
             {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
               const page = totalPages <= 5 ? i : Math.max(0, Math.min(currentPage - 2, totalPages - 5)) + i;
               return (
-                <button key={page} className={`db-page-btn ${currentPage === page ? 'active' : ''}`} onClick={() => setCurrentPage(page)}>
+                <Button key={page} className={`db-page-btn ${currentPage === page ? 'active' : ''}`} onClick={() => setCurrentPage(page)}>
                   {page + 1}
-                </button>
+                </Button>
               );
             })}
-            <button className="db-page-btn" onClick={() => setCurrentPage(p => p + 1)} disabled={currentPage >= totalPages - 1}>
+            <Button className="db-page-btn" onClick={() => setCurrentPage(p => p + 1)} disabled={currentPage >= totalPages - 1}>
               <ChevronRight size={14} />
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -1032,7 +1035,7 @@ const DashboardContent = () => {
                     {apt.google_event_id ? <Cloud size={16} /> : <CloudOff size={16} />}
                   </div>
                   <div style={{ minWidth: 0 }}>
-                    <div className="db-sync-title" style={{ color: apt.google_event_id ? '#14532d' : '#003038' }}>{apt.google_event_id ? 'Calendar Synced' : 'Not Synced'}</div>
+                    <div className="db-sync-title" style={{ color: apt.google_event_id ? '#14532d' : '#1d4ed8' }}>{apt.google_event_id ? 'Calendar Synced' : 'Not Synced'}</div>
                     <div className="db-sync-sub" style={{ color: apt.google_event_id ? '#16a34a' : '#8ca4a8' }}>
                       {apt.google_event_id ? `ID: ${apt.google_event_id.slice(0, 10)}…` : 'Not connected to Google Calendar'}
                     </div>
@@ -1046,37 +1049,37 @@ const DashboardContent = () => {
           <div className="db-dialog-footer">
             <div className="db-action-group">
               {canChangeStatus && (
-                <button className="db-action-btn db-action-confirm" onClick={handleConfirm} disabled={!!actionLoading || apt?.badge_status === 'Confirmed'}>
+                <Button className="db-action-btn db-action-confirm h-auto" onClick={handleConfirm} disabled={!!actionLoading || apt?.badge_status === 'Confirmed'}>
                   {actionLoading === 'confirm' ? <Loader2 size={12} className="animate-spin" /> : <UserCheck size={12} />} Confirm
-                </button>
+                </Button>
               )}
               {canChangeStatus && (
-                <button className="db-action-btn db-action-done" onClick={handleMarkDone} disabled={!!actionLoading}>
+                <Button className="db-action-btn db-action-done h-auto" onClick={handleMarkDone} disabled={!!actionLoading}>
                   {actionLoading === 'done' ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />} Mark Done
-                </button>
+                </Button>
               )}
               {canChangeStatus && (
-                <button className="db-action-btn db-action-neutral" onClick={openReschedule} disabled={!!actionLoading}>
+                <Button className="db-action-btn db-action-neutral h-auto" onClick={openReschedule} disabled={!!actionLoading}>
                   <CalendarClock size={12} /> Reschedule
-                </button>
+                </Button>
               )}
               {canChangeStatus && (
-                <button className="db-action-btn db-action-danger" onClick={handleCancel} disabled={!!actionLoading}>
+                <Button className="db-action-btn db-action-danger h-auto" onClick={handleCancel} disabled={!!actionLoading}>
                   {actionLoading === 'cancel' ? <Loader2 size={12} className="animate-spin" /> : <Ban size={12} />} Cancel
-                </button>
+                </Button>
               )}
             </div>
             <div className="db-action-group">
-              <button className="db-action-btn db-action-neutral" onClick={handleSyncToCalendar} disabled={!!actionLoading || calendarConnectionStatus !== 'connected'}>
+              <Button className="db-action-btn db-action-neutral h-auto" onClick={handleSyncToCalendar} disabled={!!actionLoading || calendarConnectionStatus !== 'connected'}>
                 {actionLoading === 'sync' ? <Loader2 size={12} className="animate-spin" /> : <Cloud size={12} />} Sync
-              </button>
-              <button className="db-action-btn db-action-neutral" onClick={openEdit} disabled={!!actionLoading}>
+              </Button>
+              <Button className="db-action-btn db-action-neutral h-auto" onClick={openEdit} disabled={!!actionLoading}>
                 <Edit2 size={12} /> Edit
-              </button>
-              <button className="db-action-btn db-action-danger" onClick={() => setDeleteOpen(true)} disabled={!!actionLoading}>
+              </Button>
+              <Button className="db-action-btn db-action-danger h-auto" onClick={() => setDeleteOpen(true)} disabled={!!actionLoading}>
                 <Trash2 size={12} /> Delete
-              </button>
-              <button className="db-action-btn db-action-close" onClick={() => setSelectedAppointment(null)}>Close</button>
+              </Button>
+              <Button className="db-action-btn db-action-close h-auto" onClick={() => setSelectedAppointment(null)}>Close</Button>
             </div>
           </div>
         </DialogContent>
@@ -1089,9 +1092,9 @@ const DashboardContent = () => {
             <div style={{ width: 48, height: 48, borderRadius: 12, background: 'linear-gradient(135deg,#ef4444,#dc2626)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12, boxShadow: '0 4px 14px rgba(239,68,68,0.3)' }}>
               <Trash2 size={20} color="#fff" />
             </div>
-            <AlertDialogTitle style={{ fontFamily: 'Inter,sans-serif', fontSize: 16, fontWeight: 800, color: '#003038' }}>Delete Permanently</AlertDialogTitle>
+            <AlertDialogTitle style={{ fontFamily: 'Inter,sans-serif', fontSize: 16, fontWeight: 800, color: '#1d4ed8' }}>Delete Permanently</AlertDialogTitle>
             <AlertDialogDescription style={{ fontFamily: 'Inter,sans-serif', fontSize: 13, color: '#64868c', lineHeight: 1.6 }}>
-              This will permanently remove the booking for <strong style={{ color: '#003038' }}>{apt?.client_name}</strong>. This cannot be undone.
+              This will permanently remove the booking for <strong style={{ color: '#1d4ed8' }}>{apt?.client_name}</strong>. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter style={{ marginTop: 16, gap: 8 }}>
@@ -1110,8 +1113,8 @@ const DashboardContent = () => {
             <DialogTitle className="db-form-title"><CalendarClock size={17} color="#00a3a3" /> Reschedule Meeting</DialogTitle>
           </DialogHeader>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 12 }}>
-            <div><label className="db-field-label">New Date</label><input type="date" className="db-input" value={rescheduleData.meeting_date} onChange={e => setRescheduleData(d => ({ ...d, meeting_date: e.target.value }))} /></div>
-            <div><label className="db-field-label">Start Time</label><input type="time" className="db-input" value={rescheduleData.meeting_start_time} onChange={e => setRescheduleData(d => ({ ...d, meeting_start_time: e.target.value }))} /></div>
+            <div><label className="db-field-label">New Date</label><Input type="date" className="db-input" value={rescheduleData.meeting_date} onChange={e => setRescheduleData(d => ({ ...d, meeting_date: e.target.value }))} /></div>
+            <div><label className="db-field-label">Start Time</label><Input type="time" className="db-input" value={rescheduleData.meeting_start_time} onChange={e => setRescheduleData(d => ({ ...d, meeting_start_time: e.target.value }))} /></div>
             <div>
               <label className="db-field-label">Duration</label>
               <Select value={rescheduleData.meeting_duration} onValueChange={v => setRescheduleData(d => ({ ...d, meeting_duration: v }))}>
@@ -1121,10 +1124,10 @@ const DashboardContent = () => {
             </div>
           </div>
           <div className="db-form-footer">
-            <button className="db-form-cancel" onClick={() => setRescheduleOpen(false)}>Cancel</button>
-            <button className="db-form-submit" onClick={handleReschedule} disabled={!rescheduleData.meeting_date || !rescheduleData.meeting_start_time || actionLoading === 'reschedule'}>
+            <Button className="db-form-cancel h-auto" onClick={() => setRescheduleOpen(false)}>Cancel</Button>
+            <Button className="db-form-submit h-auto" onClick={handleReschedule} disabled={!rescheduleData.meeting_date || !rescheduleData.meeting_start_time || actionLoading === 'reschedule'}>
               {actionLoading === 'reschedule' ? <Loader2 size={14} className="animate-spin" /> : 'Save Changes'}
-            </button>
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -1137,11 +1140,11 @@ const DashboardContent = () => {
           </DialogHeader>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12, maxHeight: '60vh', overflowY: 'auto', paddingRight: 4 }}>
             {[{ k: 'client_name', l: 'Client Name' }, { k: 'client_company', l: 'Company' }, { k: 'client_mobile', l: 'Client Mobile' }, { k: 'meeting_venue_area', l: 'Venue / Location' }].map(({ k, l }) => (
-              <div key={k}><label className="db-field-label">{l}</label><input className="db-input" value={editData[k]} onChange={e => setEditData(d => ({ ...d, [k]: e.target.value }))} /></div>
+              <div key={k}><label className="db-field-label">{l}</label><Input className="db-input" value={editData[k]} onChange={e => setEditData(d => ({ ...d, [k]: e.target.value }))} /></div>
             ))}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div><label className="db-field-label">Date</label><input type="date" className="db-input" value={editData.meeting_date} onChange={e => setEditData(d => ({ ...d, meeting_date: e.target.value }))} /></div>
-              <div><label className="db-field-label">Start Time</label><input type="time" className="db-input" value={editData.meeting_start_time} onChange={e => setEditData(d => ({ ...d, meeting_start_time: e.target.value }))} /></div>
+              <div><label className="db-field-label">Date</label><Input type="date" className="db-input" value={editData.meeting_date} onChange={e => setEditData(d => ({ ...d, meeting_date: e.target.value }))} /></div>
+              <div><label className="db-field-label">Start Time</label><Input type="time" className="db-input" value={editData.meeting_start_time} onChange={e => setEditData(d => ({ ...d, meeting_start_time: e.target.value }))} /></div>
             </div>
             <div>
               <label className="db-field-label">Duration</label>
@@ -1150,13 +1153,13 @@ const DashboardContent = () => {
                 <SelectContent>{[30, 45, 60, 90, 120].map(m => <SelectItem key={m} value={String(m)}>{m} minutes</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div><label className="db-field-label">Agenda</label><textarea className="db-textarea" value={editData.meeting_agenda} onChange={e => setEditData(d => ({ ...d, meeting_agenda: e.target.value }))} /></div>
+            <div><label className="db-field-label">Agenda</label><Textarea className="db-textarea" value={editData.meeting_agenda} onChange={e => setEditData(d => ({ ...d, meeting_agenda: e.target.value }))} /></div>
           </div>
           <div className="db-form-footer">
-            <button className="db-form-cancel" onClick={() => setEditOpen(false)}>Cancel</button>
-            <button className="db-form-submit" onClick={handleEdit} disabled={actionLoading === 'edit'}>
+            <Button className="db-form-cancel h-auto" onClick={() => setEditOpen(false)}>Cancel</Button>
+            <Button className="db-form-submit h-auto" onClick={handleEdit} disabled={actionLoading === 'edit'}>
               {actionLoading === 'edit' ? <Loader2 size={14} className="animate-spin" /> : 'Save Changes'}
-            </button>
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

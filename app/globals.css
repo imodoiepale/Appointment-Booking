@@ -5,43 +5,118 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --radius: 0.5rem;
+
+    /* Light Mode - Deep Teal / White */
+    --background: 0 0% 100%;
+    --foreground: 224, 76%, 45%; /*  #00d9ff */
+
+    --card: 0 0% 100%;
+    --card-foreground: 224, 76%, 45%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 224, 76%, 45%;
+    --primary: 224, 76%, 45%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 188 20% 96%;
+    --secondary-foreground: 224, 76%, 45%;
+    --muted: 188 16% 94%;
+    --muted-foreground: 188 20% 38%;
+    --accent: 188 24% 92%;
+    --accent-foreground: 224, 76%, 45%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 188 20% 88%;
+    --input: 188 20% 88%;
+    --ring: 224, 76%, 45%;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 188 40% 25%; /* #64868c */
+    --sidebar-primary: 224, 76%, 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 188 24% 92%;
+    --sidebar-accent-foreground: 224, 76%, 45%;
+    --sidebar-border: 188 20% 95%; /* #eef2f3 */
+    --sidebar-ring: 224, 76%, 45%;
+  }
+
+  .dark {
+    /* Dark Mode - Deep Teal / White */
+    --background: 224, 76%, 45%; /*  #00d9ff */
+    --foreground: 0 0% 100%;
+
+    --card: 224, 76%, 45%;
+    --card-foreground: 0 0% 100%;
+    --popover: 224, 76%, 45%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 0 0% 100%;
+    --primary-foreground: 224, 76%, 45%;
+    --secondary: 188 54% 16%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 188 46% 17%;
+    --muted-foreground: 188 22% 72%;
+    --accent: 188 54% 16%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 188 42% 22%;
+    --input: 188 42% 22%;
+    --ring: 0 0% 100%;
+
+    --sidebar-background: 224, 76%, 45%;
+    --sidebar-foreground: 188 30% 72%; /* #a3c6cc */
+    --sidebar-primary: 0 0% 100%;
+    --sidebar-primary-foreground: 224, 76%, 45%;
+    --sidebar-accent: 188 54% 16%;
+    --sidebar-accent-foreground: 224, 76%, 45%;
+    --sidebar-border: 188 100% 15%;
+    --sidebar-ring: 0 0% 100%;
+  }
+
   html {
     font-size: 16px;
   }
-  /* Scale down the layout globally on desktops/laptops to provide a high-density, professional view */
   @media (min-width: 1024px) {
-    html {
-      font-size: 11px;
-    }
+    html { font-size: 11px; }
   }
 }
 
-:root {
-  --sidebar-bg: #eff6ff; /* Gorgeous soft ice-blue tint */
-  --sidebar-border: #dbeafe; /* Clean blue-100 border */
-}
-
-.dark {
-  --sidebar-bg: #0b1329; /* Elegant deep navy */
-  --sidebar-border: #1e293b;
-  color-scheme: dark;
-}
-
-body {
-  font-family: 'Inter', sans-serif;
-  background-color: #ffffff;
-  transition: background-color 0.3s ease;
-}
-
-.dark body {
-  background-color: #020617;
-}
-
-@layer components {
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 4px;
+@layer base {
+  * {
+    @apply border-border;
   }
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-slate-300 dark:bg-slate-700 rounded-full;
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+/* Custom Scrollbar for Sidebar */
+.sidebar-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  @apply bg-sidebar-foreground/10 rounded-full hover:bg-sidebar-foreground/20;
+}
+
+@layer utilities {
+  .premium-panel {
+    background: hsl(var(--card)) !important;
+    border-color: hsl(var(--border)) !important;
+    color: hsl(var(--card-foreground));
+    box-shadow: 0 18px 45px rgba(0, 48, 56, 0.08) !important;
+  }
+
+  .premium-surface {
+    background: hsl(var(--card)) !important;
+    border-color: hsl(var(--border)) !important;
+    color: hsl(var(--card-foreground));
+    box-shadow: 0 22px 55px rgba(0, 48, 56, 0.1) !important;
+  }
+
+  .premium-page {
+    min-height: 100%;
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
   }
 }

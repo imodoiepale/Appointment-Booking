@@ -3,10 +3,13 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 import {
@@ -22,7 +25,7 @@ const SchedulerStyles = () => (
 
     .sch-shell {
       font-family: 'Inter', sans-serif;
-      background: #f0f4f5;
+      background: #f4f7f8;
       min-height: 100vh;
       padding: 24px;
       box-sizing: border-box;
@@ -35,7 +38,7 @@ const SchedulerStyles = () => (
       border-radius: 14px;
       border: 1px solid #eef2f3;
       overflow: hidden;
-      box-shadow: 0 4px 24px rgba(0,48,56,0.08);
+      box-shadow: 0 22px 55px rgba(0,48,56,0.1);
     }
 
     /* ── CARD HEADER ── */
@@ -54,15 +57,15 @@ const SchedulerStyles = () => (
       text-transform: uppercase; letter-spacing: 0.06em;
       margin-bottom: 10px;
     }
-    .sch-title { font-size: 22px; font-weight: 800; color: #003038; letter-spacing: -0.02em; }
+    .sch-title { font-size: 22px; font-weight: 800; color: #1d4ed8; letter-spacing: -0.02em; }
     .sch-subtitle { font-size: 13px; color: #64868c; margin-top: 4px; max-width: 420px; line-height: 1.5; }
     .sch-header-chips { display: flex; gap: 10px; flex-shrink: 0; }
     .sch-chip {
       background: #ffffff; border: 1px solid #eef2f3;
       border-radius: 9px; padding: 10px 16px;
-      box-shadow: 0 1px 4px rgba(0,48,56,0.06);
+      box-shadow: 0 8px 20px rgba(0,48,56,0.07);
     }
-    .sch-chip-val { font-size: 13px; font-weight: 800; color: #003038; }
+    .sch-chip-val { font-size: 13px; font-weight: 800; color: #1d4ed8; }
     .sch-chip-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #8ca4a8; margin-top: 3px; }
 
     /* ── STEP INDICATOR ── */
@@ -82,7 +85,7 @@ const SchedulerStyles = () => (
       background: rgba(0,209,209,0.1); border-color: rgba(0,209,209,0.4);
     }
     .sch-step-circle.active {
-      background: linear-gradient(135deg, #003038, #00505e);
+      background: linear-gradient(135deg, #1d4ed8, #00505e);
       border-color: transparent;
       box-shadow: 0 3px 12px rgba(0,48,56,0.25);
     }
@@ -96,7 +99,7 @@ const SchedulerStyles = () => (
       white-space: nowrap;
     }
     .sch-step-label.done { color: #00a3a3; }
-    .sch-step-label.active { color: #003038; }
+    .sch-step-label.active { color: #1d4ed8; }
     .sch-step-label.inactive { color: #c8d6d8; }
     .sch-step-connector {
       flex: 1; height: 2px; border-radius: 2px; margin: 0 8px;
@@ -108,7 +111,7 @@ const SchedulerStyles = () => (
     /* ── FORM BODY ── */
     .sch-body { padding: 28px; }
     .sch-section-title {
-      font-size: 15px; font-weight: 800; color: #003038;
+      font-size: 15px; font-weight: 800; color: #1d4ed8;
       letter-spacing: -0.01em; padding-bottom: 14px;
       border-bottom: 1px solid #eef2f3; margin-bottom: 22px;
     }
@@ -132,33 +135,33 @@ const SchedulerStyles = () => (
       width: 100%; height: 40px;
       padding: 0 12px;
       font-size: 13px; font-weight: 500; font-family: 'Inter', sans-serif;
-      border: 1px solid #e2e8e9; border-radius: 8px;
-      background: #ffffff; color: #003038; outline: none;
+      border: 1px solid #dfe8ea; border-radius: 8px;
+      background: #ffffff; color: #1d4ed8; outline: none;
       transition: all 0.15s ease; box-sizing: border-box;
     }
     .sch-input.has-icon { padding-left: 34px; }
-    .sch-input:focus { border-color: #00d1d1; box-shadow: 0 0 0 3px rgba(0,209,209,0.12); }
+    .sch-input:focus { border-color: hsl(var(--ring)); box-shadow: 0 0 0 3px hsl(var(--ring) / 0.14); }
     .sch-input.invalid { border-color: #ef4444; }
     .sch-input.invalid:focus { box-shadow: 0 0 0 3px rgba(239,68,68,0.12); }
     .sch-input:read-only { background: #f7fafa; color: #8ca4a8; cursor: not-allowed; }
     .sch-textarea {
       width: 100%; padding: 10px 12px; min-height: 80px;
       font-size: 13px; font-weight: 500; font-family: 'Inter', sans-serif;
-      border: 1px solid #e2e8e9; border-radius: 8px;
-      background: #ffffff; color: #003038; outline: none; resize: vertical;
+      border: 1px solid #dfe8ea; border-radius: 8px;
+      background: #ffffff; color: #1d4ed8; outline: none; resize: vertical;
       transition: all 0.15s ease; box-sizing: border-box;
     }
-    .sch-textarea:focus { border-color: #00d1d1; box-shadow: 0 0 0 3px rgba(0,209,209,0.12); }
+    .sch-textarea:focus { border-color: hsl(var(--ring)); box-shadow: 0 0 0 3px hsl(var(--ring) / 0.14); }
     .sch-textarea.invalid { border-color: #ef4444; }
     .sch-select-trigger {
       width: 100%; height: 40px;
       font-size: 13px; font-weight: 500; font-family: 'Inter', sans-serif;
-      border-radius: 8px; border: 1px solid #e2e8e9;
-      background: #ffffff; color: #003038;
+      border-radius: 8px; border: 1px solid #dfe8ea;
+      background: #ffffff; color: #1d4ed8;
       transition: all 0.15s ease;
     }
     .sch-select-trigger.invalid { border-color: #ef4444; }
-    .sch-select-trigger:focus { border-color: #00d1d1; box-shadow: 0 0 0 3px rgba(0,209,209,0.12); }
+    .sch-select-trigger:focus { border-color: hsl(var(--ring)); box-shadow: 0 0 0 3px hsl(var(--ring) / 0.14); }
     .sch-error { font-size: 11px; font-weight: 600; color: #ef4444; margin-top: 2px; }
 
     /* attendee multi-select trigger */
@@ -166,17 +169,17 @@ const SchedulerStyles = () => (
       width: 100%; min-height: 40px; padding: 6px 12px 6px 34px;
       font-size: 13px; font-weight: 500; font-family: 'Inter', sans-serif;
       border: 1px solid #e2e8e9; border-radius: 8px;
-      background: #ffffff; color: #003038; cursor: pointer;
+      background: #ffffff; color: #1d4ed8; cursor: pointer;
       text-align: left; display: flex; align-items: center; flex-wrap: wrap; gap: 5px;
       transition: all 0.15s ease; box-sizing: border-box; position: relative;
     }
-    .sch-attendee-btn:focus, .sch-attendee-btn:hover { border-color: #00d1d1; outline: none; }
+    .sch-attendee-btn:focus, .sch-attendee-btn:hover { border-color: hsl(var(--ring)); outline: none; }
     .sch-attendee-btn.invalid { border-color: #ef4444; }
     .sch-attendee-placeholder { color: #b0c4c8; font-weight: 500; }
     .sch-attendee-tag {
       display: inline-flex; align-items: center; gap: 4px;
       background: #eef2f3; border-radius: 5px;
-      padding: 2px 8px; font-size: 11px; font-weight: 700; color: #003038;
+      padding: 2px 8px; font-size: 11px; font-weight: 700; color: #1d4ed8;
     }
     .sch-attendee-tag-x { cursor: pointer; color: #8ca4a8; display: flex; align-items: center; }
     .sch-attendee-tag-x:hover { color: #ef4444; }
@@ -186,10 +189,11 @@ const SchedulerStyles = () => (
     @media (max-width: 640px) { .sch-confirm-grid { grid-template-columns: 1fr; } }
     .sch-confirm-item {
       background: #f7fafa; border-radius: 9px;
-      border: 1px solid #eef2f3; padding: 12px 14px;
+      border: 1px solid #dfe8ea; padding: 12px 14px;
+      box-shadow: 0 8px 22px rgba(0,48,56,0.04);
     }
     .sch-confirm-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #8ca4a8; margin-bottom: 4px; }
-    .sch-confirm-value { font-size: 13px; font-weight: 700; color: #003038; word-break: break-word; }
+    .sch-confirm-value { font-size: 13px; font-weight: 700; color: #1d4ed8; word-break: break-word; }
 
     /* ── SUCCESS / ERROR BANNERS ── */
     .sch-banner {
@@ -210,34 +214,34 @@ const SchedulerStyles = () => (
       display: inline-flex; align-items: center; gap: 6px;
       padding: 9px 18px; font-size: 13px; font-weight: 700;
       border-radius: 8px; border: 1px solid #e2e8e9;
-      background: #ffffff; color: #64868c; cursor: pointer;
+      background: hsl(var(--card)); color: hsl(var(--muted-foreground)); cursor: pointer;
       font-family: 'Inter', sans-serif; transition: all 0.15s ease;
     }
-    .sch-btn-prev:hover:not(:disabled) { background: #f0f4f5; color: #003038; border-color: #c8d6d8; }
+    .sch-btn-prev:hover:not(:disabled) { background: hsl(var(--secondary)); color: hsl(var(--foreground)); border-color: hsl(var(--ring) / 0.35); }
     .sch-btn-prev:disabled { opacity: 0.35; cursor: not-allowed; }
     .sch-btn-next {
       display: inline-flex; align-items: center; gap: 6px;
       padding: 9px 22px; font-size: 13px; font-weight: 700;
       border-radius: 8px; border: none;
-      background: linear-gradient(135deg, #00d1d1 0%, #00a3a3 100%);
-      color: #ffffff; cursor: pointer;
+      background: hsl(var(--primary));
+      color: hsl(var(--primary-foreground)); cursor: pointer;
       font-family: 'Inter', sans-serif;
-      box-shadow: 0 4px 14px rgba(0,209,209,0.28);
+      box-shadow: 0 4px 14px hsl(var(--primary) / 0.22);
       transition: all 0.2s ease;
     }
-    .sch-btn-next:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,209,209,0.35); }
+    .sch-btn-next:hover:not(:disabled) { transform: translateY(-1px); background: hsl(var(--primary) / 0.92); box-shadow: 0 6px 18px hsl(var(--primary) / 0.3); }
     .sch-btn-next:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
     .sch-btn-submit {
       display: inline-flex; align-items: center; gap: 6px;
       padding: 9px 28px; font-size: 13px; font-weight: 700;
       border-radius: 8px; border: none;
-      background: linear-gradient(135deg, #003038, #00505e);
-      color: #ffffff; cursor: pointer;
+      background: hsl(var(--primary));
+      color: hsl(var(--primary-foreground)); cursor: pointer;
       font-family: 'Inter', sans-serif;
-      box-shadow: 0 4px 14px rgba(0,48,56,0.25);
+      box-shadow: 0 4px 14px hsl(var(--primary) / 0.22);
       transition: all 0.2s ease;
     }
-    .sch-btn-submit:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,48,56,0.3); }
+    .sch-btn-submit:hover:not(:disabled) { transform: translateY(-1px); background: hsl(var(--primary) / 0.92); box-shadow: 0 6px 18px hsl(var(--primary) / 0.3); }
     .sch-btn-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     .sch-btn-success {
       background: linear-gradient(135deg, #22c55e, #16a34a) !important;
@@ -252,8 +256,8 @@ const SchedulerStyles = () => (
       cursor: pointer; font-family: 'Inter', sans-serif;
       transition: all 0.15s ease;
     }
-    .sch-voice-off { background: #ffffff; border-color: #e2e8e9; color: #64868c; }
-    .sch-voice-off:hover { background: #f0f4f5; color: #003038; }
+    .sch-voice-off { background: hsl(var(--card)); border-color: hsl(var(--border)); color: hsl(var(--muted-foreground)); }
+    .sch-voice-off:hover { background: hsl(var(--secondary)); color: hsl(var(--foreground)); }
     .sch-voice-on { background: rgba(239,68,68,0.08); border-color: #fecaca; color: #dc2626; animation: sch-pulse 1.5s infinite; }
     @keyframes sch-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.2)} 50%{box-shadow:0 0 0 6px rgba(239,68,68,0)} }
 
@@ -321,7 +325,7 @@ function TextInput({ icon: Icon, value, onChange, placeholder = '', type = 'text
     return (
         <div className="sch-input-wrap">
             {Icon && <Icon size={14} className="sch-input-icon" />}
-            <input
+            <Input
                 name={name} type={type} value={value} onChange={onChange}
                 placeholder={placeholder} readOnly={readOnly}
                 className={`sch-input${Icon ? ' has-icon' : ''}${invalid ? ' invalid' : ''}${readOnly ? ' readonly' : ''}`}
@@ -332,9 +336,9 @@ function TextInput({ icon: Icon, value, onChange, placeholder = '', type = 'text
 
 function SchSelect({ value, onValueChange, placeholder, items, invalid = false, loading = false }) {
     if (loading) return (
-        <button className="sch-select-trigger" disabled style={{ display: 'flex', alignItems: 'center', gap: 8, opacity: 0.6 }}>
+        <Button className="sch-select-trigger h-auto" disabled style={{ display: 'flex', alignItems: 'center', gap: 8, opacity: 0.6 }}>
             <Loader2 size={13} className="animate-spin" /> Loading…
-        </button>
+        </Button>
     );
     return (
         <Select value={value} onValueChange={onValueChange}>
@@ -567,7 +571,7 @@ const BookingScheduler = () => {
             <Field label="Meeting Date *" error={inv('meetingDate')}>
                 <div className="sch-input-wrap">
                     <Calendar size={14} className="sch-input-icon" />
-                    <input type="date" name="meetingDate" min={new Date().toISOString().split('T')[0]}
+                    <Input type="date" name="meetingDate" min={new Date().toISOString().split('T')[0]}
                         value={formData.meetingDate} onChange={e => handleMeetingDate(e.target.value)}
                         className={`sch-input has-icon${inv('meetingDate') ? ' invalid' : ''}`} />
                 </div>
@@ -625,14 +629,14 @@ const BookingScheduler = () => {
             {/* BCL Attendee multi-select */}
             <Field label="BCL Attendee(s) *" error={inv('bclAttendees')}>
                 {loadingBclAttendees ? (
-                    <button className="sch-attendee-btn" disabled style={{ opacity: 0.6 }}>
+                    <Button className="sch-attendee-btn h-auto" disabled style={{ opacity: 0.6 }}>
                         <User size={14} className="sch-input-icon" />
                         <Loader2 size={13} className="animate-spin" /> Loading attendees…
-                    </button>
+                    </Button>
                 ) : (
                     <Popover open={attendeeOpen} onOpenChange={setAttendeeOpen}>
                         <PopoverTrigger asChild>
-                            <button className={`sch-attendee-btn${inv('bclAttendees') ? ' invalid' : ''}`}>
+                            <Button className={`sch-attendee-btn h-auto${inv('bclAttendees') ? ' invalid' : ''}`}>
                                 <div style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)' }}><User size={14} color="#b0c4c8" /></div>
                                 {(formData.bclAttendees as string[]).length === 0
                                     ? <span className="sch-attendee-placeholder">Select attendee(s)</span>
@@ -645,7 +649,7 @@ const BookingScheduler = () => {
                                         </span>
                                     ))
                                 }
-                            </button>
+                            </Button>
                         </PopoverTrigger>
                         <PopoverContent className="sch-select-content" style={{ width: 260, padding: 10 }} align="start">
                             <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8ca4a8', padding: '0 4px', marginBottom: 8 }}>Select Attendees</div>
@@ -656,7 +660,7 @@ const BookingScheduler = () => {
                                         <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 6px', borderRadius: 7, cursor: 'pointer', background: sel ? '#f0f4f5' : 'transparent', transition: 'background 0.12s' }}
                                             onClick={() => toggleAttendee(a.id, a.displayName, !sel)}>
                                             <Checkbox checked={sel} onCheckedChange={c => toggleAttendee(a.id, a.displayName, !!c)} onClick={e => e.stopPropagation()} />
-                                            <span style={{ fontSize: 13, fontWeight: 500, color: '#003038' }}>{a.displayName}</span>
+                                            <span style={{ fontSize: 13, fontWeight: 500, color: '#1d4ed8' }}>{a.displayName}</span>
                                         </div>
                                     );
                                 })}
@@ -676,7 +680,7 @@ const BookingScheduler = () => {
             <Field label="Meeting Start Time *" error={inv('meetingStartTime')}>
                 <div className="sch-input-wrap">
                     <Clock size={14} className="sch-input-icon" />
-                    <input type="time" className={`sch-input has-icon${inv('meetingStartTime') ? ' invalid' : ''}`}
+                    <Input type="time" className={`sch-input has-icon${inv('meetingStartTime') ? ' invalid' : ''}`}
                         value={formData.meetingStartTime} onChange={e => handleStartTime(e.target.value)} />
                 </div>
             </Field>
@@ -709,7 +713,7 @@ const BookingScheduler = () => {
             {showOtherAgenda && (
                 <div className="sch-grid-full">
                     <Field label="Specify Agenda *" error={inv('otherMeetingAgenda')}>
-                        <textarea className={`sch-textarea${inv('otherMeetingAgenda') ? ' invalid' : ''}`}
+                        <Textarea className={`sch-textarea${inv('otherMeetingAgenda') ? ' invalid' : ''}`}
                             value={formData.otherMeetingAgenda} onChange={e => set('otherMeetingAgenda', e.target.value)}
                             placeholder="Briefly describe the meeting purpose…" rows={3} />
                     </Field>
@@ -783,9 +787,9 @@ const BookingScheduler = () => {
                                 <div className="sch-chip-label">Start time</div>
                             </div>
                         </div>
-                        <button className={`sch-voice-btn ${isListening ? 'sch-voice-on' : 'sch-voice-off'}`} onClick={toggleListening}>
+                        <Button className={`sch-voice-btn h-auto ${isListening ? 'sch-voice-on' : 'sch-voice-off'}`} onClick={toggleListening}>
                             {isListening ? <><MicOff size={13} /> Stop</> : <><Mic size={13} /> Voice</>}
-                        </button>
+                        </Button>
                     </div>
                 </div>
 
@@ -827,24 +831,24 @@ const BookingScheduler = () => {
 
                 {/* FOOTER */}
                 <div className="sch-footer">
-                    <button className="sch-btn-prev" onClick={prevStep} disabled={activeStep === 0 || formStatus === 'submitting'}>
+                    <Button className="sch-btn-prev h-auto" onClick={prevStep} disabled={activeStep === 0 || formStatus === 'submitting'}>
                         <ChevronLeft size={15} /> Previous
-                    </button>
+                    </Button>
 
                     {activeStep < STEPS.length - 1 ? (
-                        <button className="sch-btn-next" onClick={nextStep} disabled={formStatus === 'submitting'}>
+                        <Button className="sch-btn-next h-auto" onClick={nextStep} disabled={formStatus === 'submitting'}>
                             Next Step <ChevronRight size={15} />
-                        </button>
+                        </Button>
                     ) : (
-                        <button
-                            className={`sch-btn-submit${formStatus === 'success' ? ' sch-btn-success' : ''}`}
+                        <Button
+                            className={`sch-btn-submit h-auto${formStatus === 'success' ? ' sch-btn-success' : ''}`}
                             onClick={handleSubmit}
                             disabled={formStatus === 'submitting' || formStatus === 'success'}
                         >
                             {formStatus === 'submitting' ? <><Loader2 size={14} className="animate-spin" /> Scheduling…</>
                                 : formStatus === 'success' ? <><Check size={14} /> Scheduled!</>
                                     : 'Confirm & Schedule'}
-                        </button>
+                        </Button>
                     )}
                 </div>
             </div>

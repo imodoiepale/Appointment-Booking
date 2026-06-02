@@ -45,7 +45,7 @@ export default function NotificationsPage() {
       case "error":
         return <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />;
       default:
-        return <Info className="h-5 w-5 text-blue-600 dark:text-blue-400" />;
+        return <Info className="h-5 w-5 text-primary" />;
     }
   };
 
@@ -58,7 +58,7 @@ export default function NotificationsPage() {
       case "error":
         return "bg-red-50 dark:bg-red-500/10";
       default:
-        return "bg-blue-50 dark:bg-blue-500/10";
+        return "bg-secondary";
     }
   };
 
@@ -100,13 +100,13 @@ export default function NotificationsPage() {
   ];
 
   return (
-    <div className="mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+    <div className="premium-page mx-auto w-full px-4 py-8 sm:px-6 md:py-12 lg:px-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight text-slate-950 dark:text-slate-50">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">
           Notifications
         </h1>
-        <p className="mt-2 text-base text-slate-500 dark:text-slate-400">
+        <p className="mt-2 text-base text-muted-foreground">
           Stay updated on your meetings, alerts, and reminders.
         </p>
       </div>
@@ -120,37 +120,37 @@ export default function NotificationsPage() {
           {notifications.length > 0 && (
             <section>
               <SectionHeader icon={Activity} title="Overview" />
-              <div className="premium-panel divide-y divide-slate-100 dark:divide-slate-800/50 overflow-hidden rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-950">
+              <div className="premium-panel divide-y divide-border overflow-hidden rounded-xl border">
 
                 <div className="flex items-center justify-between px-5 py-4">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-500">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
                       <Bell className="h-5 w-5" />
                     </div>
-                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Total Activity</p>
+                    <p className="text-sm font-semibold text-foreground">Total Activity</p>
                   </div>
-                  <p className="text-lg font-bold text-slate-900 dark:text-slate-100">{notifications.length}</p>
+                  <p className="text-lg font-bold text-foreground">{notifications.length}</p>
                 </div>
 
                 <div className="flex items-center justify-between px-5 py-4 relative overflow-hidden">
-                  {unreadCount > 0 && <div className="absolute left-0 top-0 h-full w-1 bg-blue-600" />}
+                  {unreadCount > 0 && <div className="absolute left-0 top-0 h-full w-1 bg-primary" />}
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary text-primary">
                       <CheckCheck className="h-5 w-5" />
                     </div>
-                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Unread</p>
+                    <p className="text-sm font-semibold text-foreground">Unread</p>
                   </div>
-                  <p className="text-lg font-bold text-slate-900 dark:text-slate-100">{unreadCount}</p>
+                  <p className="text-lg font-bold text-foreground">{unreadCount}</p>
                 </div>
 
                 <div className="flex items-center justify-between px-5 py-4">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-500">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
                       <Calendar className="h-5 w-5" />
                     </div>
-                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Meeting Updates</p>
+                    <p className="text-sm font-semibold text-foreground">Meeting Updates</p>
                   </div>
-                  <p className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                  <p className="text-lg font-bold text-foreground">
                     {notifications.filter((n) => n.meetingId).length}
                   </p>
                 </div>
@@ -162,17 +162,18 @@ export default function NotificationsPage() {
           {/* Filters / Views */}
           <section>
             <SectionHeader icon={Filter} title="Views" />
-            <div className="premium-panel flex flex-col gap-1 p-2 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-950">
+            <div className="premium-panel flex flex-col gap-1 rounded-xl border p-2">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 const active = activeFilter === tab.key;
                 return (
-                  <button
+                  <Button
                     key={tab.key}
                     onClick={() => setActiveFilter(tab.key)}
-                    className={`flex items-center justify-between rounded-xl px-4 py-3 transition-all ${active
-                        ? "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 font-semibold"
-                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900/50 hover:text-slate-900 dark:hover:text-slate-200 font-medium"
+                    variant="ghost"
+                    className={`h-auto w-full justify-between rounded-xl px-4 py-3 transition-all ${active
+                        ? "bg-secondary text-primary font-semibold shadow-sm"
+                        : "text-muted-foreground hover:bg-secondary hover:text-foreground font-medium"
                       }`}
                   >
                     <div className="flex items-center gap-3">
@@ -182,12 +183,12 @@ export default function NotificationsPage() {
                     {tab.count !== undefined && tab.count > 0 && (
                       <Badge
                         variant="secondary"
-                        className={active ? "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400" : "bg-slate-100 dark:bg-slate-800 text-slate-500"}
+                        className={active ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}
                       >
                         {tab.count}
                       </Badge>
                     )}
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -205,7 +206,7 @@ export default function NotificationsPage() {
                 <Button
                   variant="outline"
                   onClick={markAllAsRead}
-                  className="gap-2 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 shadow-sm"
+                  className="gap-2 border-border bg-background text-foreground shadow-sm hover:bg-secondary"
                 >
                   <CheckCheck className="h-4 w-4" />
                   Mark all read
@@ -214,7 +215,7 @@ export default function NotificationsPage() {
               <Button
                 variant="outline"
                 onClick={clearNotifications}
-                className="gap-2 border-red-100 dark:border-red-900/30 bg-white dark:bg-slate-950 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 hover:border-red-200 shadow-sm"
+                className="gap-2 border-red-100 bg-background text-red-600 shadow-sm hover:border-red-200 hover:bg-red-50"
               >
                 <Trash2 className="h-4 w-4" />
                 Clear all
@@ -223,16 +224,16 @@ export default function NotificationsPage() {
           )}
 
           {/* List Panel */}
-          <div className="premium-panel overflow-hidden rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 shadow-sm flex flex-col min-h-[500px]">
+          <div className="premium-panel flex min-h-[500px] flex-col overflow-hidden rounded-xl border">
             {filtered.length === 0 ? (
               <div className="flex flex-1 flex-col items-center justify-center py-20 px-6 text-center">
-                <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
-                  <Bell className="h-8 w-8 text-slate-300 dark:text-slate-600" />
+                <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-xl border border-border bg-secondary">
+                  <Bell className="h-8 w-8 text-muted-foreground" />
                 </div>
-                <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                <p className="text-lg font-semibold text-foreground">
                   {activeFilter === "unread" ? "You're all caught up!" : "No notifications yet"}
                 </p>
-                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400 max-w-sm leading-relaxed">
+                <p className="mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">
                   {activeFilter === "unread"
                     ? "There are no unread notifications right now. Enjoy your day!"
                     : "When you receive meeting invites, system alerts, or reminders, they will appear here."}
@@ -244,17 +245,17 @@ export default function NotificationsPage() {
                   <div
                     key={n.id}
                     onClick={() => handleClick(n)}
-                    className={`group flex items-start sm:items-center gap-4 px-6 py-5 transition-colors hover:bg-slate-50 dark:hover:bg-slate-900/50 ${n.link ? "cursor-pointer" : "cursor-default"
-                      } ${!n.read ? "bg-slate-50/50 dark:bg-slate-900/20" : ""}`}
+                    className={`group flex items-start gap-4 px-6 py-5 transition-colors hover:bg-secondary/70 sm:items-center ${n.link ? "cursor-pointer" : "cursor-default"
+                      } ${!n.read ? "bg-secondary/50" : ""}`}
                   >
                     {/* Unread Indicator */}
                     <div className="mt-1.5 sm:mt-0 flex-shrink-0 w-2 flex justify-center">
-                      {!n.read && <div className="h-2.5 w-2.5 rounded-full bg-blue-600 shadow-sm" />}
+                      {!n.read && <div className="h-2.5 w-2.5 rounded-full bg-primary shadow-sm" />}
                     </div>
 
                     {/* Icon */}
                     <div
-                      className={`mt-1 sm:mt-0 flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl border border-slate-200/50 dark:border-white/5 ${getIconBg(
+                      className={`mt-1 flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg border border-border sm:mt-0 ${getIconBg(
                         n.type
                       )}`}
                     >
@@ -266,18 +267,18 @@ export default function NotificationsPage() {
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4">
                         <p
                           className={`text-sm leading-tight ${!n.read
-                              ? "font-bold text-slate-950 dark:text-slate-50"
-                              : "font-semibold text-slate-700 dark:text-slate-300"
+                              ? "font-bold text-foreground"
+                              : "font-semibold text-foreground/80"
                             }`}
                         >
                           {n.title}
                         </p>
-                        <p className="text-xs font-medium text-slate-400 dark:text-slate-500 whitespace-nowrap">
+                        <p className="whitespace-nowrap text-xs font-medium text-muted-foreground">
                           {formatTimestamp(n.timestamp)}
                         </p>
                       </div>
                       <p
-                        className={`mt-1.5 text-sm leading-relaxed line-clamp-2 ${!n.read ? "text-slate-600 dark:text-slate-300" : "text-slate-500 dark:text-slate-400"
+                        className={`mt-1.5 line-clamp-2 text-sm leading-relaxed ${!n.read ? "text-foreground/80" : "text-muted-foreground"
                           }`}
                       >
                         {n.message}
@@ -287,27 +288,31 @@ export default function NotificationsPage() {
                     {/* Actions (visible on group hover) */}
                     <div className="flex flex-shrink-0 items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
                       {!n.read && (
-                        <button
+                        <Button
                           onClick={(e) => {
                             e.stopPropagation();
                             markAsRead(n.id);
                           }}
                           title="Mark as read"
-                          className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-200 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100 transition-colors"
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                         >
                           <Check className="h-4 w-4" />
-                        </button>
+                        </Button>
                       )}
-                      <button
+                      <Button
                         onClick={(e) => {
                           e.stopPropagation();
                           removeNotification(n.id);
                         }}
                         title="Delete"
-                        className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400 transition-colors"
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400 transition-colors"
                       >
                         <Trash2 className="h-4 w-4" />
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -323,8 +328,8 @@ export default function NotificationsPage() {
 function SectionHeader({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
   return (
     <div className="mb-3 flex items-center gap-2 px-1">
-      <Icon className="h-4 w-4 text-slate-400" />
-      <p className="text-xs font-bold uppercase tracking-widest text-slate-400">{title}</p>
+      <Icon className="h-4 w-4 text-muted-foreground" />
+      <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{title}</p>
     </div>
   );
 }

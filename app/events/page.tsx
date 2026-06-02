@@ -11,7 +11,10 @@ import {
   AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { Toaster } from '@/components/ui/toaster';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -63,16 +66,16 @@ const EVENT_TYPES = [
 ];
 
 const EVENT_COLORS: Record<string, { bg: string; text: string; light: string; gradient: string }> = {
-  wedding:    { bg: '#ec4899', text: '#fff', light: '#fdf2f8', gradient: 'linear-gradient(135deg,#ec4899,#db2777)' },
+  wedding: { bg: '#ec4899', text: '#fff', light: '#fdf2f8', gradient: 'linear-gradient(135deg,#ec4899,#db2777)' },
   fundraiser: { bg: '#f97316', text: '#fff', light: '#fff7ed', gradient: 'linear-gradient(135deg,#f97316,#ea580c)' },
   tech_event: { bg: '#8b5cf6', text: '#fff', light: '#f5f3ff', gradient: 'linear-gradient(135deg,#8b5cf6,#7c3aed)' },
   conference: { bg: '#3b82f6', text: '#fff', light: '#eff6ff', gradient: 'linear-gradient(135deg,#3b82f6,#2563eb)' },
-  birthday:   { bg: '#f59e0b', text: '#fff', light: '#fffbeb', gradient: 'linear-gradient(135deg,#f59e0b,#d97706)' },
-  party:      { bg: '#e879f9', text: '#fff', light: '#fdf4ff', gradient: 'linear-gradient(135deg,#e879f9,#c026d3)' },
-  gala:       { bg: '#d97706', text: '#fff', light: '#fffbeb', gradient: 'linear-gradient(135deg,#d97706,#b45309)' },
-  seminar:    { bg: '#10b981', text: '#fff', light: '#f0fdf4', gradient: 'linear-gradient(135deg,#10b981,#059669)' },
-  workshop:   { bg: '#06b6d4', text: '#fff', light: '#ecfeff', gradient: 'linear-gradient(135deg,#06b6d4,#0891b2)' },
-  other:      { bg: '#6b7280', text: '#fff', light: '#f9fafb', gradient: 'linear-gradient(135deg,#6b7280,#4b5563)' },
+  birthday: { bg: '#f59e0b', text: '#fff', light: '#fffbeb', gradient: 'linear-gradient(135deg,#f59e0b,#d97706)' },
+  party: { bg: '#e879f9', text: '#fff', light: '#fdf4ff', gradient: 'linear-gradient(135deg,#e879f9,#c026d3)' },
+  gala: { bg: '#d97706', text: '#fff', light: '#fffbeb', gradient: 'linear-gradient(135deg,#d97706,#b45309)' },
+  seminar: { bg: '#10b981', text: '#fff', light: '#f0fdf4', gradient: 'linear-gradient(135deg,#10b981,#059669)' },
+  workshop: { bg: '#06b6d4', text: '#fff', light: '#ecfeff', gradient: 'linear-gradient(135deg,#06b6d4,#0891b2)' },
+  other: { bg: '#6b7280', text: '#fff', light: '#f9fafb', gradient: 'linear-gradient(135deg,#6b7280,#4b5563)' },
 };
 
 const getEvColor = (type: string) => EVENT_COLORS[type?.toLowerCase()] ?? EVENT_COLORS.other;
@@ -111,51 +114,51 @@ function addMinutes(time: string, mins: number) {
 const EventsStyles = () => (
   <style>{`
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    .ev-shell { font-family:'Inter',sans-serif; background:#f0f4f5; min-height:100vh; padding:20px 24px; }
+    .ev-shell { font-family:'Inter',sans-serif; background:#f4f7f8; min-height:100vh; padding:24px; }
     .ev-header { margin-bottom:20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
-    .ev-title { font-size:18px; font-weight:800; color:#003038; letter-spacing:-0.02em; }
+    .ev-title { font-size:18px; font-weight:800; color:#1d4ed8; letter-spacing:-0.02em; }
     .ev-subtitle { font-size:12px; color:#64868c; margin-top:2px; }
-    .ev-btn-primary { display:inline-flex;align-items:center;gap:6px;padding:8px 16px;font-size:13px;font-weight:700;border-radius:8px;border:none;background:linear-gradient(135deg,#00d1d1 0%,#00a3a3 100%);color:#fff;cursor:pointer;box-shadow:0 4px 14px rgba(0,209,209,.28);transition:all .2s ease; }
-    .ev-btn-primary:hover { transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,209,209,.35); }
-    .ev-btn-outline { display:inline-flex;align-items:center;gap:6px;padding:7px 14px;font-size:12px;font-weight:600;border-radius:8px;border:1px solid #e2e8e9;background:#fff;color:#003038;cursor:pointer;transition:all .15s ease; }
-    .ev-btn-outline:hover { background:#f0f4f5;border-color:#c8d6d8; }
-    .ev-panel { background:#fff;border-radius:12px;border:1px solid #eef2f3;overflow:hidden; }
+    .ev-btn-primary { display:inline-flex;align-items:center;gap:6px;padding:8px 16px;font-size:13px;font-weight:700;border-radius:8px;border:none;background:hsl(var(--primary));color:hsl(var(--primary-foreground));cursor:pointer;box-shadow:0 4px 14px hsl(var(--primary) / .22);transition:all .2s ease; }
+    .ev-btn-primary:hover { transform:translateY(-1px);background:hsl(var(--primary) / .92);box-shadow:0 6px 18px hsl(var(--primary) / .3); }
+    .ev-btn-outline { display:inline-flex;align-items:center;gap:6px;padding:7px 14px;font-size:12px;font-weight:600;border-radius:8px;border:1px solid hsl(var(--border));background:hsl(var(--card));color:hsl(var(--foreground));cursor:pointer;transition:all .15s ease; }
+    .ev-btn-outline:hover { background:hsl(var(--secondary));border-color:hsl(var(--ring) / .35); }
+    .ev-panel { background:#fff;border-radius:12px;border:1px solid #eef2f3;overflow:hidden;box-shadow:0 18px 45px rgba(0,48,56,.08); }
     .ev-toolbar { display:flex;align-items:center;flex-wrap:wrap;gap:0;border-bottom:1px solid #eef2f3;background:#f7fafa; }
     .ev-tabs { display:flex;padding:10px 12px;gap:2px; }
-    .ev-tab { padding:7px 14px;font-size:12px;font-weight:700;border-radius:7px;border:1px solid transparent;background:transparent;color:#8ca4a8;cursor:pointer;transition:all .15s ease;text-transform:capitalize; }
-    .ev-tab:hover { color:#003038;background:rgba(0,48,56,.04); }
-    .ev-tab.active { background:#fff;color:#003038;border-color:#eef2f3;box-shadow:0 1px 4px rgba(0,0,0,.06); }
-    .ev-tab.active.tab-upcoming   { color:#0284c7; }
-    .ev-tab.active.tab-confirmed  { color:#007a7a; }
-    .ev-tab.active.tab-completed  { color:#15803d; }
-    .ev-tab.active.tab-cancelled  { color:#dc2626; }
+    .ev-tab { padding:7px 14px;font-size:12px;font-weight:700;border-radius:7px;border:1px solid transparent;background:transparent;color:hsl(var(--muted-foreground));cursor:pointer;transition:all .15s ease;text-transform:capitalize; }
+    .ev-tab:hover { color:hsl(var(--foreground));background:hsl(var(--secondary)); }
+    .ev-tab.active { background:hsl(var(--card));color:hsl(var(--primary));border-color:hsl(var(--border));box-shadow:0 1px 4px rgba(0,0,0,.06); }
+    .ev-tab.active.tab-upcoming,
+    .ev-tab.active.tab-confirmed,
+    .ev-tab.active.tab-completed,
+    .ev-tab.active.tab-cancelled { color:hsl(var(--primary)); }
     .ev-toolbar-right { flex:1;display:flex;align-items:center;gap:10px;padding:10px 12px;justify-content:flex-end; }
     .ev-search-wrap { position:relative;flex:1;max-width:320px; }
     .ev-search-icon { position:absolute;left:11px;top:50%;transform:translateY(-50%);color:#8ca4a8;pointer-events:none; }
-    .ev-search { width:100%;height:36px;padding:0 12px 0 34px;font-size:13px;font-weight:500;font-family:'Inter',sans-serif;border:1px solid #e2e8e9;border-radius:8px;background:#fff;color:#003038;outline:none;transition:all .15s ease; }
+    .ev-search { width:100%;height:36px;padding:0 12px 0 34px;font-size:13px;font-weight:500;font-family:'Inter',sans-serif;border:1px solid #e2e8e9;border-radius:8px;background:#fff;color:#1d4ed8;outline:none;transition:all .15s ease; }
     .ev-search:focus { border-color:#00d1d1;box-shadow:0 0 0 3px rgba(0,209,209,.12); }
     .ev-search::placeholder { color:#8ca4a8; }
-    .ev-view-toggle { display:flex;background:#eef2f3;border-radius:8px;padding:3px;gap:2px; }
-    .ev-view-btn { display:flex;align-items:center;gap:5px;padding:5px 10px;font-size:11px;font-weight:700;border-radius:5px;border:none;cursor:pointer;color:#8ca4a8;background:transparent;transition:all .15s ease; }
-    .ev-view-btn:hover { color:#003038; }
-    .ev-view-btn.active { background:#fff;color:#003038;box-shadow:0 1px 3px rgba(0,0,0,.08); }
+    .ev-view-toggle { display:flex;background:hsl(var(--secondary));border-radius:8px;padding:3px;gap:2px; }
+    .ev-view-btn { display:flex;align-items:center;gap:5px;padding:5px 10px;font-size:11px;font-weight:700;border-radius:5px;border:none;cursor:pointer;color:hsl(var(--muted-foreground));background:transparent;transition:all .15s ease; }
+    .ev-view-btn:hover { color:hsl(var(--foreground)); }
+    .ev-view-btn.active { background:hsl(var(--card));color:hsl(var(--primary));box-shadow:0 1px 3px rgba(0,0,0,.08); }
     /* table */
-    .ev-table-wrap { overflow-x:auto; }
+    .ev-table-wrap { overflow-x:auto;padding:12px;background:#fff; }
     .ev-table { width:100%;border-collapse:collapse; }
-    .ev-table th { padding:10px 16px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8ca4a8;background:#f7fafa;border-bottom:1px solid #eef2f3;white-space:nowrap; }
-    .ev-table td { padding:13px 16px;border-bottom:1px solid #f5f8f9;vertical-align:middle; }
-    .ev-table tr:last-child td { border-bottom:none; }
+    .ev-table th { padding:10px 16px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8ca4a8;background:#f7fafa;border:1px solid #e2e8e9;white-space:nowrap; }
+    .ev-table td { padding:13px 16px;border:1px solid #e8eef0;vertical-align:middle; }
+    .ev-table tr:last-child td { border-bottom:1px solid #e8eef0; }
     .ev-table tr { cursor:pointer;transition:background .12s ease; }
     .ev-table tr:hover td { background:#f7fafa; }
-    .ev-cell-main { font-size:13px;font-weight:700;color:#003038;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px; }
+    .ev-cell-main { font-size:13px;font-weight:700;color:#1d4ed8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px; }
     .ev-cell-sub { font-size:11px;color:#8ca4a8;margin-top:2px; }
-    .ev-cell-date { font-size:12px;font-weight:700;color:#003038;white-space:nowrap; }
+    .ev-cell-date { font-size:12px;font-weight:700;color:#1d4ed8;white-space:nowrap; }
     .ev-cell-time { font-size:12px;font-weight:600;color:#64868c;display:flex;align-items:center;gap:5px;white-space:nowrap; }
     .ev-type-icon { width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0; }
     .ev-row-actions { display:flex;align-items:center;gap:4px;opacity:0;transition:opacity .15s ease; }
     .ev-table tr:hover .ev-row-actions { opacity:1; }
-    .ev-row-btn { width:28px;height:28px;border-radius:7px;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .12s ease;background:transparent;color:#8ca4a8; }
-    .ev-row-btn:hover { background:#eef2f3;color:#003038; }
+    .ev-row-btn { width:28px;height:28px;border-radius:7px;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .12s ease;background:transparent;color:hsl(var(--muted-foreground)); }
+    .ev-row-btn:hover { background:hsl(var(--secondary));color:hsl(var(--foreground)); }
     /* pills */
     .pill { display:inline-flex;align-items:center;padding:3px 9px;border-radius:5px;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border:1px solid transparent; }
     .pill-upcoming   { background:#dbeafe;color:#1e40af;border-color:#bfdbfe; }
@@ -168,18 +171,18 @@ const EventsStyles = () => (
     .ev-card:hover { box-shadow:0 6px 20px rgba(0,48,56,.1);transform:translateY(-2px);border-color:#d0dfe1; }
     .ev-card-body { padding:14px 16px; }
     .ev-card-type-badge { display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:5px;font-size:10px;font-weight:700;margin-bottom:10px; }
-    .ev-card-name { font-size:14px;font-weight:800;color:#003038;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+    .ev-card-name { font-size:14px;font-weight:800;color:#1d4ed8;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
     .ev-card-organizer { font-size:11px;color:#8ca4a8;display:flex;align-items:center;gap:4px;margin-bottom:12px; }
     .ev-card-info-row { display:flex;align-items:center;justify-content:space-between;background:#f7fafa;border-radius:8px;border:1px solid #eef2f3;padding:10px 12px;margin-bottom:8px; }
     .ev-card-footer { display:flex;align-items:center;justify-content:space-between;padding:9px 16px;background:#f7fafa;border-top:1px solid #eef2f3; }
     /* pagination */
     .ev-pagination { display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-top:1px solid #eef2f3; }
     .ev-pagination-info { font-size:12px;font-weight:600;color:#8ca4a8; }
-    .ev-pagination-info b { color:#003038;font-weight:700; }
+    .ev-pagination-info b { color:#1d4ed8;font-weight:700; }
     .ev-page-btns { display:flex;align-items:center;gap:4px; }
-    .ev-page-btn { width:30px;height:30px;border-radius:7px;border:1px solid #eef2f3;background:#fff;color:#64868c;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;cursor:pointer;transition:all .12s ease; }
-    .ev-page-btn:hover:not(:disabled) { background:#003038;color:#fff;border-color:#003038; }
-    .ev-page-btn.active { background:linear-gradient(135deg,#00d1d1,#00a3a3);color:#fff;border-color:transparent;box-shadow:0 2px 8px rgba(0,209,209,.3); }
+    .ev-page-btn { width:30px;height:30px;border-radius:7px;border:1px solid hsl(var(--border));background:hsl(var(--card));color:hsl(var(--muted-foreground));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;cursor:pointer;transition:all .12s ease; }
+    .ev-page-btn:hover:not(:disabled) { background:hsl(var(--primary));color:hsl(var(--primary-foreground));border-color:hsl(var(--primary)); }
+    .ev-page-btn.active { background:hsl(var(--primary));color:hsl(var(--primary-foreground));border-color:transparent;box-shadow:0 2px 8px hsl(var(--primary) / .25); }
     .ev-page-btn:disabled { opacity:.35;cursor:not-allowed; }
     /* dialog */
     .ev-dialog { border-radius:14px !important;border:1px solid #eef2f3 !important;overflow:hidden;box-shadow:0 20px 60px rgba(0,48,56,.15) !important; }
@@ -194,44 +197,44 @@ const EventsStyles = () => (
     .ev-desc-box { font-size:13px;font-weight:500;color:#64868c;background:#f7fafa;border:1px solid #eef2f3;border-radius:10px;padding:14px 16px;line-height:1.6;white-space:pre-wrap; }
     .ev-meta-grid { display:grid;grid-template-columns:1fr 1fr;gap:14px 20px; }
     .ev-meta-label { font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8ca4a8;margin-bottom:4px; }
-    .ev-meta-value { font-size:13px;font-weight:700;color:#003038; }
+    .ev-meta-value { font-size:13px;font-weight:700;color:#1d4ed8; }
     .ev-meta-value a { color:#00a3a3;text-decoration:none; }
     .ev-meta-value a:hover { text-decoration:underline; }
     .ev-contact-box { background:#fff;border-radius:10px;border:1px solid #eef2f3;overflow:hidden; }
     .ev-contact-row { display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #f5f8f9; }
     .ev-contact-row:last-child { border-bottom:none; }
     .ev-contact-label { font-size:11px;font-weight:600;color:#8ca4a8; }
-    .ev-contact-value { font-size:12px;font-weight:700;color:#003038; }
+    .ev-contact-value { font-size:12px;font-weight:700;color:#1d4ed8; }
     .ev-sync-box { border-radius:10px;border:1px solid;display:flex;align-items:flex-start;gap:10px;padding:12px 14px; }
     .ev-sync-icon { width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0; }
     .ev-dialog-footer { display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:12px 18px;border-top:1px solid #eef2f3;background:#fff; }
     .ev-action-group { display:flex;align-items:center;gap:6px;flex-wrap:wrap; }
     .ev-action-btn { display:inline-flex;align-items:center;gap:5px;padding:6px 12px;font-size:11px;font-weight:700;border-radius:7px;border:1px solid;cursor:pointer;transition:all .15s ease;font-family:'Inter',sans-serif;white-space:nowrap; }
     .ev-action-btn:disabled { opacity:.5;cursor:not-allowed; }
-    .ev-action-confirm { background:#003038;color:#fff;border-color:#003038; }
-    .ev-action-confirm:hover:not(:disabled) { background:#00505e; }
-    .ev-action-done { background:linear-gradient(135deg,#00d1d1,#00a3a3);color:#fff;border-color:transparent;box-shadow:0 2px 8px rgba(0,209,209,.25); }
-    .ev-action-done:hover:not(:disabled) { box-shadow:0 4px 14px rgba(0,209,209,.35); }
-    .ev-action-neutral { background:#fff;color:#64868c;border-color:#e2e8e9; }
-    .ev-action-neutral:hover:not(:disabled) { background:#f0f4f5;color:#003038;border-color:#c8d6d8; }
-    .ev-action-danger { background:#fff5f5;color:#dc2626;border-color:#fecaca; }
-    .ev-action-danger:hover:not(:disabled) { background:#fee2e2; }
-    .ev-action-close { background:transparent;color:#8ca4a8;border-color:transparent; }
-    .ev-action-close:hover { background:#f0f4f5;color:#003038;border-color:#eef2f3; }
+    .ev-action-confirm { background:hsl(var(--primary));color:hsl(var(--primary-foreground));border-color:hsl(var(--primary)); }
+    .ev-action-confirm:hover:not(:disabled) { background:hsl(var(--primary) / .92); }
+    .ev-action-done { background:hsl(var(--primary));color:hsl(var(--primary-foreground));border-color:transparent;box-shadow:0 2px 8px hsl(var(--primary) / .22); }
+    .ev-action-done:hover:not(:disabled) { box-shadow:0 4px 14px hsl(var(--primary) / .3); }
+    .ev-action-neutral { background:hsl(var(--card));color:hsl(var(--muted-foreground));border-color:hsl(var(--border)); }
+    .ev-action-neutral:hover:not(:disabled) { background:hsl(var(--secondary));color:hsl(var(--foreground));border-color:hsl(var(--ring) / .35); }
+    .ev-action-danger { background:hsl(var(--destructive) / .08);color:hsl(var(--destructive));border-color:hsl(var(--destructive) / .24); }
+    .ev-action-danger:hover:not(:disabled) { background:hsl(var(--destructive) / .14); }
+    .ev-action-close { background:transparent;color:hsl(var(--muted-foreground));border-color:transparent; }
+    .ev-action-close:hover { background:hsl(var(--secondary));color:hsl(var(--foreground));border-color:hsl(var(--border)); }
     /* form dialog */
     .ev-form-dialog { border-radius:14px !important;border:1px solid #eef2f3 !important;background:#fff !important;box-shadow:0 16px 48px rgba(0,48,56,.12) !important; }
-    .ev-form-title { font-size:16px;font-weight:800;color:#003038;display:flex;align-items:center;gap:8px; }
+    .ev-form-title { font-size:16px;font-weight:800;color:#1d4ed8;display:flex;align-items:center;gap:8px; }
     .ev-field-label { font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8ca4a8;display:block;margin-bottom:6px; }
-    .ev-input { width:100%;height:38px;padding:0 12px;font-size:13px;font-weight:500;font-family:'Inter',sans-serif;border:1px solid #e2e8e9;border-radius:8px;background:#fff;color:#003038;outline:none;transition:all .15s ease;box-sizing:border-box; }
+    .ev-input { width:100%;height:38px;padding:0 12px;font-size:13px;font-weight:500;font-family:'Inter',sans-serif;border:1px solid #e2e8e9;border-radius:8px;background:#fff;color:#1d4ed8;outline:none;transition:all .15s ease;box-sizing:border-box; }
     .ev-input:focus { border-color:#00d1d1;box-shadow:0 0 0 3px rgba(0,209,209,.12); }
-    .ev-textarea { width:100%;padding:10px 12px;min-height:80px;font-size:13px;font-weight:500;font-family:'Inter',sans-serif;border:1px solid #e2e8e9;border-radius:8px;background:#fff;color:#003038;outline:none;resize:vertical;transition:all .15s ease;box-sizing:border-box; }
+    .ev-textarea { width:100%;padding:10px 12px;min-height:80px;font-size:13px;font-weight:500;font-family:'Inter',sans-serif;border:1px solid #e2e8e9;border-radius:8px;background:#fff;color:#1d4ed8;outline:none;resize:vertical;transition:all .15s ease;box-sizing:border-box; }
     .ev-textarea:focus { border-color:#00d1d1;box-shadow:0 0 0 3px rgba(0,209,209,.12); }
-    .ev-select-trigger { width:100%;height:38px;padding:0 12px;font-size:13px;font-weight:500;font-family:'Inter',sans-serif;border:1px solid #e2e8e9;border-radius:8px;background:#fff;color:#003038; }
+    .ev-select-trigger { width:100%;height:38px;padding:0 12px;font-size:13px;font-weight:500;font-family:'Inter',sans-serif;border:1px solid #e2e8e9;border-radius:8px;background:#fff;color:#1d4ed8; }
     .ev-form-footer { display:flex;gap:8px;margin-top:20px; }
-    .ev-form-cancel { flex:1;height:38px;border-radius:8px;border:1px solid #e2e8e9;background:#f7fafa;color:#64868c;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s ease; }
-    .ev-form-cancel:hover { background:#eef2f3;color:#003038; }
-    .ev-form-submit { flex:1;height:38px;border-radius:8px;border:none;background:linear-gradient(135deg,#00d1d1,#00a3a3);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;box-shadow:0 3px 10px rgba(0,209,209,.25);transition:all .2s ease; }
-    .ev-form-submit:hover:not(:disabled) { box-shadow:0 5px 14px rgba(0,209,209,.35); }
+    .ev-form-cancel { flex:1;height:38px;border-radius:8px;border:1px solid hsl(var(--border));background:hsl(var(--secondary));color:hsl(var(--muted-foreground));font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s ease; }
+    .ev-form-cancel:hover { background:hsl(var(--accent));color:hsl(var(--foreground)); }
+    .ev-form-submit { flex:1;height:38px;border-radius:8px;border:none;background:hsl(var(--primary));color:hsl(var(--primary-foreground));font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;box-shadow:0 3px 10px hsl(var(--primary) / .22);transition:all .2s ease; }
+    .ev-form-submit:hover:not(:disabled) { box-shadow:0 5px 14px hsl(var(--primary) / .3); }
     .ev-form-submit:disabled { opacity:.55;cursor:not-allowed; }
     .ev-empty { padding:60px 20px;text-align:center;color:#8ca4a8; }
     .ev-empty-icon { width:48px;height:48px;border-radius:12px;background:#f0f4f5;margin:0 auto 12px;display:flex;align-items:center;justify-content:center; }
@@ -268,7 +271,7 @@ const EventCard = ({ event, onClick }: { event: BclEvent; onClick: () => void })
               <Calendar size={14} style={{ color: '#64868c' }} />
             </div>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#003038' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#1d4ed8' }}>
                 {new Date(event.event_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
               </div>
               <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#8ca4a8', marginTop: 2 }}>
@@ -277,7 +280,7 @@ const EventCard = ({ event, onClick }: { event: BclEvent; onClick: () => void })
             </div>
           </div>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#003038', textAlign: 'right' }}>{formatTime(event.event_start_time)}</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#1d4ed8', textAlign: 'right' }}>{formatTime(event.event_start_time)}</div>
             {event.event_duration && <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#8ca4a8', textAlign: 'right', marginTop: 2 }}>{event.event_duration}m</div>}
           </div>
         </div>
@@ -449,7 +452,7 @@ const EventsContent = () => {
       const res = await fetch('/api/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(createForm) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Create failed');
-      
+
       let syncedData = data;
       if (calStatus === 'connected') {
         try {
@@ -505,7 +508,7 @@ const EventsContent = () => {
       const res = await fetch(`/api/events/${selectedEvent.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editForm) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Update failed');
-      
+
       let syncedData = data;
       if (calStatus === 'connected') {
         try {
@@ -537,7 +540,7 @@ const EventsContent = () => {
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
-      <div style={{ width: 48, height: 48, borderRadius: 12, background: 'linear-gradient(135deg,#003038,#00505e)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 48, height: 48, borderRadius: 12, background: 'linear-gradient(135deg,#1d4ed8,#00505e)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Loader2 size={22} color="#00d1d1" className="animate-spin" />
       </div>
     </div>
@@ -549,7 +552,7 @@ const EventsContent = () => {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div style={{ gridColumn: '1/-1' }}>
           <label className="ev-field-label">Event Name *</label>
-          <input className="ev-input" placeholder="e.g. Annual Gala Dinner" value={form.event_name} onChange={e => setForm(p => ({ ...p, event_name: e.target.value }))} />
+          <Input className="ev-input" placeholder="e.g. Annual Gala Dinner" value={form.event_name} onChange={e => setForm(p => ({ ...p, event_name: e.target.value }))} />
         </div>
         <div>
           <label className="ev-field-label">Event Type *</label>
@@ -567,49 +570,49 @@ const EventsContent = () => {
         </div>
         <div>
           <label className="ev-field-label">Event Date *</label>
-          <input type="date" className="ev-input" value={form.event_date} onChange={e => setForm(p => ({ ...p, event_date: e.target.value }))} />
+          <Input type="date" className="ev-input" value={form.event_date} onChange={e => setForm(p => ({ ...p, event_date: e.target.value }))} />
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           <div>
             <label className="ev-field-label">Start Time *</label>
-            <input type="time" className="ev-input" value={form.event_start_time} onChange={e => setForm(p => ({ ...p, event_start_time: e.target.value }))} />
+            <Input type="time" className="ev-input" value={form.event_start_time} onChange={e => setForm(p => ({ ...p, event_start_time: e.target.value }))} />
           </div>
           <div>
             <label className="ev-field-label">End Time *</label>
-            <input type="time" className="ev-input" value={form.event_end_time} onChange={e => setForm(p => ({ ...p, event_end_time: e.target.value }))} />
+            <Input type="time" className="ev-input" value={form.event_end_time} onChange={e => setForm(p => ({ ...p, event_end_time: e.target.value }))} />
           </div>
         </div>
         <div>
           <label className="ev-field-label">Venue Name</label>
-          <input className="ev-input" placeholder="e.g. Grand Ballroom" value={form.event_venue} onChange={e => setForm(p => ({ ...p, event_venue: e.target.value }))} />
+          <Input className="ev-input" placeholder="e.g. Grand Ballroom" value={form.event_venue} onChange={e => setForm(p => ({ ...p, event_venue: e.target.value }))} />
         </div>
         <div>
           <label className="ev-field-label">Venue Area / Location</label>
-          <input className="ev-input" placeholder="e.g. Nairobi CBD" value={form.event_venue_area} onChange={e => setForm(p => ({ ...p, event_venue_area: e.target.value }))} />
+          <Input className="ev-input" placeholder="e.g. Nairobi CBD" value={form.event_venue_area} onChange={e => setForm(p => ({ ...p, event_venue_area: e.target.value }))} />
         </div>
         <div>
           <label className="ev-field-label">Organizer Name</label>
-          <input className="ev-input" value={form.organizer_name} onChange={e => setForm(p => ({ ...p, organizer_name: e.target.value }))} />
+          <Input className="ev-input" value={form.organizer_name} onChange={e => setForm(p => ({ ...p, organizer_name: e.target.value }))} />
         </div>
         <div>
           <label className="ev-field-label">Organizer Company</label>
-          <input className="ev-input" value={form.organizer_company} onChange={e => setForm(p => ({ ...p, organizer_company: e.target.value }))} />
+          <Input className="ev-input" value={form.organizer_company} onChange={e => setForm(p => ({ ...p, organizer_company: e.target.value }))} />
         </div>
         <div>
           <label className="ev-field-label">Organizer Mobile</label>
-          <input className="ev-input" value={form.organizer_mobile} onChange={e => setForm(p => ({ ...p, organizer_mobile: e.target.value }))} />
+          <Input className="ev-input" value={form.organizer_mobile} onChange={e => setForm(p => ({ ...p, organizer_mobile: e.target.value }))} />
         </div>
         <div>
           <label className="ev-field-label">Organizer Email</label>
-          <input type="email" className="ev-input" value={form.organizer_email} onChange={e => setForm(p => ({ ...p, organizer_email: e.target.value }))} />
+          <Input type="email" className="ev-input" value={form.organizer_email} onChange={e => setForm(p => ({ ...p, organizer_email: e.target.value }))} />
         </div>
         <div>
           <label className="ev-field-label">Expected Attendees</label>
-          <input type="number" className="ev-input" min={0} value={form.expected_attendees} onChange={e => setForm(p => ({ ...p, expected_attendees: e.target.value }))} />
+          <Input type="number" className="ev-input" min={0} value={form.expected_attendees} onChange={e => setForm(p => ({ ...p, expected_attendees: e.target.value }))} />
         </div>
         <div style={{ gridColumn: '1/-1' }}>
           <label className="ev-field-label">Description / Notes</label>
-          <textarea className="ev-textarea" rows={3} value={form.event_description} onChange={e => setForm(p => ({ ...p, event_description: e.target.value }))} />
+          <Textarea className="ev-textarea" rows={3} value={form.event_description} onChange={e => setForm(p => ({ ...p, event_description: e.target.value }))} />
         </div>
       </div>
     </div>
@@ -631,8 +634,8 @@ const EventsContent = () => {
             <div className={`cal-dot ${calStatus === 'connected' ? 'cal-dot-connected' : 'cal-dot-disconnected'}`} />
             Calendar {calStatus}
           </div>
-          <button className="ev-btn-outline"><Download size={13} /> Export</button>
-          <button className="ev-btn-primary" onClick={() => setCreateOpen(true)}><Plus size={14} /> New Event</button>
+          <Button className="ev-btn-outline h-auto"><Download size={13} /> Export</Button>
+          <Button className="ev-btn-primary h-auto" onClick={() => setCreateOpen(true)}><Plus size={14} /> New Event</Button>
         </div>
       </div>
 
@@ -642,25 +645,25 @@ const EventsContent = () => {
         <div className="ev-toolbar">
           <div className="ev-tabs">
             {(['upcoming', 'confirmed', 'today', 'completed', 'cancelled'] as const).map(tab => (
-              <button key={tab} className={`ev-tab ${activeTab === tab ? `active tab-${tab}` : ''}`}
+              <Button key={tab} className={`ev-tab h-auto ${activeTab === tab ? `active tab-${tab}` : ''}`}
                 onClick={() => { setActiveTab(tab); setCurrentPage(0); }}>
                 {tab}
-              </button>
+              </Button>
             ))}
           </div>
           <div className="ev-toolbar-right">
             <div className="ev-search-wrap">
               <Search size={14} className="ev-search-icon" />
-              <input className="ev-search" placeholder="Search events or organizer…"
+              <Input className="ev-search" placeholder="Search events or organizer…"
                 value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setCurrentPage(0); }} />
             </div>
             <div className="ev-view-toggle">
-              <button className={`ev-view-btn ${viewMode === 'table' ? 'active' : ''}`} onClick={() => setViewMode('table')}>
+              <Button className={`ev-view-btn h-auto ${viewMode === 'table' ? 'active' : ''}`} onClick={() => setViewMode('table')}>
                 <Table2 size={12} /> Table
-              </button>
-              <button className={`ev-view-btn ${viewMode === 'cards' ? 'active' : ''}`} onClick={() => setViewMode('cards')}>
+              </Button>
+              <Button className={`ev-view-btn h-auto ${viewMode === 'cards' ? 'active' : ''}`} onClick={() => setViewMode('cards')}>
                 <LayoutGrid size={12} /> Grid
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -704,7 +707,7 @@ const EventsContent = () => {
                       <td><div className="ev-cell-time"><Clock size={12} />{formatTime(ev.event_start_time)}</div></td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600, color: '#64868c' }}>
-                          <div style={{ width: 26, height: 26, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, background: 'linear-gradient(135deg,#003038,#00505e)', color: '#fff', flexShrink: 0 }}>
+                          <div style={{ width: 26, height: 26, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, background: 'linear-gradient(135deg,#1d4ed8,#00505e)', color: '#fff', flexShrink: 0 }}>
                             {safeInitials(ev.organizer_name || '?')}
                           </div>
                           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 120 }}>{ev.organizer_name || '—'}</span>
@@ -713,9 +716,9 @@ const EventsContent = () => {
                       <td><span className={`pill pill-${ev.status ?? 'upcoming'}`}>{ev.status ?? 'upcoming'}</span></td>
                       <td style={{ textAlign: 'right', paddingRight: 12 }} onClick={e => e.stopPropagation()}>
                         <div className="ev-row-actions">
-                          <button className="ev-row-btn" onClick={() => setSelectedEvent(ev)} title="View details">
+                          <Button className="ev-row-btn" onClick={() => setSelectedEvent(ev)} title="View details">
                             <MoreHorizontal size={14} />
-                          </button>
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -753,12 +756,12 @@ const EventsContent = () => {
             <b>{Math.min((currentPage + 1) * ITEMS_PER_PAGE, filtered.length)}</b> of <b>{filtered.length}</b>
           </div>
           <div className="ev-page-btns">
-            <button className="ev-page-btn" onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 0}><ChevronLeft size={14} /></button>
+            <Button className="ev-page-btn" onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 0}><ChevronLeft size={14} /></Button>
             {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
               const page = totalPages <= 5 ? i : Math.max(0, Math.min(currentPage - 2, totalPages - 5)) + i;
-              return <button key={page} className={`ev-page-btn ${currentPage === page ? 'active' : ''}`} onClick={() => setCurrentPage(page)}>{page + 1}</button>;
+              return <Button key={page} className={`ev-page-btn ${currentPage === page ? 'active' : ''}`} onClick={() => setCurrentPage(page)}>{page + 1}</Button>;
             })}
-            <button className="ev-page-btn" onClick={() => setCurrentPage(p => p + 1)} disabled={currentPage >= totalPages - 1}><ChevronRight size={14} /></button>
+            <Button className="ev-page-btn" onClick={() => setCurrentPage(p => p + 1)} disabled={currentPage >= totalPages - 1}><ChevronRight size={14} /></Button>
           </div>
         </div>
       </div>
@@ -780,7 +783,7 @@ const EventsContent = () => {
                         </div>
                         <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: col.bg }}>{typeLabel} · #{ev.id}</span>
                       </div>
-                      <div style={{ fontSize: 20, fontWeight: 800, color: '#003038', letterSpacing: '-0.02em' }}>{ev.event_name}</div>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: '#1d4ed8', letterSpacing: '-0.02em' }}>{ev.event_name}</div>
                       {ev.organizer_name && (
                         <div style={{ fontSize: 13, color: '#64868c', display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }}>
                           <Building size={13} />{ev.organizer_name}{ev.organizer_company ? ` · ${ev.organizer_company}` : ''}
@@ -829,7 +832,7 @@ const EventsContent = () => {
                         {ev.google_event_id ? <Cloud size={16} /> : <CloudOff size={16} />}
                       </div>
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: ev.google_event_id ? '#14532d' : '#003038' }}>{ev.google_event_id ? 'Calendar Synced' : 'Not Synced'}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: ev.google_event_id ? '#14532d' : '#1d4ed8' }}>{ev.google_event_id ? 'Calendar Synced' : 'Not Synced'}</div>
                         <div style={{ fontSize: 11, marginTop: 3, color: ev.google_event_id ? '#16a34a' : '#8ca4a8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {ev.google_event_id ? `ID: ${ev.google_event_id.slice(0, 12)}…` : 'Click Sync to add to Google Calendar'}
                         </div>
@@ -840,15 +843,15 @@ const EventsContent = () => {
 
                 <div className="ev-dialog-footer">
                   <div className="ev-action-group">
-                    {canChange && <button className="ev-action-btn ev-action-confirm" onClick={handleConfirm} disabled={!!actionLoading || ev.status === 'confirmed'}>{actionLoading === 'confirm' ? <Loader2 size={12} className="animate-spin" /> : <UserCheck size={12} />} Confirm</button>}
-                    {canChange && <button className="ev-action-btn ev-action-done" onClick={handleMarkDone} disabled={!!actionLoading}>{actionLoading === 'done' ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />} Mark Done</button>}
-                    {canChange && <button className="ev-action-btn ev-action-danger" onClick={handleCancel} disabled={!!actionLoading}>{actionLoading === 'cancel' ? <Loader2 size={12} className="animate-spin" /> : <Ban size={12} />} Cancel</button>}
+                    {canChange && <Button className="ev-action-btn ev-action-confirm h-auto" onClick={handleConfirm} disabled={!!actionLoading || ev.status === 'confirmed'}>{actionLoading === 'confirm' ? <Loader2 size={12} className="animate-spin" /> : <UserCheck size={12} />} Confirm</Button>}
+                    {canChange && <Button className="ev-action-btn ev-action-done h-auto" onClick={handleMarkDone} disabled={!!actionLoading}>{actionLoading === 'done' ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />} Mark Done</Button>}
+                    {canChange && <Button className="ev-action-btn ev-action-danger h-auto" onClick={handleCancel} disabled={!!actionLoading}>{actionLoading === 'cancel' ? <Loader2 size={12} className="animate-spin" /> : <Ban size={12} />} Cancel</Button>}
                   </div>
                   <div className="ev-action-group">
-                    <button className="ev-action-btn ev-action-neutral" onClick={handleSyncToCalendar} disabled={!!actionLoading || calStatus !== 'connected'}>{actionLoading === 'sync' ? <Loader2 size={12} className="animate-spin" /> : <Cloud size={12} />} Sync</button>
-                    <button className="ev-action-btn ev-action-neutral" onClick={openEdit} disabled={!!actionLoading}><Edit2 size={12} /> Edit</button>
-                    <button className="ev-action-btn ev-action-danger" onClick={() => setDeletingEvent(ev)} disabled={!!actionLoading}><Trash2 size={12} /> Delete</button>
-                    <button className="ev-action-btn ev-action-close" onClick={() => setSelectedEvent(null)}>Close</button>
+                    <Button className="ev-action-btn ev-action-neutral h-auto" onClick={handleSyncToCalendar} disabled={!!actionLoading || calStatus !== 'connected'}>{actionLoading === 'sync' ? <Loader2 size={12} className="animate-spin" /> : <Cloud size={12} />} Sync</Button>
+                    <Button className="ev-action-btn ev-action-neutral h-auto" onClick={openEdit} disabled={!!actionLoading}><Edit2 size={12} /> Edit</Button>
+                    <Button className="ev-action-btn ev-action-danger h-auto" onClick={() => setDeletingEvent(ev)} disabled={!!actionLoading}><Trash2 size={12} /> Delete</Button>
+                    <Button className="ev-action-btn ev-action-close h-auto" onClick={() => setSelectedEvent(null)}>Close</Button>
                   </div>
                 </div>
               </>
@@ -863,11 +866,11 @@ const EventsContent = () => {
           <DialogHeader><DialogTitle className="ev-form-title"><PartyPopper size={17} color="#00a3a3" /> Create Event</DialogTitle></DialogHeader>
           {renderFormFields(createForm, setCreateForm)}
           <div className="ev-form-footer">
-            <button className="ev-form-cancel" onClick={() => setCreateOpen(false)}>Cancel</button>
-            <button className="ev-form-submit" onClick={handleCreate}
+            <Button className="ev-form-cancel h-auto" onClick={() => setCreateOpen(false)}>Cancel</Button>
+            <Button className="ev-form-submit h-auto" onClick={handleCreate}
               disabled={isSubmitting || !createForm.event_name || !createForm.event_date || !createForm.event_start_time || !createForm.event_end_time}>
               {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : 'Create Event'}
-            </button>
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -878,10 +881,10 @@ const EventsContent = () => {
           <DialogHeader><DialogTitle className="ev-form-title"><Edit2 size={17} color="#00a3a3" /> Edit Event</DialogTitle></DialogHeader>
           {renderFormFields(editForm, setEditForm)}
           <div className="ev-form-footer">
-            <button className="ev-form-cancel" onClick={() => setEditOpen(false)}>Cancel</button>
-            <button className="ev-form-submit" onClick={handleEdit} disabled={isSubmitting}>
+            <Button className="ev-form-cancel h-auto" onClick={() => setEditOpen(false)}>Cancel</Button>
+            <Button className="ev-form-submit h-auto" onClick={handleEdit} disabled={isSubmitting}>
               {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : 'Save Changes'}
-            </button>
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -893,9 +896,9 @@ const EventsContent = () => {
             <div style={{ width: 48, height: 48, borderRadius: 12, background: 'linear-gradient(135deg,#ef4444,#dc2626)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12, boxShadow: '0 4px 14px rgba(239,68,68,.3)' }}>
               <Trash2 size={20} color="#fff" />
             </div>
-            <AlertDialogTitle style={{ fontFamily: 'Inter,sans-serif', fontSize: 16, fontWeight: 800, color: '#003038' }}>Delete Event</AlertDialogTitle>
+            <AlertDialogTitle style={{ fontFamily: 'Inter,sans-serif', fontSize: 16, fontWeight: 800, color: '#1d4ed8' }}>Delete Event</AlertDialogTitle>
             <AlertDialogDescription style={{ fontFamily: 'Inter,sans-serif', fontSize: 13, color: '#64868c', lineHeight: 1.6 }}>
-              Permanently remove <strong style={{ color: '#003038' }}>{deletingEvent?.event_name}</strong>? This cannot be undone.
+              Permanently remove <strong style={{ color: '#1d4ed8' }}>{deletingEvent?.event_name}</strong>? This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter style={{ marginTop: 16, gap: 8 }}>
