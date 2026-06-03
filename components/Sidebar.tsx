@@ -31,7 +31,6 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 import {
     Tooltip,
     TooltipContent,
@@ -58,11 +57,11 @@ const Sidebar = () => {
     ];
 
     const statusViews = [
-        { name: "Upcoming", href: "/dashboard?status=upcoming", status: "upcoming", icon: Clock, color: "#ffffff", count: 8 },
-        { name: "Today", href: "/dashboard?status=today", status: "today", icon: Calendar, color: "#ffffff", count: 2 },
-        { name: "Pending", href: "/dashboard?status=pending", status: "pending", icon: AlertCircle, color: "#ffffff", count: 5 },
-        { name: "Completed", href: "/dashboard?status=completed", status: "completed", icon: CheckCircle, color: "#ffffff" },
-        { name: "Canceled", href: "/dashboard?status=canceled", status: "canceled", icon: XCircle, color: "rgba(255,255,255,0.45)" },
+        { name: "Upcoming", href: "/dashboard?status=upcoming", status: "upcoming", icon: Clock, colorVar: "--status-upcoming", count: 8 },
+        { name: "Today", href: "/dashboard?status=today", status: "today", icon: Calendar, colorVar: "--status-today", count: 2 },
+        { name: "Pending", href: "/dashboard?status=pending", status: "pending", icon: AlertCircle, colorVar: "--status-pending", count: 5 },
+        { name: "Completed", href: "/dashboard?status=completed", status: "completed", icon: CheckCircle, colorVar: "--status-completed" },
+        { name: "Canceled", href: "/dashboard?status=canceled", status: "canceled", icon: XCircle, colorVar: "--status-canceled" },
     ];
 
     const isNavActive = (href: string) =>
@@ -84,12 +83,12 @@ const Sidebar = () => {
         : statusViews;
     const hasSearchResults = filteredMainNav.length > 0 || filteredStatusViews.length > 0;
 
-    const NavItem = ({ href, icon: Icon, name, count, statusColor }: {
+    const NavItem = ({ href, icon: Icon, name, count, statusColorVar }: {
         href: string;
         icon: any;
         name: string;
         count?: number;
-        statusColor?: string;
+        statusColorVar?: string;
     }) => {
         const active = isNavActive(href) || isStatusActive(
             new URLSearchParams(href.split("?")[1] ?? "").get("status") ?? ""
@@ -99,21 +98,25 @@ const Sidebar = () => {
             <Link
                 href={href}
                 className={cn(
-                    "relative flex items-center gap-3.5 rounded-xl px-4 py-3 text-[12px] text-sidebar-foreground transition-all duration-200 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:shadow-sm",
-                    active && "bg-sidebar-accent font-semibold text-sidebar-accent-foreground shadow-sm ring-1 ring-sidebar-border/70 before:absolute before:left-0 before:top-1/4 before:bottom-1/4 before:w-[4px] before:rounded-r-full before:bg-sidebar-primary",
+                    "relative flex items-center gap-3.5 rounded-lg px-4 py-2.5 text-[14px] font-medium transition-colors duration-200",
+                    "text-white/70 hover:bg-white/5 hover:text-white",
+                    active && "bg-white/10 text-white font-semibold shadow-sm",
                     isCollapsed && "justify-center px-0"
                 )}
             >
-                <Icon className={cn("h-5 w-5 shrink-0", active ? "text-sidebar-primary" : "opacity-80")} />
+                <Icon className={cn("h-5 w-5 shrink-0", active ? "text-white" : "text-white/60")} />
                 {!isCollapsed && (
                     <>
                         <span className="flex-1 truncate">{name}</span>
                         {count != null ? (
-                            <Badge variant="secondary" className="ml-auto h-6 rounded-md border border-sidebar-border bg-background/80 px-2 text-[11px] font-bold text-sidebar-primary shadow-sm dark:bg-white/10 dark:text-white">
+                            <Badge className={cn(
+                                "ml-auto h-5 min-w-[20px] justify-center rounded bg-sidebar-primary px-1.5 text-[10px] font-bold text-white",
+                                !active && "bg-white/10 text-white/70"
+                            )}>
                                 {count}
                             </Badge>
-                        ) : statusColor ? (
-                            <span className="ml-auto h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: statusColor }} />
+                        ) : statusColorVar ? (
+                            <span className="ml-auto h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: `hsl(var(${statusColorVar}))` }} />
                         ) : null}
                     </>
                 )}
@@ -125,13 +128,13 @@ const Sidebar = () => {
         return (
             <Tooltip>
                 <TooltipTrigger asChild>{inner}</TooltipTrigger>
-                <TooltipContent side="right" className="text-sm font-medium">{name}</TooltipContent>
+                <TooltipContent side="right" className="bg-[hsl(var(--sidebar-background))] border-white/10 text-white">{name}</TooltipContent>
             </Tooltip>
         );
     };
 
     const utilityButtonClass = cn(
-        "h-auto w-full justify-start gap-3.5 rounded-xl px-4 py-3 text-[12px] font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+        "flex w-full items-center gap-3.5 rounded-lg px-4 py-2.5 text-[13px] font-medium text-white/60 hover:bg-white/5 hover:text-white transition-all",
         isCollapsed && "justify-center px-0"
     );
 
@@ -139,23 +142,37 @@ const Sidebar = () => {
         <TooltipProvider delayDuration={100}>
             <aside
                 className={cn(
-                    "fixed inset-y-0 left-0 z-40 flex h-screen flex-col border-r border-sidebar-border bg-sidebar/95 text-sidebar-foreground shadow-2xl shadow-[#00adcc]/10 backdrop-blur-xl transition-all duration-300 ease-in-out dark:shadow-black/30 lg:sticky lg:top-0",
-                    isCollapsed ? "w-[80px]" : "w-[250px]",
+                    "fixed inset-y-0 left-0 z-40 flex h-screen flex-col bg-[hsl(var(--sidebar-background))] text-white transition-all duration-300 ease-in-out lg:sticky lg:top-0",
+                    isCollapsed ? "w-[80px]" : "w-[260px]",
                     isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
                 )}
             >
-                {/* Header / Logo Section */}
-                <div className={cn("px-4 pt-5", isCollapsed && "px-3")}>
-                    <div className="rounded-xl border border-sidebar-border/80 bg-background/70 p-3 shadow-sm dark:bg-white/[0.03]">
-                        <div className="flex items-center justify-between">
+                {/* Header Section */}
+                <div className={cn("px-5 pt-8", isCollapsed && "px-3")}>
+                    <div className="flex flex-col gap-5">
+                        <div className="flex items-start justify-between">
                             <div className="flex items-center gap-3 overflow-hidden">
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm ring-1 ring-sidebar-border">
-                                    <Image src="/logo.png" alt="Logo" width={32} height={32} />
+                                {/* Logo */}
+                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/10">
+                                    <Image
+                                        src="/logo.png"
+                                        alt="BCL Meetings"
+                                        width={28}
+                                        height={28}
+                                        className="object-contain"
+                                    />
                                 </div>
+
+                                {/* Company Name */}
                                 {!isCollapsed && (
-                                    <div className="whitespace-nowrap">
-                                        <div className="text-[16px] font-black leading-tight tracking-tight text-sidebar-primary">BCL Meetings</div>
-                                        <div className="text-[12px] font-medium text-sidebar-foreground/60 uppercase tracking-wider">Booksmart</div>
+                                    <div className="min-w-0">
+                                        <div className="truncate text-[18px] font-semibold leading-tight text-white">
+                                            BCL Meetings
+                                        </div>
+
+                                        <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-blue-200/70">
+                                            Booksmart
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -164,58 +181,43 @@ const Sidebar = () => {
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => setIsCollapsed(!isCollapsed)}
-                                className="hidden h-8 w-8 text-sidebar-foreground hover:bg-sidebar-accent lg:flex"
-                                aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                                className="h-8 w-8 shrink-0 text-white/50 hover:bg-white/10 hover:text-white"
                             >
-                                {isCollapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+                                {isCollapsed ? (
+                                    <PanelLeftOpen className="h-4 w-4" />
+                                ) : (
+                                    <PanelLeftClose className="h-4 w-4" />
+                                )}
                             </Button>
                         </div>
                     </div>
                 </div>
 
-                {/* Search Section */}
+                {/* Search - Integrated styling */}
                 {!isCollapsed && (
-                    <div className="relative mx-4 mb-2 mt-6">
-                        <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sidebar-foreground/50" />
+                    <div className="relative mx-5 mb-4 mt-8">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
                         <Input
                             type="text"
-                            placeholder="Search navigation..."
+                            placeholder="Search"
                             value={searchQuery}
-                            onChange={(event) => setSearchQuery(event.target.value)}
-                            className="h-11 rounded-xl border-sidebar-border bg-background/80 pl-10 pr-9 text-sm text-sidebar-primary shadow-sm placeholder:text-sidebar-foreground/50 focus-visible:ring-sidebar-ring dark:bg-white/[0.04]"
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="h-10 rounded-lg border-white/10 bg-white/5 pl-9 text-sm text-white placeholder:text-white/30 focus:bg-white/10 focus:ring-0"
                         />
-                        {searchQuery && (
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setSearchQuery("")}
-                                className="absolute right-1.5 top-1/2 h-8 w-8 -translate-y-1/2 text-sidebar-foreground/50 hover:text-sidebar-foreground"
-                            >
-                                <XCircle className="h-4 w-4" />
-                            </Button>
-                        )}
                     </div>
                 )}
 
                 {/* Navigation Content */}
                 <div className={cn("sidebar-scroll mt-4 flex-1 overflow-y-auto px-3 pb-4", isCollapsed && "px-2")}>
-                    {!isCollapsed && (
-                        <div className="mb-2 px-3 text-[13px] font-bold uppercase tracking-[0.1em] text-sidebar-foreground/40">
-                            Main Menu
-                        </div>
-                    )}
-                    <nav className="space-y-1.5">
+                    <nav className="space-y-1">
                         {filteredMainNav.map((item) => (
                             <NavItem key={item.name} href={item.href} icon={item.icon} name={item.name} count={item.count} />
                         ))}
                     </nav>
 
-                    {!isCollapsed && (
-                        <div className="mb-2 mt-8 px-3 text-[13px] font-bold uppercase tracking-[0.1em] text-sidebar-foreground/40">
-                            Filter Status
-                        </div>
-                    )}
-                    <nav className="mt-1.5 space-y-1.5">
+                    <div className="my-6 border-t border-white/5 mx-2" />
+
+                    <nav className="space-y-1">
                         {filteredStatusViews.map((item) => (
                             <NavItem
                                 key={item.status}
@@ -223,81 +225,52 @@ const Sidebar = () => {
                                 icon={item.icon}
                                 name={item.name}
                                 count={item.count}
-                                statusColor={item.color}
+                                statusColorVar={item.colorVar}
                             />
                         ))}
                     </nav>
 
-                    {!isCollapsed && !hasSearchResults && (
-                        <div className="mx-2 mt-6 rounded-xl border border-dashed border-sidebar-border bg-background/40 px-4 py-8 text-center text-sm text-sidebar-foreground/60">
-                            No results found.
-                        </div>
-                    )}
-
-                    {/* Action Button */}
-                    <div className="mt-8 px-1">
+                    {/* Create Meeting Button - Brand Primary */}
+                    <div className="mt-8 px-2">
                         <Button
                             className={cn(
-                                "w-full bg-sidebar-primary py-6 text-[12px] font-bold text-sidebar-primary-foreground shadow-lg shadow-[#00adcc]/20 transition-all hover:scale-[1.02] hover:bg-sidebar-primary/90 hover:shadow-xl",
-                                isCollapsed ? "h-12 w-12 p-0 rounded-xl" : "rounded-xl"
+                                "w-full bg-[hsl(var(--sidebar-primary))] font-semibold text-white shadow-lg hover:brightness-110 active:scale-95 transition-all",
+                                isCollapsed ? "h-12 w-12 p-0 rounded-xl" : "h-11 rounded-lg"
                             )}
-                            aria-label="Create Meeting"
                         >
-                            <PlusCircle className={cn(isCollapsed ? "h-6 w-6" : "mr-2 h-5 w-5")} />
+                            <PlusCircle className={cn(isCollapsed ? "h-6 w-6" : "mr-2 h-4 w-4")} />
                             {!isCollapsed && <span>Create Meeting</span>}
                         </Button>
                     </div>
                 </div>
 
                 {/* Footer Section */}
-                <div className={cn("mt-auto border-t border-sidebar-border/60 bg-background/50 p-4 backdrop-blur-md", isCollapsed && "p-2")}>
+                <div className={cn("mt-auto bg-black/10 p-4 border-t border-white/5", isCollapsed && "p-2")}>
                     <div className="flex flex-col gap-1">
-                        <NavItemComponent
-                            isCollapsed={isCollapsed}
-                            href="/settings"
-                            icon={Settings}
-                            label="Settings"
-                            className={utilityButtonClass}
-                        />
-                        <NavItemComponent
-                            isCollapsed={isCollapsed}
-                            href="/help"
-                            icon={HelpCircle}
-                            label="Support"
-                            className={utilityButtonClass}
-                        />
+                        <NavItemComponent isCollapsed={isCollapsed} href="/settings" icon={Settings} label="Settings" className={utilityButtonClass} />
+                        <NavItemComponent isCollapsed={isCollapsed} href="/help" icon={HelpCircle} label="Support" className={utilityButtonClass} />
 
                         {mounted && (
-                            <Button
-                                variant="ghost"
-                                className={utilityButtonClass}
-                                onClick={toggleTheme}
-                                aria-label="Toggle theme"
-                            >
+                            <button className={utilityButtonClass} onClick={toggleTheme}>
                                 {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
                                 {!isCollapsed && <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>}
-                            </Button>
+                            </button>
                         )}
                     </div>
                 </div>
             </aside>
 
-            {/* Mobile Overlay */}
             {isMobileOpen && (
-                <div
-                    className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm lg:hidden"
-                    onClick={() => setIsMobileOpen(false)}
-                />
+                <div className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm lg:hidden" onClick={() => setIsMobileOpen(false)} />
             )}
         </TooltipProvider>
     );
 };
 
-// Helper for Footer Buttons to reduce repetition
 const NavItemComponent = ({ isCollapsed, href, icon: Icon, label, className }) => {
     const content = (
         <Link href={href} className={className}>
-            <Icon className="h-5 w-5 shrink-0 opacity-80" />
+            <Icon className="h-5 w-5 shrink-0 opacity-70" />
             {!isCollapsed && <span>{label}</span>}
         </Link>
     );
@@ -309,7 +282,7 @@ const NavItemComponent = ({ isCollapsed, href, icon: Icon, label, className }) =
             <TooltipTrigger asChild>
                 <div className="flex justify-center">{content}</div>
             </TooltipTrigger>
-            <TooltipContent side="right" className="text-sm font-medium">{label}</TooltipContent>
+            <TooltipContent side="right" className="bg-[hsl(var(--sidebar-background))] border-white/10 text-white">{label}</TooltipContent>
         </Tooltip>
     );
 };

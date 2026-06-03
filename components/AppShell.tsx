@@ -16,7 +16,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   if (isPublicPage) {
     return (
       <>
-        <main className="min-h-screen bg-background text-foreground selection:bg-primary/20">
+        <main className="min-h-screen bg-background text-foreground selection:bg-primary/30">
           {children}
         </main>
         <Toaster />
@@ -27,17 +27,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
       <NotificationProvider>
-        <div className="flex h-screen overflow-hidden bg-background text-foreground font-sans selection:bg-primary/20">
+        {/* selection:bg-primary/20 changed to brand blue selection */}
+        <div className="flex h-screen overflow-hidden bg-background text-foreground font-sans selection:bg-[#0057E7]/20">
 
-          {/* Sidebar Loading Fallback matches sidebar bg */}
-          <Suspense fallback={<div className="hidden h-screen bg-sidebar lg:block lg:w-64 lg:flex-shrink-0" />}>
+          {/* Sidebar Loading Fallback matches the new Sidebar Background #061D43 */}
+          <Suspense fallback={<div className="hidden h-screen bg-[#061D43] lg:block lg:w-[260px] lg:flex-shrink-0" />}>
             <Sidebar />
           </Suspense>
 
           <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
             <div className="relative z-10 flex h-full flex-col">
               <Header />
-              <main className="flex-1 overflow-y-auto scroll-smooth">
+              <main className="flex-1 overflow-y-auto scroll-smooth bg-[#F8FAFC]">
                 {children}
               </main>
             </div>
