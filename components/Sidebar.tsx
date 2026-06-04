@@ -23,6 +23,7 @@ import {
     Search,
     Settings,
     Sun,
+    Video,
     XCircle,
 } from "lucide-react";
 
@@ -51,6 +52,7 @@ const Sidebar = () => {
 
     const mainNav = [
         { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
+        { name: "Meetings", href: "/dashboard", icon: Video },
         { name: "Events", href: "/events", icon: PartyPopper },
         { name: "Calendar", href: "/calendar", icon: CalendarDays },
         { name: "Notifications", href: "/notifications", icon: Bell, count: 3 },

@@ -18,12 +18,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { Toaster } from '@/components/ui/toaster';
 import { useToast } from '@/hooks/use-toast';
 import {
-  Calendar, Clock, MapPin, Trash2, Loader2, CloudOff, Cloud,
+  Calendar, Clock, MapPin, Trash2, Loader2,
   ChevronLeft, ChevronRight, Search, MoreHorizontal, Plus, Download,
-  Hash, CheckCircle2, Edit2, Ban, UserCheck, Users, Heart, DollarSign,
-  Cpu, Gift, PartyPopper, Star, BookOpen, Hammer, Table2, LayoutGrid,
-  Building, AlertCircle,
+  Hash, CheckCircle2, Edit2, Ban, UserCheck, Users,
+  Table2, LayoutGrid, Building, AlertCircle, Cloud, CloudOff,
+  ChevronUp, ChevronDown, ChevronsUpDown, Link as LinkIcon,
 } from 'lucide-react';
+import {
+  getEventTypeConfig, EventTypeIcon, EVENT_TYPES, EVENT_TYPE_CONFIG,
+  formatDateDDMMYYYY, sortItems, SortConfig, MEETING_STATUS_COLORS,
+} from '@/utils/appointmentStyles';
 
 // ── TYPES ────────────────────────────────────────────────────────────────────
 interface BclEvent {
@@ -51,44 +55,6 @@ interface BclEvent {
   created_by?: string;
 }
 
-// ── EVENT TYPE HELPERS ───────────────────────────────────────────────────────
-const EVENT_TYPES = [
-  { value: 'wedding', label: 'Wedding' },
-  { value: 'fundraiser', label: 'Fundraiser' },
-  { value: 'tech_event', label: 'Tech Event' },
-  { value: 'conference', label: 'Conference' },
-  { value: 'birthday', label: 'Birthday' },
-  { value: 'party', label: 'Party' },
-  { value: 'gala', label: 'Gala' },
-  { value: 'seminar', label: 'Seminar' },
-  { value: 'workshop', label: 'Workshop' },
-  { value: 'other', label: 'Other' },
-];
-
-const EVENT_COLORS: Record<string, { bg: string; text: string; light: string; gradient: string }> = {
-  wedding: { bg: '#ec4899', text: '#fff', light: '#fdf2f8', gradient: 'linear-gradient(135deg,#ec4899,#db2777)' },
-  fundraiser: { bg: '#f97316', text: '#fff', light: '#fff7ed', gradient: 'linear-gradient(135deg,#f97316,#ea580c)' },
-  tech_event: { bg: '#8b5cf6', text: '#fff', light: '#f5f3ff', gradient: 'linear-gradient(135deg,#8b5cf6,#7c3aed)' },
-  conference: { bg: '#3b82f6', text: '#fff', light: '#eff6ff', gradient: 'linear-gradient(135deg,#3b82f6,#2563eb)' },
-  birthday: { bg: '#f59e0b', text: '#fff', light: '#fffbeb', gradient: 'linear-gradient(135deg,#f59e0b,#d97706)' },
-  party: { bg: '#e879f9', text: '#fff', light: '#fdf4ff', gradient: 'linear-gradient(135deg,#e879f9,#c026d3)' },
-  gala: { bg: '#d97706', text: '#fff', light: '#fffbeb', gradient: 'linear-gradient(135deg,#d97706,#b45309)' },
-  seminar: { bg: '#10b981', text: '#fff', light: '#f0fdf4', gradient: 'linear-gradient(135deg,#10b981,#059669)' },
-  workshop: { bg: '#06b6d4', text: '#fff', light: '#ecfeff', gradient: 'linear-gradient(135deg,#06b6d4,#0891b2)' },
-  other: { bg: '#6b7280', text: '#fff', light: '#f9fafb', gradient: 'linear-gradient(135deg,#6b7280,#4b5563)' },
-};
-
-const getEvColor = (type: string) => EVENT_COLORS[type?.toLowerCase()] ?? EVENT_COLORS.other;
-
-const EVENT_ICONS: Record<string, React.ComponentType<any>> = {
-  wedding: Heart, fundraiser: DollarSign, tech_event: Cpu,
-  conference: Users, birthday: Gift, party: PartyPopper,
-  gala: Star, seminar: BookOpen, workshop: Hammer, other: Calendar,
-};
-const EventTypeIcon = ({ type, size = 15 }: { type: string; size?: number }) => {
-  const Icon = EVENT_ICONS[type?.toLowerCase()] ?? Calendar;
-  return <Icon size={size} />;
-};
 
 const STATUSES = ['upcoming', 'confirmed', 'completed', 'cancelled'];
 
@@ -97,6 +63,23 @@ function formatTime(t: string) {
   const [h, m] = t.split(':').map(Number);
   const ampm = h >= 12 ? 'PM' : 'AM';
   return `${((h % 12) || 12).toString().padStart(2, '0')}:${m.toString().padStart(2, '0')} ${ampm}`;
+}
+
+function StatusPill({ status }: { status?: string }) {
+  const s = (status ?? 'upcoming').toLowerCase();
+  const col = MEETING_STATUS_COLORS[s] ?? { hex: '#8ca4a8', bg: 'rgba(140,164,168,0.12)', text: '#64868c' };
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center',
+      padding: '3px 9px', borderRadius: 5,
+      fontSize: 10, fontWeight: 700, letterSpacing: '0.04em',
+      textTransform: 'capitalize',
+      background: col.bg, color: col.text,
+      border: `1px solid ${col.hex}40`,
+    }}>
+      {status ?? 'upcoming'}
+    </span>
+  );
 }
 
 function safeInitials(n: string) {
@@ -114,8 +97,8 @@ function addMinutes(time: string, mins: number) {
 const EventsStyles = () => (
   <style>{`
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    .ev-shell { font-family:'Inter',sans-serif; background:#f4f7f8; min-height:100vh; padding:24px; }
-    .ev-header { margin-bottom:20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+    .ev-shell { font-family:'Inter',sans-serif; background:#f4f7f8; min-height:100vh; padding:16px 20px; }
+    .ev-header { margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
     .ev-title { font-size:18px; font-weight:800; color:#1d4ed8; letter-spacing:-0.02em; }
     .ev-subtitle { font-size:12px; color:#64868c; margin-top:2px; }
     .ev-btn-primary { display:inline-flex;align-items:center;gap:6px;padding:8px 16px;font-size:13px;font-weight:700;border-radius:8px;border:none;background:hsl(var(--primary));color:hsl(var(--primary-foreground));cursor:pointer;box-shadow:0 4px 14px hsl(var(--primary) / .22);transition:all .2s ease; }
@@ -145,11 +128,12 @@ const EventsStyles = () => (
     /* table */
     .ev-table-wrap { overflow-x:auto;padding:12px;background:#fff; }
     .ev-table { width:100%;border-collapse:collapse; }
-    .ev-table th { padding:10px 16px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8ca4a8;background:#f7fafa;border:1px solid #e2e8e9;white-space:nowrap; }
-    .ev-table td { padding:13px 16px;border:1px solid #e8eef0;vertical-align:middle; }
+    .ev-table th { padding:8px 14px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8ca4a8;background:#f7fafa;border:1px solid #e2e8e9;white-space:nowrap; }
+    .ev-table td { padding:10px 14px;border:1px solid #e8eef0;vertical-align:middle; }
     .ev-table tr:last-child td { border-bottom:1px solid #e8eef0; }
     .ev-table tr { cursor:pointer;transition:background .12s ease; }
-    .ev-table tr:hover td { background:#f7fafa; }
+    .ev-table tbody tr:nth-child(even) td { background:#f7fafb; }
+    .ev-table tr:hover td { background:#eef5f6 !important; }
     .ev-cell-main { font-size:13px;font-weight:700;color:#1d4ed8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px; }
     .ev-cell-sub { font-size:11px;color:#8ca4a8;margin-top:2px; }
     .ev-cell-date { font-size:12px;font-weight:700;color:#1d4ed8;white-space:nowrap; }
@@ -159,12 +143,6 @@ const EventsStyles = () => (
     .ev-table tr:hover .ev-row-actions { opacity:1; }
     .ev-row-btn { width:28px;height:28px;border-radius:7px;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .12s ease;background:transparent;color:hsl(var(--muted-foreground)); }
     .ev-row-btn:hover { background:hsl(var(--secondary));color:hsl(var(--foreground)); }
-    /* pills */
-    .pill { display:inline-flex;align-items:center;padding:3px 9px;border-radius:5px;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border:1px solid transparent; }
-    .pill-upcoming   { background:#dbeafe;color:#1e40af;border-color:#bfdbfe; }
-    .pill-confirmed  { background:#ccfbf1;color:#065f46;border-color:#99f6e4; }
-    .pill-completed  { background:#dcfce7;color:#166534;border-color:#bbf7d0; }
-    .pill-cancelled  { background:#fee2e2;color:#991b1b;border-color:#fecaca; }
     /* cards */
     .ev-cards-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;padding:16px;background:#f7fafa; }
     .ev-card { background:#fff;border-radius:12px;border:1px solid #eef2f3;cursor:pointer;transition:all .2s ease;overflow:hidden;border-left:3px solid transparent; }
@@ -250,7 +228,7 @@ const EventsStyles = () => (
 
 // ── EVENT CARD ───────────────────────────────────────────────────────────────
 const EventCard = ({ event, onClick }: { event: BclEvent; onClick: () => void }) => {
-  const col = getEvColor(event.event_type);
+  const col = getEventTypeConfig(event.event_type);
   const typeLabel = EVENT_TYPES.find(t => t.value === event.event_type)?.label ?? event.event_type;
   return (
     <div className="ev-card" style={{ borderLeftColor: col.bg }} onClick={onClick}>
@@ -272,10 +250,7 @@ const EventCard = ({ event, onClick }: { event: BclEvent; onClick: () => void })
             </div>
             <div>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#1d4ed8' }}>
-                {new Date(event.event_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-              </div>
-              <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#8ca4a8', marginTop: 2 }}>
-                {new Date(event.event_date).toLocaleDateString('en-GB', { weekday: 'short' })}
+                {formatDateDDMMYYYY(event.event_date)}
               </div>
             </div>
           </div>
@@ -294,7 +269,7 @@ const EventCard = ({ event, onClick }: { event: BclEvent; onClick: () => void })
         <div style={{ fontSize: 10, fontWeight: 700, color: '#8ca4a8', display: 'flex', alignItems: 'center', gap: 4 }}>
           <Hash size={10} />{event.id}
         </div>
-        <span className={`pill pill-${event.status ?? 'upcoming'}`}>{event.status ?? 'upcoming'}</span>
+        <StatusPill status={event.status ?? 'upcoming'} />
       </div>
     </div>
   );
@@ -339,6 +314,23 @@ const EventsContent = () => {
   const [editForm, setEditForm] = useState({ ...BLANK_FORM });
   const [isSubmitting, setSubmitting] = useState(false);
 
+  const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'event_date', dir: 'asc' });
+
+  const toggleSort = (key: string) => {
+    setSortConfig(prev =>
+      prev?.key === key
+        ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+        : { key, dir: 'asc' }
+    );
+  };
+
+  const SortIcon = ({ colKey }: { colKey: string }) => {
+    if (sortConfig?.key !== colKey) return <ChevronsUpDown size={11} style={{ opacity: 0.35, marginLeft: 4 }} />;
+    return sortConfig.dir === 'asc'
+      ? <ChevronUp size={11} style={{ color: '#1d4ed8', marginLeft: 4 }} />
+      : <ChevronDown size={11} style={{ color: '#1d4ed8', marginLeft: 4 }} />;
+  };
+
   // fetch
   useEffect(() => {
     const load = async () => {
@@ -382,8 +374,10 @@ const EventsContent = () => {
     }
   }, [events, activeTab, searchQuery]);
 
-  const paginated = filtered.slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE);
-  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+  const sortedFiltered = useMemo(() => sortItems(filtered, sortConfig), [filtered, sortConfig]);
+
+  const paginated = sortedFiltered.slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(sortedFiltered.length / ITEMS_PER_PAGE);
 
   const patchEvent = useCallback(async (id: number, payload: object) => {
     const res = await fetch(`/api/events/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -630,9 +624,35 @@ const EventsContent = () => {
           <div className="ev-subtitle">Manage weddings, fundraisers, conferences and more</div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div className="cal-status">
-            <div className={`cal-dot ${calStatus === 'connected' ? 'cal-dot-connected' : 'cal-dot-disconnected'}`} />
-            Calendar {calStatus}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="cal-status">
+              <div className={`cal-dot ${calStatus === 'connected' ? 'cal-dot-connected' : calStatus === 'checking' ? '' : 'cal-dot-disconnected'}`}
+                style={calStatus === 'checking' ? { background: '#94a3b8' } : undefined} />
+              {calStatus === 'checking' ? 'Checking…' : `Calendar ${calStatus}`}
+            </div>
+            {calStatus === 'connected' && (
+              <Button
+                className="ev-btn-outline h-auto"
+                style={{ fontSize: 11, padding: '5px 10px', color: '#ef4444', borderColor: '#fca5a5' }}
+                onClick={async () => {
+                  try {
+                    await fetch('/api/auth/google/disconnect', { method: 'POST' });
+                    setCalStatus('disconnected');
+                  } catch {}
+                }}
+              >
+                Disconnect
+              </Button>
+            )}
+            {calStatus === 'disconnected' && (
+              <Button
+                className="ev-btn-outline h-auto"
+                style={{ fontSize: 11, padding: '5px 10px', color: '#1d4ed8', borderColor: '#bfdbfe' }}
+                onClick={() => { window.location.href = '/api/auth/google'; }}
+              >
+                <Cloud size={12} /> Connect Calendar
+              </Button>
+            )}
           </div>
           <Button className="ev-btn-outline h-auto"><Download size={13} /> Export</Button>
           <Button className="ev-btn-primary h-auto" onClick={() => setCreateOpen(true)}><Plus size={14} /> New Event</Button>
@@ -675,17 +695,27 @@ const EventsContent = () => {
               <thead>
                 <tr>
                   <th style={{ width: 40, paddingLeft: 18 }}></th>
-                  <th>Event</th>
-                  <th>Date</th>
-                  <th>Time</th>
-                  <th>Organizer</th>
-                  <th>Status</th>
+                  <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('event_name')}>
+                    <span style={{ display: 'flex', alignItems: 'center' }}>Event <SortIcon colKey="event_name" /></span>
+                  </th>
+                  <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('event_date')}>
+                    <span style={{ display: 'flex', alignItems: 'center' }}>Date <SortIcon colKey="event_date" /></span>
+                  </th>
+                  <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('event_start_time')}>
+                    <span style={{ display: 'flex', alignItems: 'center' }}>Time <SortIcon colKey="event_start_time" /></span>
+                  </th>
+                  <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('organizer_name')}>
+                    <span style={{ display: 'flex', alignItems: 'center' }}>Organizer <SortIcon colKey="organizer_name" /></span>
+                  </th>
+                  <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('status')}>
+                    <span style={{ display: 'flex', alignItems: 'center' }}>Status <SortIcon colKey="status" /></span>
+                  </th>
                   <th style={{ width: 80, textAlign: 'right', paddingRight: 16 }}></th>
                 </tr>
               </thead>
               <tbody>
                 {paginated.length > 0 ? paginated.map(ev => {
-                  const col = getEvColor(ev.event_type);
+                  const col = getEventTypeConfig(ev.event_type);
                   const typeLabel = EVENT_TYPES.find(t => t.value === ev.event_type)?.label ?? ev.event_type;
                   return (
                     <tr key={ev.id} onClick={() => setSelectedEvent(ev)}>
@@ -703,7 +733,7 @@ const EventsContent = () => {
                           </div>
                         </div>
                       </td>
-                      <td><div className="ev-cell-date">{new Date(ev.event_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div></td>
+                      <td><div className="ev-cell-date">{formatDateDDMMYYYY(ev.event_date)}</div></td>
                       <td><div className="ev-cell-time"><Clock size={12} />{formatTime(ev.event_start_time)}</div></td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600, color: '#64868c' }}>
@@ -713,7 +743,7 @@ const EventsContent = () => {
                           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 120 }}>{ev.organizer_name || '—'}</span>
                         </div>
                       </td>
-                      <td><span className={`pill pill-${ev.status ?? 'upcoming'}`}>{ev.status ?? 'upcoming'}</span></td>
+                      <td><StatusPill status={ev.status ?? 'upcoming'} /></td>
                       <td style={{ textAlign: 'right', paddingRight: 12 }} onClick={e => e.stopPropagation()}>
                         <div className="ev-row-actions">
                           <Button className="ev-row-btn" onClick={() => setSelectedEvent(ev)} title="View details">
@@ -726,7 +756,7 @@ const EventsContent = () => {
                 }) : (
                   <tr><td colSpan={7}>
                     <div className="ev-empty">
-                      <div className="ev-empty-icon"><PartyPopper size={20} color="#8ca4a8" /></div>
+                      <div className="ev-empty-icon"><Calendar size={20} color="#8ca4a8" /></div>
                       <div className="ev-empty-title">No events found</div>
                       <div className="ev-empty-sub">No events match this filter</div>
                     </div>
@@ -741,7 +771,7 @@ const EventsContent = () => {
             {paginated.length === 0 && (
               <div style={{ gridColumn: '1/-1' }}>
                 <div className="ev-empty">
-                  <div className="ev-empty-icon"><PartyPopper size={20} color="#8ca4a8" /></div>
+                  <div className="ev-empty-icon"><Calendar size={20} color="#8ca4a8" /></div>
                   <div className="ev-empty-title">No events found</div>
                 </div>
               </div>
@@ -752,8 +782,8 @@ const EventsContent = () => {
         {/* PAGINATION */}
         <div className="ev-pagination">
           <div className="ev-pagination-info">
-            Showing <b>{filtered.length > 0 ? currentPage * ITEMS_PER_PAGE + 1 : 0}</b> to{' '}
-            <b>{Math.min((currentPage + 1) * ITEMS_PER_PAGE, filtered.length)}</b> of <b>{filtered.length}</b>
+            Showing <b>{sortedFiltered.length > 0 ? currentPage * ITEMS_PER_PAGE + 1 : 0}</b> to{' '}
+            <b>{Math.min((currentPage + 1) * ITEMS_PER_PAGE, sortedFiltered.length)}</b> of <b>{sortedFiltered.length}</b>
           </div>
           <div className="ev-page-btns">
             <Button className="ev-page-btn" onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 0}><ChevronLeft size={14} /></Button>
@@ -770,7 +800,7 @@ const EventsContent = () => {
       <Dialog open={!!selectedEvent} onOpenChange={o => !o && setSelectedEvent(null)}>
         <DialogContent className="ev-dialog" style={{ maxWidth: 820, padding: 0 }}>
           {ev && (() => {
-            const col = getEvColor(ev.event_type);
+            const col = getEventTypeConfig(ev.event_type);
             const typeLabel = EVENT_TYPES.find(t => t.value === ev.event_type)?.label ?? ev.event_type;
             return (
               <>
@@ -790,7 +820,7 @@ const EventsContent = () => {
                         </div>
                       )}
                     </div>
-                    <span className={`pill pill-${ev.status ?? 'upcoming'}`} style={{ flexShrink: 0 }}>{ev.status ?? 'upcoming'}</span>
+                    <div style={{ flexShrink: 0 }}><StatusPill status={ev.status ?? 'upcoming'} /></div>
                   </div>
                 </div>
 
@@ -801,7 +831,7 @@ const EventsContent = () => {
 
                     <div className="ev-section-label">Schedule & Venue</div>
                     <div className="ev-meta-grid">
-                      <div><div className="ev-meta-label">Date</div><div className="ev-meta-value">{new Date(ev.event_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</div></div>
+                      <div><div className="ev-meta-label">Date</div><div className="ev-meta-value">{formatDateDDMMYYYY(ev.event_date)}</div></div>
                       <div><div className="ev-meta-label">Time</div><div className="ev-meta-value">{formatTime(ev.event_start_time)} — {formatTime(ev.event_end_time)}</div></div>
                       <div><div className="ev-meta-label">Duration</div><div className="ev-meta-value">{ev.event_duration ? `${ev.event_duration} min` : '—'}</div></div>
                       <div><div className="ev-meta-label">Expected Guests</div><div className="ev-meta-value">{ev.expected_attendees ?? '—'}</div></div>
@@ -863,7 +893,7 @@ const EventsContent = () => {
       {/* CREATE */}
       <Dialog open={isCreateOpen} onOpenChange={o => { if (!o) setCreateOpen(false); }}>
         <DialogContent className="ev-form-dialog" style={{ maxWidth: 560, padding: 24 }}>
-          <DialogHeader><DialogTitle className="ev-form-title"><PartyPopper size={17} color="#00a3a3" /> Create Event</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="ev-form-title"><Plus size={17} color="#00a3a3" /> Create Event</DialogTitle></DialogHeader>
           {renderFormFields(createForm, setCreateForm)}
           <div className="ev-form-footer">
             <Button className="ev-form-cancel h-auto" onClick={() => setCreateOpen(false)}>Cancel</Button>
