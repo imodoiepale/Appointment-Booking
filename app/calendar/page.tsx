@@ -86,15 +86,6 @@ const CalendarStyles = () => (
   <style>{`
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-    .cal-shell {
-      font-family: 'Inter', sans-serif;
-      background-color: #f4f7f8;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
     /* ── TOPBAR ── */
     .cal-topbar {
       background: #ffffff;
@@ -197,7 +188,6 @@ const CalendarStyles = () => (
 
     /* ── LEFT SIDEBAR (mini calendar + today list) ── */
     .cal-aside {
-      width: 232px;
       flex-shrink: 0;
       display: flex;
       flex-direction: column;
@@ -301,42 +291,7 @@ const CalendarStyles = () => (
     .today-name { font-size: 12px; font-weight: 600; color: #1d4ed8; }
     .today-meta { font-size: 11px; color: #8ca4a8; margin-top: 2px; }
 
-    /* ── MAIN CALENDAR AREA ── */
-    .cal-main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      background: #ffffff;
-      border-radius: 12px;
-      border: 1px solid #eef2f3;
-      overflow: hidden;
-      min-width: 0;
-      box-shadow: 0 18px 45px rgba(0,48,56,0.08);
-    }
-
-    /* Calendar nav bar */
-    .cal-nav {
-      height: 52px;
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0 18px;
-      border-bottom: 1px solid #eef2f3;
-      flex-shrink: 0;
-      background: #ffffff;
-    }
-    .cal-nav-label {
-      font-size: 14px; font-weight: 700; color: #1d4ed8;
-      min-width: 200px; text-align: center;
-      letter-spacing: -0.01em;
-    }
-    .cal-nav-btn {
-      width: 30px; height: 30px;
-      border-radius: 8px; border: 1px solid hsl(var(--border));
-      background: hsl(var(--secondary)); color: hsl(var(--muted-foreground));
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer; transition: all 0.15s ease;
-    }
-    .cal-nav-btn:hover { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); border-color: hsl(var(--primary)); }
-    .cal-today-btn {
+         .cal-today-btn {
       padding: 5px 14px; font-size: 12px; font-weight: 600;
       border-radius: 8px; border: 1px solid hsl(var(--border));
       background: hsl(var(--secondary)); color: hsl(var(--foreground)); cursor: pointer;
@@ -569,29 +524,6 @@ const CalendarStyles = () => (
       flex-shrink: 0;
     }
 
-    /* ── RIGHT DETAIL PANEL ── */
-    .cal-detail {
-      width: 268px; flex-shrink: 0;
-      background: #ffffff;
-      border-radius: 12px;
-      border: 1px solid #eef2f3;
-      display: flex; flex-direction: column;
-      overflow: hidden;
-    }
-    .cal-detail-empty {
-      flex: 1; display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      padding: 24px; text-align: center;
-    }
-    .cal-detail-icon-wrap {
-      width: 52px; height: 52px; border-radius: 14px;
-      background: #f0f4f5;
-      display: flex; align-items: center; justify-content: center;
-      margin-bottom: 12px;
-    }
-    .cal-detail-empty-title { font-size: 13px; font-weight: 700; color: #1d4ed8; }
-    .cal-detail-empty-sub { font-size: 12px; color: #8ca4a8; margin-top: 4px; line-height: 1.5; }
-
     .detail-color-header {
       padding: 18px 16px 14px;
       position: relative; overflow: hidden;
@@ -724,14 +656,6 @@ const CalendarStyles = () => (
     .pill-pending   { background: #fef3c7; color: #92400e; }
     .pill-physical  { background: #e0f2fe; color: #0c4a6e; }
     .pill-default   { background: #f1f5f9; color: #334155; }
-
-    /* Scrollbar */
-    .cal-main ::-webkit-scrollbar,
-    .cal-detail ::-webkit-scrollbar { width: 4px; height: 4px; }
-    .cal-main ::-webkit-scrollbar-track,
-    .cal-detail ::-webkit-scrollbar-track { background: transparent; }
-    .cal-main ::-webkit-scrollbar-thumb,
-    .cal-detail ::-webkit-scrollbar-thumb { background: #d0dfe1; border-radius: 4px; }
   `}</style>
 );
 
@@ -831,7 +755,7 @@ function MiniCalendar({
   const weekDays = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
   return (
-    <div className="w-full max-w-[280px] p-4 bg-white rounded-2xl border border-slate-200 shadow-sm">
+    <div className="w-full p-4 bg-white rounded-2xl border border-slate-200 shadow-sm">
       {/* ── HEADER ── */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm font-black text-slate-900 tracking-tight">
@@ -1668,60 +1592,92 @@ const CalendarView = () => {
 
   // ── ROOT RENDER ──────────────────────────────────────────────────
   return (
-    <div className="cal-shell">
+    <div className="h-screen">
       <CalendarStyles />
 
       {/* TOPBAR */}
-      <div className="cal-topbar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 34, height: 34, borderRadius: 9,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 3px 10px rgba(0,48,56,0.2)',
-          }}>
-            <CalendarDays size={17} color="#1d4ed8" />
+      <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 z-30">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100">
+            <CalendarDays size={20} />
           </div>
           <div>
-            <div className="text-slate-800 text-2xl font-bold">Meeting Calendar</div>
-            <div className="cal-topbar-sub">Manage your team schedule in real time</div>
+            <h1 className="text-lg font-bold text-slate-900 leading-tight">Meeting Calendar</h1>
+            <p className="text-xs text-slate-400 font-medium tracking-wide">Manage team schedule in real time</p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {/* Content type switcher */}
-          <div className="cal-content-switcher">
+        <div className="flex items-center gap-3">
+          {/* Content Type Switcher (Meetings/Events/All) */}
+          <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 shadow-inner">
             {([
               { id: 'meetings', label: 'Meetings', icon: Calendar },
               { id: 'events', label: 'Events', icon: PartyPopper },
               { id: 'all', label: 'All', icon: Users },
             ] as const).map(({ id, label, icon: Icon }) => (
-              <Button key={id} className={cn('cal-content-btn h-auto', contentType === id && `active ct-${id}`)}
-                onClick={() => { setContentType(id); setSelectedMeeting(null); }}>
-                <Icon size={13} /> {label}
-              </Button>
+              <button
+                key={id}
+                onClick={() => setContentType(id)}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all",
+                  contentType === id
+                    ? "bg-white text-indigo-700 shadow-sm"
+                    : "text-slate-500 hover:text-slate-800"
+                )}
+              >
+                <Icon size={14} className={contentType === id ? "text-indigo-600" : "text-slate-400"} />
+                {label}
+              </button>
             ))}
           </div>
-          <div className="cal-view-pill">
-            {(['month', 'week', 'day'] as ViewType[]).map(v => (
-              <Button key={v} className={cn('cal-view-btn', view === v && 'active')} onClick={() => setView(v)}>{v}</Button>
+
+          <div className="h-6 w-px bg-slate-200 mx-1" />
+
+          {/* View Switcher (Month/Week/Day) */}
+          <div className="flex bg-white rounded-lg border border-slate-200 p-0.5">
+            {(['month', 'week', 'day'] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all",
+                  view === v
+                    ? "bg-slate-900 text-white"
+                    : "text-slate-400 hover:text-slate-600"
+                )}
+              >
+                {v}
+              </button>
             ))}
           </div>
-          <Button className="cal-export-btn" onClick={() => exportMeetingsCSV(allMeetings)}>
-            <Download size={13} /> Export CSV
+
+          <Button
+            variant="outline"
+            className="h-9 text-xs border-slate-200 text-slate-600 gap-2 px-3 hover:bg-slate-50"
+            onClick={() => exportMeetingsCSV(allMeetings)}
+          >
+            <Download size={14} />
+            Export
           </Button>
-          <Button className="cal-add-btn" onClick={() => router.push('/schedule')}>
-            <PlusCircle size={14} /> Add Meeting
+
+          <Button
+            className="h-9 text-xs bg-indigo-600 hover:bg-indigo-700 text-white gap-2 px-4 shadow-sm shadow-indigo-100"
+            onClick={() => router.push('/schedule')}
+          >
+            <PlusCircle size={15} />
+            <span>Schedule</span>
           </Button>
         </div>
-      </div>
+      </header>
 
-      {/* BODY */}
-      <div className="cal-body">
+      {/* --- MAIN BODY LAYOUT --- */}
+      <div className="flex-1 grid grid-cols-12 gap-5 p-4 overflow-hidden">
 
-        {/* LEFT SIDEBAR */}
-        <div className="cal-aside">
-          {/* mini calendar panel */}
-          <div className="cal-panel">
+        {/* --- LEFT SIDEBAR (Col 1-3) --- */}
+        <aside className="col-span-2 flex flex-col gap-5 overflow-hidden">
+
+          {/* Mini Calendar Panel */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
             <MiniCalendar
               currentDate={currentDate}
               selectedDate={selectedDate}
@@ -1730,82 +1686,115 @@ const CalendarView = () => {
             />
           </div>
 
-          {/* Today's meetings panel */}
-          <div className="cal-panel" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <div className="cal-panel-header">Today&apos;s Schedule</div>
-            <div style={{ flex: 1, overflowY: 'auto' }}>
+          {/* Today's Agenda Panel */}
+          <div className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-800">Today's Agenda</h3>
+              <Badge variant="secondary" className="bg-slate-100 text-slate-500 font-bold text-[10px]">
+                {todayMeetings.length}
+              </Badge>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
               {todayMeetings.length === 0 ? (
-                <div style={{ padding: '16px 14px', textAlign: 'center' }}>
-                  <div style={{
-                    width: 40, height: 40, borderRadius: 10,
-                    background: '#f0f4f5', margin: '0 auto 8px',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center'
-                  }}>
-                    <Calendar size={18} style={{ color: '#8ca4a8' }} />
+                <div className="h-full flex flex-col items-center justify-center py-10">
+                  <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center mb-3">
+                    <Calendar size={20} className="text-slate-300" />
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: '#64868c' }}>No items today</div>
+                  <p className="text-xs font-semibold text-slate-400">Clear schedule today</p>
                 </div>
-              ) : todayMeetings.map(item => {
-                const isMtg = item._kind === 'meeting';
-                const key = isMtg ? `m-${item.id_main}` : `e-${item.id}`;
-                const color = isMtg ? getMeetingStatusHex(item.status || item.meeting_type) : getEventTypeConfig(item.event_type).bg;
-                const name = isMtg ? item.client_name : item.event_name;
-                const meta = isMtg
-                  ? `${item.meeting_start_time?.slice(0, 5)} · ${item.client_company}`
-                  : `${item.event_start_time?.slice(0, 5)} · ${getEventTypeConfig(item.event_type).label}`;
-                return (
-                  <div key={key} className="today-item" onClick={() => setSelectedMeeting(item)}>
-                    <div className="today-dot" style={{ background: color }} />
-                    <div>
-                      <div className="today-name">{name}</div>
-                      <div className="today-meta">{meta}</div>
+              ) : (
+                todayMeetings.map(item => {
+                  const isMtg = item._kind === 'meeting';
+                  const color = isMtg ? getMeetingStatusHex(item.status || item.meeting_type) : getEventTypeConfig(item.event_type).bg;
+
+                  return (
+                    <div
+                      key={isMtg ? `m-${item.id_main}` : `e-${item.id}`}
+                      onClick={() => setSelectedMeeting(item)}
+                      className="group relative flex items-start gap-3 p-3 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all cursor-pointer"
+                    >
+                      <div className="mt-1 w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-bold text-slate-800 truncate group-hover:text-indigo-600 transition-colors">
+                          {isMtg ? item.client_name : item.event_name}
+                        </p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[11px] font-semibold text-slate-500 flex items-center gap-1">
+                            <Clock size={10} />
+                            {isMtg ? item.meeting_start_time?.slice(0, 5) : item.event_start_time?.slice(0, 5)}
+                          </span>
+                          <span className="text-[11px] text-slate-300">•</span>
+                          <span className="text-[11px] text-slate-400 truncate font-medium">
+                            {isMtg ? item.client_company : getEventTypeConfig(item.event_type).label}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
-        </div>
+        </aside>
 
-        {/* MAIN CALENDAR */}
-        <div className="cal-main">
-          {/* nav */}
-          <div className="cal-nav">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Button className="cal-nav-btn" onClick={() => nav(-1)}><ChevronLeft size={15} /></Button>
-              <span className="text-slate-800 font-bold text-lg">{headerLabel}</span>
-              <Button className="cal-nav-btn" onClick={() => nav(1)}><ChevronRight size={15} /></Button>
+        {/* --- MAIN CALENDAR CORE (Col 4-9) --- */}
+        <main className="col-span-8 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden relative">
+
+          {/* Internal Calendar Navigation */}
+          <div className="h-16 px-6 flex items-center justify-between border-b border-slate-100 shrink-0">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center bg-slate-50 rounded-lg p-0.5 border border-slate-200">
+                <button onClick={() => nav(-1)} className="p-1.5 hover:bg-white hover:shadow-sm rounded-md transition-all text-slate-600">
+                  <ChevronLeft size={16} />
+                </button>
+                <button onClick={() => nav(1)} className="p-1.5 hover:bg-white hover:shadow-sm rounded-md transition-all text-slate-600">
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+              <h2 className="text-lg font-bold text-slate-800 tracking-tight">{headerLabel}</h2>
             </div>
-            <Button className="cal-today-btn" onClick={() => { setCurrentDate(new Date()); setSelectedDate(new Date()); }}>
+
+            <Button
+              variant="outline"
+              className="h-8 text-[11px] font-bold uppercase tracking-wider text-indigo-600 border-indigo-100 bg-indigo-50/50 hover:bg-indigo-50"
+              onClick={() => { setCurrentDate(new Date()); setSelectedDate(new Date()); }}
+            >
               Today
             </Button>
           </div>
 
-          {/* calendar body */}
-          <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {/* Calendar Rendering Area */}
+          <div className="flex-1 overflow-hidden">
             {loading ? (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-                <div style={{
-                  width: 44, height: 44, borderRadius: 12,
-                  background: 'linear-gradient(135deg, #1d4ed8, #00505e)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <Loader2 size={20} color="#00d1d1" className="animate-spin" />
+              <div className="h-full flex flex-col items-center justify-center gap-4">
+                <div className="relative">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-100">
+                    <Loader2 size={24} className="text-white animate-spin" />
+                  </div>
                 </div>
-                <span style={{ fontSize: 12, color: '#8ca4a8', fontWeight: 500 }}>Loading meetings…</span>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Refreshing...</p>
               </div>
             ) : (
-              <>
+              <div className="h-full overflow-y-auto">
                 {view === 'month' && renderMonthView()}
                 {view === 'week' && renderWeekView()}
                 {view === 'day' && renderDayView()}
-              </>
+              </div>
             )}
           </div>
-        </div>
+        </main>
 
-        {/* RIGHT DETAIL PANEL — always visible */}
-        {renderDetail()}
+        {/* --- RIGHT DETAIL PANEL (Col 10-12) --- */}
+        <aside className="col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+          <div className="p-5 border-b border-slate-100 shrink-0">
+            <h3 className="text-sm font-bold text-slate-800">Event Details</h3>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {renderDetail()}
+          </div>
+        </aside>
+
       </div>
 
       {/* DELETE DIALOG */}

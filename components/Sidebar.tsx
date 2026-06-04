@@ -38,9 +38,11 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useRouter } from 'next/navigation';
 
 const Sidebar = () => {
     const pathname = usePathname();
+      const router = useRouter();
     const searchParams = useSearchParams();
     const { theme, setTheme } = useTheme();
     const [mounted, setMounted] = useState(false);
@@ -239,6 +241,7 @@ const Sidebar = () => {
                                 "w-full bg-[hsl(var(--sidebar-primary))] font-semibold text-white shadow-lg hover:brightness-110 active:scale-95 transition-all",
                                 isCollapsed ? "h-12 w-12 p-0 rounded-xl" : "h-11 rounded-lg"
                             )}
+                            onClick={() => router.push('/schedule')}
                         >
                             <PlusCircle className={cn(isCollapsed ? "h-6 w-6" : "mr-2 h-4 w-4")} />
                             {!isCollapsed && <span>Create Meeting</span>}
