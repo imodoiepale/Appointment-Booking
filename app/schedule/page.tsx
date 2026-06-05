@@ -8,15 +8,16 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 import {
     Calendar, Clock, Mic, MicOff, Building, User, Phone, Mail,
-    MapPin, Check, ChevronRight, ChevronLeft, Loader2, Info, X, Video
+    MapPin, Check, ChevronRight, ChevronLeft, Loader2, Info, X, Video, Plus
 } from 'lucide-react';
 import supabase from '@/utils/supabaseClient';
+import { MEETING_STATUSES } from '@/utils/appointmentStatuses';
 
 // ── SHARED DESIGN SYSTEM STYLES ──────────────────────────────────
 const SchedulerStyles = () => (
@@ -29,11 +30,51 @@ const SchedulerStyles = () => (
       min-height: 100vh;
       padding: 24px;
       box-sizing: border-box;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
     }
+
+    .sch-landing {
+      max-width: 560px;
+      width: 100%;
+      margin-top: 80px;
+      text-align: center;
+    }
+
+    .sch-landing-icon {
+      width: 72px; height: 72px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, #1d4ed8, #00505e);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 24px;
+      box-shadow: 0 8px 24px rgba(29,78,216,0.3);
+    }
+
+    .sch-landing-title {
+      font-size: 26px; font-weight: 800; color: #1d4ed8;
+      letter-spacing: -0.02em; margin-bottom: 8px;
+    }
+
+    .sch-landing-sub {
+      font-size: 14px; color: #64868c; line-height: 1.6; margin-bottom: 32px;
+    }
+
+    .sch-landing-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 12px 28px; font-size: 14px; font-weight: 700;
+      border-radius: 10px; border: none;
+      background: hsl(var(--primary));
+      color: hsl(var(--primary-foreground)); cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      box-shadow: 0 4px 18px hsl(var(--primary) / 0.28);
+      transition: all 0.2s ease;
+    }
+    .sch-landing-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px hsl(var(--primary) / 0.35); }
 
     .sch-card {
       max-width: 900px;
-      margin: 0 auto;
+      width: 100%;
       background: #ffffff;
       border-radius: 14px;
       border: 1px solid #eef2f3;
@@ -308,6 +349,7 @@ const INITIAL_FORM = {
     meetingAgenda: '', otherMeetingAgenda: '', meetingDuration: '',
     venueDistance: '10', meetingStartTime: '', meetingEndTime: '',
     meetingSlotStartTime: '', meetingSlotEndTime: '',
+    status: 'upcoming',
 };
 
 // ── FIELD COMPONENTS ─────────────────────────────────────────────
@@ -352,8 +394,8 @@ function SchSelect({ value, onValueChange, placeholder, items, invalid = false, 
     );
 }
 
-// ── MAIN COMPONENT ───────────────────────────────────────────────
-const BookingScheduler = () => {
+// ── SCHEDULER FORM (shared between dialog and page) ──────────────────────────
+export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
     const { toast } = useToast();
     const [activeStep, setActiveStep] = useState(0);
     const [formData, setFormData] = useState({ ...INITIAL_FORM });
@@ -370,7 +412,6 @@ const BookingScheduler = () => {
     const [showOtherCompany, setShowOtherCompany] = useState(false);
     const [showOtherAgenda, setShowOtherAgenda] = useState(false);
 
-    // voice
     const { transcript, listening, resetTranscript, browserSupportsSpeechRecognition } = useSpeechRecognition({ commands: [] });
 
     const toggleListening = () => {
@@ -379,7 +420,6 @@ const BookingScheduler = () => {
         else { resetTranscript(); SpeechRecognition.startListening({ continuous: true }); setIsListening(true); toast({ title: 'Voice Control Active' }); }
     };
 
-    // fetch
     const fetchCompanies = useCallback(async () => {
         setLoadingCompanies(true);
         try {
@@ -410,7 +450,6 @@ const BookingScheduler = () => {
         fetchCompanies(); fetchBclAttendees(); fetchCurrentUser();
     }, [fetchCompanies, fetchBclAttendees, fetchCurrentUser]);
 
-    // form helpers
     const set = (key: string, value: any) => setFormData(p => ({ ...p, [key]: value }));
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -501,10 +540,9 @@ const BookingScheduler = () => {
         const finalCompany = formData.companyType === 'new' ? formData.otherClientCompany : formData.clientCompany;
         const finalAgenda = formData.meetingAgenda === 'Other' ? formData.otherMeetingAgenda : formData.meetingAgenda;
         try {
-            // conflict check
             const { data: existing } = await supabase.from('bcl_meetings_meetings')
                 .select('id_main,meeting_slot_start_time,meeting_slot_end_time,client_name')
-                .eq('meeting_date', formData.meetingDate).in('status', ['upcoming', 'rescheduled']);
+                .eq('meeting_date', formData.meetingDate).in('status', ['upcoming', 'rescheduled', 'confirmed', 'in_progress']);
             if (existing?.length) {
                 const [nsh, nsm] = formData.meetingSlotStartTime.split(':').map(Number);
                 const [neh, nem] = formData.meetingSlotEndTime.split(':').map(Number);
@@ -519,7 +557,6 @@ const BookingScheduler = () => {
                     }
                 }
             }
-            // insert
             const { data: inserted, error } = await supabase.from('bcl_meetings_meetings').insert([{
                 booking_date: formData.bookingDate, booking_day: formData.bookingDay,
                 meeting_date: formData.meetingDate, meeting_day: formData.meetingDay,
@@ -531,14 +568,12 @@ const BookingScheduler = () => {
                 venue_distance: parseInt(formData.venueDistance),
                 meeting_start_time: formData.meetingStartTime, meeting_end_time: formData.meetingEndTime,
                 meeting_slot_start_time: formData.meetingSlotStartTime, meeting_slot_end_time: formData.meetingSlotEndTime,
-                badge_status: 'Open', status: 'upcoming', google_event_id: null, google_meet_link: null,
+                badge_status: 'Open', status: formData.status || 'upcoming', google_event_id: null, google_meet_link: null,
             }]).select();
             if (error) throw error;
-            // auto-sync
             if (inserted?.[0]?.id_main) {
                 try { await fetch('/api/auto-sync-calendar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(inserted[0]) }); } catch { }
             }
-            // confirmation
             try {
                 await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/booking-confirmation`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}` },
@@ -552,7 +587,8 @@ const BookingScheduler = () => {
                 setFormData({ ...INITIAL_FORM, bookingDate: now.toISOString().split('T')[0], bookingDay: now.toLocaleDateString('en-US', { weekday: 'long' }) });
                 setActiveStep(0); setFormStatus('idle'); setInvalidFields([]);
                 setShowOtherVenue(false); setShowOtherCompany(false); setShowOtherAgenda(false);
-            }, 2500);
+                onSuccess?.();
+            }, 2000);
         } catch (e: any) {
             toast({ variant: 'destructive', title: 'Scheduling Failed', description: e.message });
             setFormStatus('error');
@@ -578,6 +614,11 @@ const BookingScheduler = () => {
             </Field>
             <Field label="Meeting Day">
                 <TextInput name="meetingDay" value={formData.meetingDay} onChange={handleChange} readOnly icon={Calendar} />
+            </Field>
+            <Field label="Meeting Status">
+                <SchSelect value={formData.status} onValueChange={v => set('status', v)}
+                    placeholder="Select status"
+                    items={MEETING_STATUSES.map(s => ({ value: s.value, label: s.label }))} />
             </Field>
             <Field label="Meeting Type *" error={inv('meetingType')}>
                 <SchSelect value={formData.meetingType} onValueChange={v => handleSelect('meetingType', v)}
@@ -725,13 +766,16 @@ const BookingScheduler = () => {
     const renderStep3 = () => {
         const finalCompany = formData.companyType === 'new' ? formData.otherClientCompany : formData.clientCompany;
         const finalAgenda = formData.meetingAgenda === 'Other' ? formData.otherMeetingAgenda : formData.meetingAgenda;
+        const statusLabel = MEETING_STATUSES.find(s => s.value === formData.status)?.label ?? formData.status;
         const items = [
+            { label: 'Status', value: statusLabel },
             { label: 'Client', value: formData.clientName },
             { label: 'Company', value: finalCompany },
             { label: 'Client Mobile', value: formData.clientMobile },
             { label: 'Client Email', value: formData.clientEmail || '—' },
             { label: 'Meeting Date', value: formData.meetingDate ? new Date(formData.meetingDate).toLocaleDateString('en-GB') : '—' },
             { label: 'Meeting Time', value: `${formData.meetingStartTime || '--:--'} – ${formData.meetingEndTime || '--:--'}` },
+            { label: 'Calendar Slot', value: `${formData.meetingSlotStartTime || '--:--'} – ${formData.meetingSlotEndTime || '--:--'}` },
             { label: 'Duration', value: formData.meetingDuration ? `${formData.meetingDuration} min` : '—' },
             { label: 'Type', value: formData.meetingType === 'inPerson' ? 'In Person' : 'Virtual' },
             { label: 'Venue', value: formData.meetingVenueArea === 'Other' ? formData.otherMeetingVenueArea : formData.meetingVenueArea },
@@ -764,96 +808,132 @@ const BookingScheduler = () => {
     };
 
     return (
-        <div className="sch-shell">
+        <div className="sch-card">
+            {/* HEADER */}
+            <div className="sch-header">
+                <div>
+                    <div className="sch-badge"><Calendar size={11} /> Booksmart Scheduler</div>
+                    <div className="sch-title">Schedule New Meeting</div>
+                    <div className="sch-subtitle">Capture client, attendee, slot, and agenda details in one guided flow.</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
+                    <div className="sch-header-chips">
+                        <div className="sch-chip">
+                            <div className="sch-chip-val">{formData.meetingDate || 'No date'}</div>
+                            <div className="sch-chip-label">Meeting date</div>
+                        </div>
+                        <div className="sch-chip">
+                            <div className="sch-chip-val">{formData.meetingStartTime || '--:--'}</div>
+                            <div className="sch-chip-label">Start time</div>
+                        </div>
+                    </div>
+                    <Button className={`sch-voice-btn h-auto ${isListening ? 'sch-voice-on' : 'sch-voice-off'}`} onClick={toggleListening}>
+                        {isListening ? <><MicOff size={13} /> Stop</> : <><Mic size={13} /> Voice</>}
+                    </Button>
+                </div>
+            </div>
+
+            {/* STEP INDICATOR */}
+            <div className="sch-steps">
+                {STEPS.map((step, idx) => {
+                    const state = activeStep === step.id ? 'active' : activeStep > step.id ? 'done' : 'inactive';
+                    return (
+                        <React.Fragment key={step.id}>
+                            <div className="sch-step" onClick={() => { if (activeStep > step.id) { setActiveStep(step.id); setInvalidFields([]); } }}>
+                                <div className={`sch-step-circle ${state}`}>
+                                    {state === 'done'
+                                        ? <Check size={16} className="sch-step-icon-done" />
+                                        : <step.Icon size={16} className={`sch-step-icon-${state}`} />
+                                    }
+                                </div>
+                                <span className={`sch-step-label ${state}`}>{step.name}</span>
+                            </div>
+                            {idx < STEPS.length - 1 && (
+                                <div className={`sch-step-connector ${activeStep > idx ? 'done' : 'inactive'}`} />
+                            )}
+                        </React.Fragment>
+                    );
+                })}
+            </div>
+
+            {/* BODY */}
+            <div className="sch-body">
+                <div className="sch-section-title">
+                    {['Basic Information', 'Client Information', 'Scheduling Details', 'Confirm Meeting Details'][activeStep]}
+                </div>
+                <div style={{ minHeight: 320 }}>
+                    {activeStep === 0 && renderStep0()}
+                    {activeStep === 1 && renderStep1()}
+                    {activeStep === 2 && renderStep2()}
+                    {activeStep === 3 && renderStep3()}
+                </div>
+            </div>
+
+            {/* FOOTER */}
+            <div className="sch-footer">
+                <Button className="sch-btn-prev h-auto" onClick={prevStep} disabled={activeStep === 0 || formStatus === 'submitting'}>
+                    <ChevronLeft size={15} /> Previous
+                </Button>
+
+                {activeStep < STEPS.length - 1 ? (
+                    <Button className="sch-btn-next h-auto" onClick={nextStep} disabled={formStatus === 'submitting'}>
+                        Next Step <ChevronRight size={15} />
+                    </Button>
+                ) : (
+                    <Button
+                        className={`sch-btn-submit h-auto${formStatus === 'success' ? ' sch-btn-success' : ''}`}
+                        onClick={handleSubmit}
+                        disabled={formStatus === 'submitting' || formStatus === 'success'}
+                    >
+                        {formStatus === 'submitting' ? <><Loader2 size={14} className="animate-spin" /> Scheduling…</>
+                            : formStatus === 'success' ? <><Check size={14} /> Scheduled!</>
+                                : 'Confirm & Schedule'}
+                    </Button>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ── SCHEDULE DIALOG (importable by other pages) ───────────────────────────────
+export function ScheduleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent style={{ maxWidth: 960, padding: 0, borderRadius: 14, border: '1px solid #eef2f3', overflow: 'hidden', background: 'transparent', boxShadow: '0 22px 55px rgba(0,48,56,0.15)' }}>
+                <SchedulerStyles />
+                <div style={{ maxHeight: '90vh', overflowY: 'auto' }}>
+                    <SchedulerForm onSuccess={() => onOpenChange(false)} />
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+// ── PAGE ─────────────────────────────────────────────────────────────────────
+const SchedulePage = () => {
+    const [open, setOpen] = useState(false);
+
+    return (
+        <div className="sch-shell" style={{ fontFamily: 'Inter, sans-serif', background: '#f4f7f8', minHeight: '100vh', padding: 24, display: 'flex', alignItems: 'flex-start', justifyContent: 'center' }}>
             <SchedulerStyles />
             <Toaster />
 
-            <div className="sch-card">
-                {/* HEADER */}
-                <div className="sch-header">
-                    <div>
-                        <div className="sch-badge"><Calendar size={11} /> Booksmart Scheduler</div>
-                        <div className="sch-title">Schedule New Meeting</div>
-                        <div className="sch-subtitle">Capture client, attendee, slot, and agenda details in one guided flow.</div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
-                        <div className="sch-header-chips">
-                            <div className="sch-chip">
-                                <div className="sch-chip-val">{formData.meetingDate || 'No date'}</div>
-                                <div className="sch-chip-label">Meeting date</div>
-                            </div>
-                            <div className="sch-chip">
-                                <div className="sch-chip-val">{formData.meetingStartTime || '--:--'}</div>
-                                <div className="sch-chip-label">Start time</div>
-                            </div>
-                        </div>
-                        <Button className={`sch-voice-btn h-auto ${isListening ? 'sch-voice-on' : 'sch-voice-off'}`} onClick={toggleListening}>
-                            {isListening ? <><MicOff size={13} /> Stop</> : <><Mic size={13} /> Voice</>}
-                        </Button>
-                    </div>
+            <div className="sch-landing">
+                <div className="sch-landing-icon">
+                    <Calendar size={32} color="#fff" />
                 </div>
-
-                {/* STEP INDICATOR */}
-                <div className="sch-steps">
-                    {STEPS.map((step, idx) => {
-                        const state = activeStep === step.id ? 'active' : activeStep > step.id ? 'done' : 'inactive';
-                        return (
-                            <React.Fragment key={step.id}>
-                                <div className="sch-step" onClick={() => { if (activeStep > step.id) { setActiveStep(step.id); setInvalidFields([]); } }}>
-                                    <div className={`sch-step-circle ${state}`}>
-                                        {state === 'done'
-                                            ? <Check size={16} className="sch-step-icon-done" />
-                                            : <step.Icon size={16} className={`sch-step-icon-${state}`} />
-                                        }
-                                    </div>
-                                    <span className={`sch-step-label ${state}`}>{step.name}</span>
-                                </div>
-                                {idx < STEPS.length - 1 && (
-                                    <div className={`sch-step-connector ${activeStep > idx ? 'done' : 'inactive'}`} />
-                                )}
-                            </React.Fragment>
-                        );
-                    })}
+                <div className="sch-landing-title">Booksmart Scheduler</div>
+                <div className="sch-landing-sub">
+                    Schedule client meetings with guided steps — capture attendees, slot times, agenda, and sync to your calendar automatically.
                 </div>
-
-                {/* BODY */}
-                <div className="sch-body">
-                    <div className="sch-section-title">
-                        {['Basic Information', 'Client Information', 'Scheduling Details', 'Confirm Meeting Details'][activeStep]}
-                    </div>
-                    <div style={{ minHeight: 320 }}>
-                        {activeStep === 0 && renderStep0()}
-                        {activeStep === 1 && renderStep1()}
-                        {activeStep === 2 && renderStep2()}
-                        {activeStep === 3 && renderStep3()}
-                    </div>
-                </div>
-
-                {/* FOOTER */}
-                <div className="sch-footer">
-                    <Button className="sch-btn-prev h-auto" onClick={prevStep} disabled={activeStep === 0 || formStatus === 'submitting'}>
-                        <ChevronLeft size={15} /> Previous
-                    </Button>
-
-                    {activeStep < STEPS.length - 1 ? (
-                        <Button className="sch-btn-next h-auto" onClick={nextStep} disabled={formStatus === 'submitting'}>
-                            Next Step <ChevronRight size={15} />
-                        </Button>
-                    ) : (
-                        <Button
-                            className={`sch-btn-submit h-auto${formStatus === 'success' ? ' sch-btn-success' : ''}`}
-                            onClick={handleSubmit}
-                            disabled={formStatus === 'submitting' || formStatus === 'success'}
-                        >
-                            {formStatus === 'submitting' ? <><Loader2 size={14} className="animate-spin" /> Scheduling…</>
-                                : formStatus === 'success' ? <><Check size={14} /> Scheduled!</>
-                                    : 'Confirm & Schedule'}
-                        </Button>
-                    )}
-                </div>
+                <button className="sch-landing-btn" onClick={() => setOpen(true)}>
+                    <Plus size={16} /> Schedule New Meeting
+                </button>
             </div>
+
+            <ScheduleDialog open={open} onOpenChange={setOpen} />
         </div>
     );
 };
 
-export default BookingScheduler;
+export default SchedulePage;

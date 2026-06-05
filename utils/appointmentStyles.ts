@@ -10,38 +10,51 @@ import {
 } from 'lucide-react';
 
 // ── MEETING STATUS PILLS (Tailwind classes) ───────────────────────────────
+// Re-exported from appointmentStatuses for backward-compatibility.
+import { STATUS_PILL_CLASSES, STATUS_HEX, normaliseStatus } from './appointmentStatuses';
 
 export const MEETING_STATUS_PILLS: Record<string, string> = {
-  upcoming:    'bg-blue-50 text-blue-700 border border-blue-200',
-  rescheduled: 'bg-indigo-50 text-indigo-700 border border-indigo-200',
-  pending:     'bg-amber-50 text-amber-700 border border-amber-200',
-  confirmed:   'bg-emerald-50 text-emerald-700 border border-emerald-200',
-  completed:   'bg-emerald-50 text-emerald-700 border border-emerald-200',
-  canceled:    'bg-red-50 text-red-700 border border-red-200',
-  cancelled:   'bg-red-50 text-red-700 border border-red-200',
+  draft:                'bg-gray-100 text-gray-800 border border-gray-200',
+  pending_confirmation: 'bg-amber-100 text-amber-800 border border-amber-200',
+  pending:              'bg-amber-100 text-amber-800 border border-amber-200',
+  confirmed:            'bg-blue-100 text-blue-800 border border-blue-200',
+  upcoming:             'bg-indigo-100 text-indigo-800 border border-indigo-200',
+  in_progress:          'bg-cyan-100 text-cyan-800 border border-cyan-200',
+  completed:            'bg-green-100 text-green-800 border border-green-200',
+  rescheduled:          'bg-orange-100 text-orange-800 border border-orange-200',
+  cancelled:            'bg-red-100 text-red-800 border border-red-200',
+  canceled:             'bg-red-100 text-red-800 border border-red-200',
+  no_show:              'bg-rose-100 text-rose-800 border border-rose-200',
 };
 
 export function getMeetingStatusPillClass(status?: string): string {
-  return MEETING_STATUS_PILLS[(status ?? '').toLowerCase()] ?? MEETING_STATUS_PILLS.upcoming;
+  const key = normaliseStatus(status);
+  return MEETING_STATUS_PILLS[key] ?? MEETING_STATUS_PILLS.upcoming;
 }
 
 // ── MEETING STATUS HEX COLORS (for calendar/chart contexts) ──────────────
 
 export const MEETING_STATUS_COLORS: Record<string, { hex: string; bg: string; text: string }> = {
-  upcoming:    { hex: '#8B5CF6', bg: 'rgba(139,92,246,0.1)',  text: '#6D28D9' },
-  rescheduled: { hex: '#F59E0B', bg: 'rgba(245,158,11,0.1)',  text: '#B45309' },
-  pending:     { hex: '#F97316', bg: 'rgba(249,115,22,0.1)',  text: '#C2410C' },
-  confirmed:   { hex: '#06B6D4', bg: 'rgba(6,182,212,0.1)',   text: '#0E7490' },
-  completed:   { hex: '#10B981', bg: 'rgba(16,185,129,0.1)',  text: '#047857' },
-  canceled:    { hex: '#EF4444', bg: 'rgba(239,68,68,0.1)',   text: '#B91C1C' },
-  cancelled:   { hex: '#EF4444', bg: 'rgba(239,68,68,0.1)',   text: '#B91C1C' },
-  virtual:     { hex: '#3B82F6', bg: 'rgba(59,130,246,0.1)',  text: '#1D4ED8' },
-  inPerson:    { hex: '#0EA5E9', bg: 'rgba(14,165,233,0.1)',  text: '#0369A1' },
-  physical:    { hex: '#0EA5E9', bg: 'rgba(14,165,233,0.1)',  text: '#0369A1' },
+  draft:                { hex: '#6b7280', bg: 'rgba(107,114,128,0.12)', text: '#374151' },
+  pending_confirmation: { hex: '#f59e0b', bg: 'rgba(245,158,11,0.12)',  text: '#92400e' },
+  pending:              { hex: '#f59e0b', bg: 'rgba(245,158,11,0.12)',  text: '#92400e' },
+  confirmed:            { hex: '#3b82f6', bg: 'rgba(59,130,246,0.12)',  text: '#1e40af' },
+  upcoming:             { hex: '#6366f1', bg: 'rgba(99,102,241,0.12)',  text: '#3730a3' },
+  in_progress:          { hex: '#06b6d4', bg: 'rgba(6,182,212,0.12)',   text: '#155e75' },
+  completed:            { hex: '#22c55e', bg: 'rgba(34,197,94,0.12)',   text: '#14532d' },
+  rescheduled:          { hex: '#f97316', bg: 'rgba(249,115,22,0.12)',  text: '#9a3412' },
+  cancelled:            { hex: '#ef4444', bg: 'rgba(239,68,68,0.12)',   text: '#991b1b' },
+  canceled:             { hex: '#ef4444', bg: 'rgba(239,68,68,0.12)',   text: '#991b1b' },
+  no_show:              { hex: '#f43f5e', bg: 'rgba(244,63,94,0.12)',   text: '#9f1239' },
+  // meeting type colors (not statuses)
+  virtual:              { hex: '#3B82F6', bg: 'rgba(59,130,246,0.1)',   text: '#1D4ED8' },
+  inPerson:             { hex: '#0EA5E9', bg: 'rgba(14,165,233,0.1)',   text: '#0369A1' },
+  physical:             { hex: '#0EA5E9', bg: 'rgba(14,165,233,0.1)',   text: '#0369A1' },
 };
 
 export function getMeetingStatusHex(status?: string): string {
-  return MEETING_STATUS_COLORS[(status ?? '').toLowerCase()]?.hex ?? '#8ca4a8';
+  const key = normaliseStatus(status);
+  return MEETING_STATUS_COLORS[key]?.hex ?? MEETING_STATUS_COLORS[(status ?? '').toLowerCase()]?.hex ?? '#8ca4a8';
 }
 
 // ── EVENT TYPES ────────────────────────────────────────────────────────────

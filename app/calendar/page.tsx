@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { format, startOfMonth, startOfWeek, isSameDay, parseISO, addDays, addMonths, addWeeks, isToday as dateFnsIsToday, isValid } from 'date-fns';
-import { ChevronLeft, ChevronRight, Trash2, Loader2, Video, MapPin, Phone, Mail, PlusCircle, X, Download, CalendarDays, Calendar, Users, Clock, AlertCircle, CheckCircle2, XCircle, PartyPopper, CalendarClock, Timer, CheckCircle, RefreshCw, Building, MapPinned, ClipboardList, Info, } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, Loader2, Video, MapPin, Phone, Mail, PlusCircle, X, Download, CalendarDays, Calendar, Users, Clock, AlertCircle, CheckCircle2, XCircle, PartyPopper, CalendarClock, Timer, CheckCircle, RefreshCw, Building, MapPinned, ClipboardList, Info, Cloud, CloudOff, } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
@@ -15,6 +15,7 @@ import {
   getEventTypeConfig, EventTypeIcon as EvTypeIconUtil, EVENT_TYPE_CONFIG,
   getMeetingStatusHex, MEETING_STATUS_COLORS, formatDateDDMMYYYY,
 } from '@/utils/appointmentStyles';
+import { ScheduleDialog } from '@/app/schedule/page';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -882,66 +883,99 @@ const STATUS_CONFIG: Record<string, {
   dot: string;
   icon: React.ElementType;
 }> = {
-  upcoming: {
-    label: 'Upcoming',
-    bg: 'bg-blue-50',
-    text: 'text-blue-700',
-    border: 'border-blue-200',
-    dot: 'bg-blue-500',
-    icon: CalendarClock,
+  draft: {
+    label: 'Draft',
+    bg: 'bg-gray-100',
+    text: 'text-gray-800',
+    border: 'border-gray-200',
+    dot: 'bg-gray-400',
+    icon: Info,
   },
-  rescheduled: {
-    label: 'Rescheduled',
-    bg: 'bg-violet-50',
-    text: 'text-violet-700',
-    border: 'border-violet-200',
-    dot: 'bg-violet-500',
-    icon: RefreshCw,
+  pending_confirmation: {
+    label: 'Pending Confirmation',
+    bg: 'bg-amber-100',
+    text: 'text-amber-800',
+    border: 'border-amber-200',
+    dot: 'bg-amber-500',
+    icon: Timer,
   },
   pending: {
-    label: 'Pending Review',
-    bg: 'bg-amber-50',
-    text: 'text-amber-700',
+    label: 'Pending Confirmation',
+    bg: 'bg-amber-100',
+    text: 'text-amber-800',
     border: 'border-amber-200',
     dot: 'bg-amber-500',
     icon: Timer,
   },
   confirmed: {
     label: 'Confirmed',
-    bg: 'bg-emerald-50',
-    text: 'text-emerald-700',
-    border: 'border-emerald-200',
-    dot: 'bg-emerald-500',
+    bg: 'bg-blue-100',
+    text: 'text-blue-800',
+    border: 'border-blue-200',
+    dot: 'bg-blue-500',
     icon: CheckCircle2,
+  },
+  upcoming: {
+    label: 'Upcoming',
+    bg: 'bg-indigo-100',
+    text: 'text-indigo-800',
+    border: 'border-indigo-200',
+    dot: 'bg-indigo-500',
+    icon: CalendarClock,
+  },
+  in_progress: {
+    label: 'In Progress',
+    bg: 'bg-cyan-100',
+    text: 'text-cyan-800',
+    border: 'border-cyan-200',
+    dot: 'bg-cyan-500',
+    icon: Timer,
   },
   completed: {
     label: 'Completed',
-    bg: 'bg-slate-100',
-    text: 'text-slate-700',
-    border: 'border-slate-200',
-    dot: 'bg-slate-500',
+    bg: 'bg-green-100',
+    text: 'text-green-800',
+    border: 'border-green-200',
+    dot: 'bg-green-500',
     icon: CheckCircle,
+  },
+  rescheduled: {
+    label: 'Rescheduled',
+    bg: 'bg-orange-100',
+    text: 'text-orange-800',
+    border: 'border-orange-200',
+    dot: 'bg-orange-500',
+    icon: RefreshCw,
   },
   canceled: {
     label: 'Cancelled',
-    bg: 'bg-red-50',
-    text: 'text-red-700',
+    bg: 'bg-red-100',
+    text: 'text-red-800',
     border: 'border-red-200',
     dot: 'bg-red-500',
     icon: XCircle,
   },
   cancelled: {
     label: 'Cancelled',
-    bg: 'bg-red-50',
-    text: 'text-red-700',
+    bg: 'bg-red-100',
+    text: 'text-red-800',
     border: 'border-red-200',
     dot: 'bg-red-500',
+    icon: XCircle,
+  },
+  no_show: {
+    label: 'No Show',
+    bg: 'bg-rose-100',
+    text: 'text-rose-800',
+    border: 'border-rose-200',
+    dot: 'bg-rose-500',
     icon: XCircle,
   },
 };
 
 function getStatusCfg(status: string) {
-  return STATUS_CONFIG[status?.toLowerCase()] ?? STATUS_CONFIG.upcoming;
+  const key = (status ?? '').toLowerCase().trim().replace(/[\s-]+/g, '_');
+  return STATUS_CONFIG[key] ?? STATUS_CONFIG.upcoming;
 }
 
 // ── MAIN COMPONENT ───────────────────────────────────────────────
@@ -954,11 +988,14 @@ const CalendarView = () => {
   const [allEvents, setAllEvents] = useState<BclEvent[]>([]);
   const [contentType, setContentType] = useState<ContentFilter>('meetings');
   const [loading, setLoading] = useState(true);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const [selectedMeeting, setSelectedMeeting] = useState<any>(null);
   const [deletingMeeting, setDeletingMeeting] = useState<Meeting | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [view, setView] = useState<ViewType>('week');
   const [bclUsersById, setBclUsersById] = useState<Record<string, any>>({});
+  const [calendarConnectionStatus, setCalendarConnectionStatus] = useState('checking');
+  const [syncingId, setSyncingId] = useState<number | null>(null);
 
   const fetchMeetings = useCallback(async () => {
     setLoading(true);
@@ -987,6 +1024,56 @@ const CalendarView = () => {
     } finally { setLoading(false); }
   }, [toast]);
 
+  // ── SYNC HELPERS ─────────────────────────────────────────────────
+  const patchMeeting = useCallback(async (id: number, payload: object) => {
+    const res = await fetch(`/api/meetings/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (!res.ok) throw new Error((await res.json()).error || 'Request failed');
+  }, []);
+
+  const updateLocalMeeting = useCallback((id: number, patch: object) => {
+    setAllMeetings(prev => prev.map(m => m.id_main === id ? { ...m, ...patch } : m));
+    setSelectedMeeting(prev => prev && prev.id_main === id ? { ...prev, ...patch } : prev);
+  }, []);
+
+  const syncMeeting = async (meeting: any): Promise<string | null> => {
+    const res = await fetch('/api/sync-to-calendar', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(meeting),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || 'Sync failed');
+    const { eventId } = await res.json();
+    if (eventId) {
+      await patchMeeting(meeting.id_main, { google_event_id: eventId });
+      updateLocalMeeting(meeting.id_main, { google_event_id: eventId });
+    }
+    return eventId ?? null;
+  };
+
+  const unsyncMeeting = async (meeting: any) => {
+    await fetch(`/api/auto-sync-calendar?id=${meeting.id_main}`, { method: 'DELETE' });
+    await patchMeeting(meeting.id_main, { google_event_id: null, google_meet_link: null });
+    updateLocalMeeting(meeting.id_main, { google_event_id: null, google_meet_link: null });
+  };
+
+  const handleSync = async () => {
+    if (!selectedMeeting) return;
+    setSyncingId(selectedMeeting.id_main);
+    try {
+      await syncMeeting(selectedMeeting);
+      toast({ title: 'Synced to Google Calendar' });
+    } catch (e: any) { toast({ title: 'Sync failed', description: e.message, variant: 'destructive' }); }
+    finally { setSyncingId(null); }
+  };
+
+  const handleUnsync = async () => {
+    if (!selectedMeeting) return;
+    setSyncingId(selectedMeeting.id_main);
+    try {
+      await unsyncMeeting(selectedMeeting);
+      toast({ title: 'Removed from Google Calendar' });
+    } catch (e: any) { toast({ title: 'Unsync failed', description: e.message, variant: 'destructive' }); }
+    finally { setSyncingId(null); }
+  };
+
   const deleteMeeting = async () => {
     if (!deletingMeeting) return;
     setIsDeleting(true);
@@ -1003,6 +1090,7 @@ const CalendarView = () => {
 
   useEffect(() => {
     fetchMeetings();
+    fetch('/api/auth/google/status').then(r => r.json()).then(d => setCalendarConnectionStatus(d.connected ? 'connected' : 'disconnected')).catch(() => setCalendarConnectionStatus('disconnected'));
     const chMtg = supabase.channel('mtg').on('postgres_changes', { event: '*', schema: 'public', table: 'bcl_meetings_meetings' }, fetchMeetings).subscribe();
     const chEvt = supabase.channel('evt').on('postgres_changes', { event: '*', schema: 'public', table: 'bcl_events' }, fetchMeetings).subscribe();
     return () => {
@@ -1551,7 +1639,43 @@ const CalendarView = () => {
         </ScrollArea>
 
         {/* ── FOOTER ACTIONS ── */}
-        <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
+        {isMtg && calendarConnectionStatus === 'connected' && (
+          <div className="px-6 pt-4 pb-0">
+            <div className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-white">
+              <div className="flex items-center gap-2">
+                {item.google_event_id
+                  ? <><Cloud size={14} className="text-green-500" /><span className="text-xs font-semibold text-green-700">Synced to Google Calendar</span></>
+                  : <><CloudOff size={14} className="text-slate-400" /><span className="text-xs font-semibold text-slate-500">Not synced</span></>
+                }
+              </div>
+              {item.google_event_id ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs text-red-500 border-red-200 hover:bg-red-50"
+                  disabled={syncingId === item.id_main}
+                  onClick={handleUnsync}
+                >
+                  {syncingId === item.id_main ? <Loader2 size={12} className="animate-spin mr-1" /> : <CloudOff size={12} className="mr-1" />}
+                  Unsync
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
+                  disabled={syncingId === item.id_main}
+                  onClick={handleSync}
+                >
+                  {syncingId === item.id_main ? <Loader2 size={12} className="animate-spin mr-1" /> : <RefreshCw size={12} className="mr-1" />}
+                  Sync
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3 mt-4">
           {isMtg ? (
             <>
               <Button
@@ -1662,11 +1786,12 @@ const CalendarView = () => {
 
           <Button
             className="h-9 text-xs bg-indigo-600 hover:bg-indigo-700 text-white gap-2 px-4 shadow-sm shadow-indigo-100"
-            onClick={() => router.push('/schedule')}
+            onClick={() => setScheduleOpen(true)}
           >
             <PlusCircle size={15} />
             <span>Schedule</span>
           </Button>
+          <ScheduleDialog open={scheduleOpen} onOpenChange={setScheduleOpen} />
         </div>
       </header>
 
