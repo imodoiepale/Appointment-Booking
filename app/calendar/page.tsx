@@ -1001,20 +1001,17 @@ const CalendarView = () => {
     setLoading(true);
     try {
       const [mtgRes, evsRes, bclUsersRes] = await Promise.all([
-        supabase.from('bcl_meetings_meetings').select('*')
-          .order('meeting_date', { ascending: true })
-          .order('meeting_start_time', { ascending: true }),
-        supabase.from('bcl_events').select('*')
-          .order('event_date', { ascending: true })
-          .order('event_start_time', { ascending: true }),
-        fetch('/api/users/bcl-attendees')
+        fetch('/api/meetings?order=asc'),
+        fetch('/api/events?order=asc'),
+        fetch('/api/users/bcl-attendees'),
       ]);
 
-      if (mtgRes.error) throw mtgRes.error;
-      if (evsRes.error) throw evsRes.error;
+      if (!mtgRes.ok) throw new Error((await mtgRes.json()).error || 'Failed to fetch meetings');
+      if (!evsRes.ok) throw new Error((await evsRes.json()).error || 'Failed to fetch events');
 
-      if (mtgRes.data) setAllMeetings(mtgRes.data as Meeting[]);
-      if (evsRes.data) setAllEvents(evsRes.data as BclEvent[]);
+      const [mtgData, evsData] = await Promise.all([mtgRes.json(), evsRes.json()]);
+      setAllMeetings(mtgData as Meeting[]);
+      setAllEvents(evsData as BclEvent[]);
       if (bclUsersRes.ok) {
         const users = await bclUsersRes.json();
         setBclUsersById(buildUserMap(Array.isArray(users) ? users : []));
@@ -1078,8 +1075,8 @@ const CalendarView = () => {
     if (!deletingMeeting) return;
     setIsDeleting(true);
     try {
-      const { error } = await supabase.from('bcl_meetings_meetings').delete().eq('id_main', deletingMeeting.id_main);
-      if (error) throw error;
+      const res = await fetch(`/api/meetings/${deletingMeeting.id_main}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error((await res.json()).error || 'Delete failed');
       setAllMeetings(prev => prev.filter(m => m.id_main !== deletingMeeting.id_main));
       setSelectedMeeting(null); setDeletingMeeting(null);
       toast({ title: 'Meeting Deleted', description: `Booking for ${deletingMeeting.client_name} removed.` });

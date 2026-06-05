@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '../_shared';
+import { supabase, resolveCallerUser, ADMIN_ROLES } from '../_shared';
 
 function toInteger(v: unknown, fallback = 0) {
   const n = typeof v === 'number' ? v : parseInt(String(v ?? ''), 10);
@@ -40,8 +40,25 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   if (!Number.isFinite(id)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
 
   try {
-    const body = await request.json();
+    const [body, caller] = await Promise.all([request.json(), resolveCallerUser(request)]);
     const patch = toEventPatch(body);
+
+    // Authorization: non-admins can only edit events they created or attend
+    if (caller && !ADMIN_ROLES.has((caller.role ?? '').toLowerCase())) {
+      const { data: existing } = await supabase
+        .from('bcl_events').select('created_by, bcl_attendee').eq('id', id).single();
+      if (existing) {
+        const attendees: string[] = Array.isArray(existing.bcl_attendee)
+          ? existing.bcl_attendee.map(String) : [];
+        const isOwner = existing.created_by === caller.id || existing.created_by === caller.email;
+        const isAttendee = attendees.includes(caller.id) || attendees.includes(caller.email);
+        if (!isOwner && !isAttendee)
+          return NextResponse.json({ error: 'Not authorized to update this event' }, { status: 403 });
+      }
+    }
+
+    // Stamp updated_by
+    if (caller?.email || caller?.id) patch.updated_by = caller.email || caller.id;
 
     if (Object.keys(patch).length === 0) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
@@ -62,17 +79,26 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 }
 
 // ── DELETE /api/events/[id] ───────────────────────────────────────────────────
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   const id = parseInt(params.id, 10);
   if (!Number.isFinite(id)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
 
   try {
+    const caller = await resolveCallerUser(request);
+
     // If a Google Calendar event exists, delete it first (best-effort)
     const { data: ev } = await supabase
       .from('bcl_events')
-      .select('google_event_id')
+      .select('google_event_id, created_by')
       .eq('id', id)
       .single();
+
+    // Authorization: non-admins can only delete events they created
+    if (caller && ev && !ADMIN_ROLES.has((caller.role ?? '').toLowerCase())) {
+      const isOwner = ev.created_by === caller.id || ev.created_by === caller.email;
+      if (!isOwner)
+        return NextResponse.json({ error: 'Not authorized to delete this event' }, { status: 403 });
+    }
 
     if (ev?.google_event_id) {
       try {

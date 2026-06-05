@@ -1,12 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase, enrichWithAttendeeNames } from "../_shared";
-
-function getMobileUser(request: NextRequest) {
-  return {
-    email: request.headers.get("x-scanner-user-email") ?? "",
-    name: request.headers.get("x-scanner-user-name") ?? "",
-  };
-}
+import { supabase, enrichWithAttendeeNames, resolveCallerUser, ADMIN_ROLES } from "../_shared";
 
 function sanitizeMeetingUpdatePayload(body: Record<string, unknown>) {
   const blocked = new Set(["id", "id_main", "bcl_attendees_info", "bcl_attendee_name"]);
@@ -23,15 +16,39 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid meeting ID" }, { status: 400 });
   }
 
-  const body = await request.json();
-  const userEmail = request.cookies.get("google_user_email")?.value;
-  const mobileUser = getMobileUser(request);
+  const [body, caller] = await Promise.all([request.json(), resolveCallerUser(request)]);
 
   const updatePayload: Record<string, unknown> = sanitizeMeetingUpdatePayload(body);
-  if (userEmail) {
-    updatePayload.updated_by = userEmail;
-  } else if (mobileUser.email || mobileUser.name) {
-    updatePayload.updated_by = mobileUser.email || mobileUser.name;
+
+  // Stamp updated_by from whichever identity we resolved
+  if (caller?.email) {
+    updatePayload.updated_by = caller.email;
+  } else if (caller?.id) {
+    updatePayload.updated_by = caller.id;
+  } else {
+    // Legacy: fall back to google_user_email cookie (calendar OAuth flow)
+    const googleEmail = request.cookies.get("google_user_email")?.value;
+    if (googleEmail) updatePayload.updated_by = googleEmail;
+  }
+
+  // Authorization: non-admins can only update meetings they created or attend
+  if (caller && !ADMIN_ROLES.has((caller.role ?? "").toLowerCase())) {
+    const { data: existing } = await supabase
+      .from("bcl_meetings_meetings")
+      .select("created_by, bcl_attendee")
+      .eq("id_main", id)
+      .single();
+
+    if (existing) {
+      const attendees: string[] = Array.isArray(existing.bcl_attendee)
+        ? existing.bcl_attendee.map(String)
+        : [];
+      const isOwner = existing.created_by === caller.id || existing.created_by === caller.email;
+      const isAttendee = attendees.includes(caller.id) || attendees.includes(caller.email);
+      if (!isOwner && !isAttendee) {
+        return NextResponse.json({ error: "Not authorized to update this meeting" }, { status: 403 });
+      }
+    }
   }
 
   const { data, error } = await supabase
@@ -93,6 +110,23 @@ export async function DELETE(
   const id = parseInt(rawId);
   if (isNaN(id)) {
     return NextResponse.json({ error: "Invalid meeting ID" }, { status: 400 });
+  }
+
+  // Authorization: non-admins can only delete meetings they created
+  const caller = await resolveCallerUser(request);
+  if (caller && !ADMIN_ROLES.has((caller.role ?? "").toLowerCase())) {
+    const { data: existing } = await supabase
+      .from("bcl_meetings_meetings")
+      .select("created_by")
+      .eq("id_main", id)
+      .single();
+
+    if (existing) {
+      const isOwner = existing.created_by === caller.id || existing.created_by === caller.email;
+      if (!isOwner) {
+        return NextResponse.json({ error: "Not authorized to delete this meeting" }, { status: 403 });
+      }
+    }
   }
 
   const { error } = await supabase

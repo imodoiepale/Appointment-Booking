@@ -42,6 +42,12 @@ const STATUS_MAP: Record<string, StatusColorSet> = {
     event: 'bg-cyan-100 text-cyan-800 border-l-[3px] border-cyan-500 dark:bg-cyan-500/10 dark:text-cyan-300 dark:border-cyan-500/50',
     accent: 'border-l-cyan-500',
   },
+  overdue: {
+    pill: 'bg-yellow-100 text-yellow-900 border-yellow-400 dark:bg-yellow-500/10 dark:text-yellow-300 dark:border-yellow-500/30',
+    dot: 'bg-yellow-600',
+    event: 'bg-yellow-100 text-yellow-900 border-l-[3px] border-yellow-500 dark:bg-yellow-500/10 dark:text-yellow-300 dark:border-yellow-500/50',
+    accent: 'border-l-yellow-500',
+  },
   completed: {
     pill: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20',
     dot: 'bg-green-500',

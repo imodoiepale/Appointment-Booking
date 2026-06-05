@@ -12,6 +12,7 @@ export const MEETING_STATUSES = [
   { value: 'confirmed',           label: 'Confirmed' },
   { value: 'upcoming',            label: 'Upcoming' },
   { value: 'in_progress',         label: 'In Progress' },
+  { value: 'overdue',             label: 'Overdue' },
   { value: 'completed',           label: 'Completed' },
   { value: 'rescheduled',         label: 'Rescheduled' },
   { value: 'cancelled',           label: 'Cancelled' },
@@ -31,6 +32,7 @@ export const STATUS_PILL_CLASSES: Record<string, string> = {
   confirmed:            'bg-blue-100 text-blue-800',
   upcoming:             'bg-indigo-100 text-indigo-800',
   in_progress:          'bg-cyan-100 text-cyan-800',
+  overdue:              'bg-yellow-100 text-yellow-900',
   completed:            'bg-green-100 text-green-800',
   rescheduled:          'bg-orange-100 text-orange-800',
   cancelled:            'bg-red-100 text-red-800',
@@ -46,6 +48,7 @@ export const STATUS_HEX: Record<string, { hex: string; bg: string; text: string 
   confirmed:            { hex: '#3b82f6', bg: 'rgba(59,130,246,0.12)',  text: '#1e40af' },
   upcoming:             { hex: '#6366f1', bg: 'rgba(99,102,241,0.12)',  text: '#3730a3' },
   in_progress:          { hex: '#06b6d4', bg: 'rgba(6,182,212,0.12)',   text: '#155e75' },
+  overdue:              { hex: '#ca8a04', bg: 'rgba(202,138,4,0.12)',   text: '#713f12' },
   completed:            { hex: '#22c55e', bg: 'rgba(34,197,94,0.12)',   text: '#14532d' },
   rescheduled:          { hex: '#f97316', bg: 'rgba(249,115,22,0.12)',  text: '#9a3412' },
   cancelled:            { hex: '#ef4444', bg: 'rgba(239,68,68,0.12)',   text: '#991b1b' },
@@ -77,6 +80,10 @@ export const STATUS_TAILWIND: Record<string, {
   in_progress: {
     label: 'In Progress',
     bg: 'bg-cyan-100', text: 'text-cyan-800', border: 'border-cyan-200', dot: 'bg-cyan-500',
+  },
+  overdue: {
+    label: 'Overdue',
+    bg: 'bg-yellow-100', text: 'text-yellow-900', border: 'border-yellow-400', dot: 'bg-yellow-600',
   },
   completed: {
     label: 'Completed',

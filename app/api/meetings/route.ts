@@ -1,47 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase, normaliseBclAttendee, enrichWithAttendeeNames } from "./_shared";
+import { supabase, normaliseBclAttendee, enrichWithAttendeeNames, resolveCallerUser, ADMIN_ROLES } from "./_shared";
 
 const ACTIVE_STATUSES = ["upcoming", "rescheduled"];
-const ADMIN_ROLES = new Set(["admin", "super_admin", "administrator"]);
 
 function toInteger(value: unknown, fallback = 0) {
   const parsed = typeof value === "number" ? value : parseInt(String(value ?? ""), 10);
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function getMobileUser(request: NextRequest) {
-  return {
-    id: request.headers.get("x-scanner-user-id") ?? "",
-    email: request.headers.get("x-scanner-user-email") ?? "",
-    name: request.headers.get("x-scanner-user-name") ?? "",
-    role: request.headers.get("x-scanner-user-role") ?? "",
-  };
-}
-
-function isAdminRole(role: string) {
-  return ADMIN_ROLES.has(role.toLowerCase());
-}
-
 function escapeOrValue(value: string) {
   return value.replace(/[(),]/g, " ").trim();
 }
 
-function applyUserScope(query: any, request: NextRequest) {
-  const user = getMobileUser(request);
-  if (!user.id || isAdminRole(user.role)) return query;
-
+function applyScopeToQuery(query: any, user: { id: string; email: string; role: string } | null) {
+  if (!user || ADMIN_ROLES.has(user.role.toLowerCase())) return query;
   const clauses = [
-    user.id ? `created_by.eq.${user.id}` : "",
-    user.id ? `bcl_attendee.cs.["${user.id}"]` : "",
-    user.email ? `created_by.eq.${escapeOrValue(user.email)}` : "",
-    user.email ? `updated_by.eq.${escapeOrValue(user.email)}` : "",
-  ].filter(Boolean);
-
-  return clauses.length > 0 ? query.or(clauses.join(",")) : query;
+    `created_by.eq.${user.id}`,
+    `bcl_attendee.cs.["${user.id}"]`,
+    ...(user.email ? [
+      `created_by.eq.${escapeOrValue(user.email)}`,
+      `updated_by.eq.${escapeOrValue(user.email)}`,
+    ] : []),
+  ];
+  return query.or(clauses.join(","));
 }
 
-function toMeetingPayload(body: Record<string, any>, request?: NextRequest) {
-  const user = request ? getMobileUser(request) : { id: "", email: "", name: "" };
+function toMeetingPayload(body: Record<string, any>, callerUser?: { id: string; email: string } | null) {
+  const user = callerUser ?? { id: "", email: "" };
   const meetingDate = body.meeting_date ?? body.meetingDate;
   const meetingStartTime = body.meeting_start_time ?? body.meetingStartTime;
   const meetingEndTime = body.meeting_end_time ?? body.meetingEndTime;
@@ -69,7 +54,7 @@ function toMeetingPayload(body: Record<string, any>, request?: NextRequest) {
     meeting_slot_end_time: body.meeting_slot_end_time ?? body.meetingSlotEndTime ?? meetingEndTime,
     badge_status: body.badge_status ?? body.badgeStatus ?? "Open",
     status: body.status ?? "upcoming",
-    created_by: body.created_by ?? body.createdBy ?? (user.id || user.email || user.name || null),
+    created_by: body.created_by ?? body.createdBy ?? (user.id || user.email || null),
     updated_by: body.updated_by ?? body.updatedBy ?? null,
     google_event_id: body.google_event_id ?? null,
     google_meet_link: body.google_meet_link ?? null,
@@ -90,7 +75,8 @@ export async function GET(request: NextRequest) {
     const limit = searchParams.get("limit");
     const order = searchParams.get("order") === "asc" ? "asc" : "desc";
 
-    let query = applyUserScope(supabase.from("bcl_meetings_meetings").select("*"), request);
+    const caller = await resolveCallerUser(request);
+    let query = applyScopeToQuery(supabase.from("bcl_meetings_meetings").select("*"), caller);
 
     if (date) query = query.eq("meeting_date", date);
     if (status) query = query.eq("status", status);
@@ -115,8 +101,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const payload = toMeetingPayload(body, request);
+    const [body, caller] = await Promise.all([request.json(), resolveCallerUser(request)]);
+    const payload = toMeetingPayload(body, caller);
 
     if (!payload.meeting_date || !payload.meeting_start_time || !payload.meeting_end_time || !payload.client_name) {
       return NextResponse.json(

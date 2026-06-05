@@ -1,1 +1,1 @@
-export { supabase, normaliseBclAttendee, enrichWithAttendeeNames } from '../meetings/_shared';
+export { supabase, normaliseBclAttendee, enrichWithAttendeeNames, resolveCallerUser, ADMIN_ROLES } from '../meetings/_shared';

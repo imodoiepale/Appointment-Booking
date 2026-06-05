@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase, normaliseBclAttendee, enrichWithAttendeeNames } from './_shared';
+import { supabase, normaliseBclAttendee, enrichWithAttendeeNames, resolveCallerUser, ADMIN_ROLES } from './_shared';
 
 const ACTIVE_STATUSES = ['upcoming', 'confirmed'];
 
@@ -8,12 +8,19 @@ function toInteger(v: unknown, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function getMobileUser(req: NextRequest) {
-  return {
-    id: req.headers.get('x-scanner-user-id') ?? '',
-    email: req.headers.get('x-scanner-user-email') ?? '',
-    name: req.headers.get('x-scanner-user-name') ?? '',
-  };
+function escapeOrValue(v: string) { return v.replace(/[(),]/g, ' ').trim(); }
+
+function applyScopeToQuery(query: any, user: { id: string; email: string; role: string } | null) {
+  if (!user || ADMIN_ROLES.has(user.role.toLowerCase())) return query;
+  const clauses = [
+    `created_by.eq.${user.id}`,
+    `bcl_attendee.like.%"${user.id}"%`,
+    ...(user.email ? [
+      `created_by.eq.${escapeOrValue(user.email)}`,
+      `updated_by.eq.${escapeOrValue(user.email)}`,
+    ] : []),
+  ];
+  return query.or(clauses.join(','));
 }
 
 function timeToMinutes(t: string): number | null {
@@ -28,8 +35,8 @@ function computeDuration(start: string, end: string): number | null {
   return s !== null && e !== null ? e - s : null;
 }
 
-function toEventPayload(body: Record<string, any>, req?: NextRequest) {
-  const user = req ? getMobileUser(req) : { id: '', email: '', name: '' };
+function toEventPayload(body: Record<string, any>, callerUser?: { id: string; email: string } | null) {
+  const user = callerUser ?? { id: '', email: '' };
   const startTime: string = body.event_start_time;
   const endTime: string = body.event_end_time;
   const duration =
@@ -62,7 +69,7 @@ function toEventPayload(body: Record<string, any>, req?: NextRequest) {
     status: body.status || 'upcoming',
     badge_status: body.badge_status || 'Open',
     google_event_id: body.google_event_id ?? null,
-    created_by: body.created_by ?? (user.id || user.email || user.name || null),
+    created_by: body.created_by ?? (user.id || user.email || null),
     updated_by: body.updated_by ?? null,
   };
 }
@@ -76,7 +83,8 @@ export async function GET(request: NextRequest) {
     const limit = searchParams.get('limit');
     const order = searchParams.get('order') === 'asc' ? 'asc' : 'desc';
 
-    let query = supabase.from('bcl_events').select('*');
+    const caller = await resolveCallerUser(request);
+    let query = applyScopeToQuery(supabase.from('bcl_events').select('*'), caller);
     if (date) query = query.eq('event_date', date);
     if (status) query = query.eq('status', status);
     if (limit) query = query.limit(toInteger(limit, 100));
@@ -97,8 +105,8 @@ export async function GET(request: NextRequest) {
 // ── POST /api/events ─────────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const payload = toEventPayload(body, request);
+    const [body, caller] = await Promise.all([request.json(), resolveCallerUser(request)]);
+    const payload = toEventPayload(body, caller);
 
     if (!payload.event_name || !payload.event_date || !payload.event_start_time || !payload.event_end_time) {
       return NextResponse.json(

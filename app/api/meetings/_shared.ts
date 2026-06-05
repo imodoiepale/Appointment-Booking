@@ -1,4 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
+import { type NextRequest } from "next/server";
+import { getAppSessionFromRequest } from "@/lib/auth/session";
 
 export const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -49,4 +51,40 @@ export async function enrichWithAttendeeNames(meetings: any[]): Promise<any[]> {
       bcl_attendee_name: info[0]?.name ?? null,
     };
   });
+}
+
+export const ADMIN_ROLES = new Set(["company_admin", "SuperAdmin", "administrator"]);
+
+export type CallerUser = { id: string; email: string; role: string };
+
+/**
+ * Resolve the calling user from mobile scanner headers OR Firebase session cookie.
+ * Returns null when the caller cannot be identified.
+ */
+export async function resolveCallerUser(request: NextRequest): Promise<CallerUser | null> {
+  // 1. Mobile app — custom request headers
+  const mobileId = request.headers.get("x-scanner-user-id") ?? "";
+  if (mobileId) {
+    return {
+      id: mobileId,
+      email: request.headers.get("x-scanner-user-email") ?? "",
+      role: request.headers.get("x-scanner-user-role") ?? "user",
+    };
+  }
+
+  // 2. Web app — Firebase session cookie
+  try {
+    const session = await getAppSessionFromRequest(request);
+    if (!session) return null;
+
+    const { data } = await supabase
+      .from("scanner_users")
+      .select("id, email, role")
+      .eq("firebase_uid", session.user.firebaseUid)
+      .single();
+
+    if (data) return { id: String(data.id), email: data.email ?? "", role: data.role ?? "user" };
+  } catch {}
+
+  return null;
 }

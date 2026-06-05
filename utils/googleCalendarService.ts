@@ -42,8 +42,14 @@ async function getGoogleCalendarClient() {
   const headerStore = await headers();
   const mobileUserId = headerStore.get('x-scanner-user-id') || '';
   const mobileUserEmail = headerStore.get('x-scanner-user-email') || '';
+  // Web users: google_user_email cookie is set during OAuth and persists 180 days
+  const webUserEmail = cookieStore.get('google_user_email')?.value || '';
   const accessToken = cookieStore.get('google_access_token')?.value;
   let refreshToken = cookieStore.get('google_refresh_token')?.value;
+
+  // Determine the identity to use for DB lookups
+  const lookupId = mobileUserId;
+  const lookupEmail = mobileUserEmail || webUserEmail;
 
   if (!refreshToken) {
     let query = supabase
@@ -52,10 +58,11 @@ async function getGoogleCalendarClient() {
       .eq('status', 'active')
       .limit(1);
 
-    if (mobileUserId) {
-      query = query.eq('user_id', mobileUserId);
-    } else if (mobileUserEmail) {
-      query = query.eq('email', mobileUserEmail);
+    if (lookupId) {
+      query = query.eq('user_id', lookupId);
+    } else if (lookupEmail) {
+      // Match either user_id or email field (web users store google email in both)
+      query = query.or(`user_id.eq.${lookupEmail},email.eq.${lookupEmail}`);
     }
 
     const { data } = await query.single();
@@ -89,25 +96,24 @@ async function getGoogleCalendarClient() {
             updated_at: new Date().toISOString(),
           })
           .eq('status', 'active');
-        if (mobileUserId) {
-          updateQuery = updateQuery.eq('user_id', mobileUserId);
-        } else if (mobileUserEmail) {
-          updateQuery = updateQuery.eq('email', mobileUserEmail);
+        if (lookupId) {
+          updateQuery = updateQuery.eq('user_id', lookupId);
+        } else if (lookupEmail) {
+          updateQuery = updateQuery.or(`user_id.eq.${lookupEmail},email.eq.${lookupEmail}`);
         }
         await updateQuery;
       }
     } catch (error: any) {
       const reason: string = error?.response?.data?.error ?? error.message ?? 'unknown';
-      console.error('Google token refresh failed:', reason, '| userId:', mobileUserId, '| email:', mobileUserEmail);
+      console.error('Google token refresh failed:', reason, '| lookupId:', lookupId, '| lookupEmail:', lookupEmail);
 
       if (reason === 'invalid_grant' || reason === 'token_expired') {
-        // Token revoked or expired — mark as inactive so status endpoint reflects reality
         let revokeQuery = supabase
           .from('email_accounts')
           .update({ status: 'inactive', is_active: false })
           .eq('status', 'active');
-        if (mobileUserId) revokeQuery = revokeQuery.eq('user_id', mobileUserId);
-        else if (mobileUserEmail) revokeQuery = revokeQuery.eq('email', mobileUserEmail);
+        if (lookupId) revokeQuery = revokeQuery.eq('user_id', lookupId);
+        else if (lookupEmail) revokeQuery = revokeQuery.or(`user_id.eq.${lookupEmail},email.eq.${lookupEmail}`);
         await revokeQuery.catch(() => {});
       }
 

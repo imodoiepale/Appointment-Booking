@@ -317,6 +317,11 @@ const EventsContent = () => {
   const [editForm, setEditForm] = useState({ ...BLANK_FORM });
   const [isSubmitting, setSubmitting] = useState(false);
 
+  // Current user + admin flag
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+
   // BCL Attendees
   const [bclAttendeesList, setBclAttendeesList] = useState<{ id: string; displayName: string }[]>([]);
   const [loadingBclAttendees, setLoadingBclAttendees] = useState(true);
@@ -345,15 +350,23 @@ const EventsContent = () => {
     const load = async () => {
       setLoading(true);
       try {
-        const [evRes, calRes, attRes] = await Promise.all([
+        const [evRes, calRes, attRes, meRes] = await Promise.all([
           fetch('/api/events'),
           fetch('/api/auth/google/status'),
           fetch('/api/users/bcl-attendees'),
+          fetch('/api/users/me'),
         ]);
         if (evRes.ok) setEvents(await evRes.json());
         const cs = await calRes.json();
         setCalStatus(cs.connected ? 'connected' : 'disconnected');
         if (attRes.ok) setBclAttendeesList(await attRes.json());
+        if (meRes.ok) {
+          const me = await meRes.json();
+          setCurrentUserId(me.id ? String(me.id) : null);
+          setCurrentUserEmail(me.email ?? null);
+          const ADMIN_ROLES = new Set(['admin', 'super_admin', 'administrator']);
+          setIsAdmin(ADMIN_ROLES.has((me.role ?? '').toLowerCase()));
+        }
       } catch (e) { console.error(e); }
       finally { setLoading(false); setLoadingBclAttendees(false); }
     };
@@ -547,6 +560,9 @@ const EventsContent = () => {
 
   const ev = selectedEvent;
   const canChange = ev && !['cancelled', 'completed'].includes(ev.status ?? '');
+  const isOwner = ev && (isAdmin || ev.created_by === currentUserId || ev.created_by === currentUserEmail);
+  const canEdit = canChange && isOwner;
+  const canDelete = !!ev && !!isOwner;
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
@@ -1017,14 +1033,14 @@ const EventsContent = () => {
 
                 <div className="ev-dialog-footer">
                   <div className="ev-action-group">
-                    {canChange && <Button className="ev-action-btn ev-action-confirm h-auto" onClick={handleConfirm} disabled={!!actionLoading || ev.status === 'confirmed'}>{actionLoading === 'confirm' ? <Loader2 size={12} className="animate-spin" /> : <UserCheck size={12} />} Confirm</Button>}
-                    {canChange && <Button className="ev-action-btn ev-action-done h-auto" onClick={handleMarkDone} disabled={!!actionLoading}>{actionLoading === 'done' ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />} Mark Done</Button>}
-                    {canChange && <Button className="ev-action-btn ev-action-danger h-auto" onClick={handleCancel} disabled={!!actionLoading}>{actionLoading === 'cancel' ? <Loader2 size={12} className="animate-spin" /> : <Ban size={12} />} Cancel</Button>}
+                    {canEdit && <Button className="ev-action-btn ev-action-confirm h-auto" onClick={handleConfirm} disabled={!!actionLoading || ev.status === 'confirmed'}>{actionLoading === 'confirm' ? <Loader2 size={12} className="animate-spin" /> : <UserCheck size={12} />} Confirm</Button>}
+                    {canEdit && <Button className="ev-action-btn ev-action-done h-auto" onClick={handleMarkDone} disabled={!!actionLoading}>{actionLoading === 'done' ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />} Mark Done</Button>}
+                    {canEdit && <Button className="ev-action-btn ev-action-danger h-auto" onClick={handleCancel} disabled={!!actionLoading}>{actionLoading === 'cancel' ? <Loader2 size={12} className="animate-spin" /> : <Ban size={12} />} Cancel</Button>}
                   </div>
                   <div className="ev-action-group">
                     <Button className="ev-action-btn ev-action-neutral h-auto" onClick={handleSyncToCalendar} disabled={!!actionLoading || calStatus !== 'connected'}>{actionLoading === 'sync' ? <Loader2 size={12} className="animate-spin" /> : <Cloud size={12} />} Sync</Button>
-                    <Button className="ev-action-btn ev-action-neutral h-auto" onClick={openEdit} disabled={!!actionLoading}><Edit2 size={12} /> Edit</Button>
-                    <Button className="ev-action-btn ev-action-danger h-auto" onClick={() => setDeletingEvent(ev)} disabled={!!actionLoading}><Trash2 size={12} /> Delete</Button>
+                    {canEdit && <Button className="ev-action-btn ev-action-neutral h-auto" onClick={openEdit} disabled={!!actionLoading}><Edit2 size={12} /> Edit</Button>}
+                    {canDelete && <Button className="ev-action-btn ev-action-danger h-auto" onClick={() => setDeletingEvent(ev)} disabled={!!actionLoading}><Trash2 size={12} /> Delete</Button>}
                     <Button className="ev-action-btn ev-action-close h-auto" onClick={() => setSelectedEvent(null)}>Close</Button>
                   </div>
                 </div>
