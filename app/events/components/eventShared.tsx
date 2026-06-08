@@ -16,6 +16,28 @@ export function safeInitials(n: string) {
   return n.split(' ').filter(Boolean).map(c => c[0]).join('').slice(0, 2).toUpperCase();
 }
 
+// Parses bcl_attendee whether it arrives as an array or a JSON-stringified array
+export function parseBclAttendeeIds(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw.map(String).filter(Boolean);
+  if (typeof raw === 'string' && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean);
+    } catch {
+      return [raw.trim()];
+    }
+  }
+  return [];
+}
+
+// Resolves an event's bcl_attendee ids to display names via the bclAttendeesList map —
+// mirrors DashboardContent's getAttendeeDetails so names survive a reload (not just the local form state)
+export function resolveAttendeeNames(ev: { bcl_attendee?: unknown; bcl_attendee_names?: string[] }, usersById: Record<string, string>): string[] {
+  const ids = parseBclAttendeeIds(ev?.bcl_attendee);
+  if (ids.length > 0) return ids.map(id => usersById[id] || id);
+  return Array.isArray(ev?.bcl_attendee_names) ? ev.bcl_attendee_names : [];
+}
+
 export function StatusPill({ status }: { status?: string }) {
   const col = getStatusHexColor(status);
   return (

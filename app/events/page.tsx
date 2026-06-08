@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -14,6 +15,7 @@ import {
   ChevronLeft, ChevronRight, Search, MoreHorizontal, Plus, Download,
   Table2, LayoutGrid, Building, Cloud,
   ChevronUp, ChevronDown, ChevronsUpDown,
+  Hash,
 } from 'lucide-react';
 import {
   getEventTypeConfig, EventTypeIcon, EVENT_TYPE_CONFIG,
@@ -22,7 +24,7 @@ import {
 } from '@/utils/appointmentStyles';
 import { MEETING_STATUSES } from '@/utils/appointmentStatuses';
 import { formatDate } from '../../utils/format';
-import { formatTime, safeInitials, StatusPill } from './components/eventShared';
+import { formatTime, safeInitials, StatusPill, resolveAttendeeNames } from './components/eventShared';
 import { EventDetailDialog } from './components/EventDetailDialog';
 import { DeleteEventDialog } from './components/DeleteEventDialog';
 import { BLANK_FORM } from './components/EventFormFields';
@@ -286,6 +288,11 @@ const EventsContent = () => {
   const [createAttendeeOpen, setCreateAttendeeOpen] = useState(false);
   const [editAttendeeOpen, setEditAttendeeOpen] = useState(false);
 
+  const bclUsersById = useMemo(
+    () => Object.fromEntries(bclAttendeesList.map(u => [String(u.id), u.displayName])),
+    [bclAttendeesList]
+  );
+
   const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'event_date', dir: 'asc' });
 
   const toggleSort = (key: string) => {
@@ -481,7 +488,7 @@ const EventsContent = () => {
       event_description: selectedEvent.event_description || '',
       expected_attendees: String(selectedEvent.expected_attendees || ''),
       bcl_attendee: Array.isArray(selectedEvent.bcl_attendee) ? selectedEvent.bcl_attendee : [],
-      bcl_attendee_names: Array.isArray(selectedEvent.bcl_attendee_names) ? selectedEvent.bcl_attendee_names : [],
+      bcl_attendee_names: resolveAttendeeNames(selectedEvent, bclUsersById),
       status: selectedEvent.status || 'upcoming',
     });
     setEditOpen(true);
@@ -522,6 +529,10 @@ const EventsContent = () => {
   };
 
   const ev = selectedEvent;
+  const detailEvent = useMemo(
+    () => (ev ? { ...ev, bcl_attendee_names: resolveAttendeeNames(ev, bclUsersById) } : null),
+    [ev, bclUsersById]
+  );
   const canChange = ev && !['cancelled', 'completed'].includes(ev.status ?? '');
   const isOwner = ev && (isAdmin || ev.created_by === currentUserId || ev.created_by === currentUserEmail);
   const canEdit = canChange && isOwner;
@@ -561,7 +572,7 @@ const EventsContent = () => {
                   try {
                     await fetch('/api/auth/google/disconnect', { method: 'POST' });
                     setCalStatus('disconnected');
-                  } catch {}
+                  } catch { }
                 }}
               >
                 Disconnect
@@ -625,51 +636,101 @@ const EventsContent = () => {
                     <span style={{ display: 'flex', alignItems: 'center' }}>Date <SortIcon colKey="event_date" /></span>
                   </th>
                   <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('event_start_time')}>
-                    <span style={{ display: 'flex', alignItems: 'center' }}>Time <SortIcon colKey="event_start_time" /></span>
+                    <span style={{ display: 'flex', alignItems: 'center' }}>Start <SortIcon colKey="event_start_time" /></span>
                   </th>
-                  <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('organizer_name')}>
-                    <span style={{ display: 'flex', alignItems: 'center' }}>Organizer <SortIcon colKey="organizer_name" /></span>
+                  <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('event_end_time')}>
+                    <span style={{ display: 'flex', alignItems: 'center' }}>End <SortIcon colKey="event_end_time" /></span>
                   </th>
+                  <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('event_duration')}>
+                    <span style={{ display: 'flex', alignItems: 'center' }}>Dur. <SortIcon colKey="event_duration" /></span>
+                  </th>
+                  <th style={{ userSelect: 'none' }}>BCL Attendee</th>
                   <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('status')}>
                     <span style={{ display: 'flex', alignItems: 'center' }}>Status <SortIcon colKey="status" /></span>
                   </th>
-                  <th style={{ width: 80, textAlign: 'right', paddingRight: 16 }}></th>
+                  <th style={{ textAlign: 'center' }}>Synced</th>
+                  <th style={{ width: 60, textAlign: 'right', paddingRight: 16 }}></th>
                 </tr>
               </thead>
               <tbody>
                 {paginated.length > 0 ? paginated.map(ev => {
                   const col = getEventTypeConfig(ev.event_type);
                   const typeLabel = EVENT_TYPES.find(t => t.value === ev.event_type)?.label ?? ev.event_type;
+                  const attendeeNames = resolveAttendeeNames(ev, bclUsersById);
+
                   return (
                     <tr key={ev.id} onClick={() => setSelectedEvent(ev)}>
                       <td style={{ paddingLeft: 18 }}>
                         <div style={{ width: 16, height: 16, borderRadius: 4, border: '1.5px solid #d0dfe1', background: '#fff' }} />
                       </td>
+
+                      {/* EVENT COLUMN */}
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div className="ev-type-icon" style={{ background: col.light, color: col.bg }}>
-                            <EventTypeIcon type={ev.event_type} />
+                          <div className="ev-type-icon" style={{ background: col.light, color: col.bg, width: 30, height: 30 }}>
+                            <EventTypeIcon type={ev.event_type} size={14} />
                           </div>
-                          <div>
-                            <div className="ev-cell-main">{ev.event_name}</div>
-                            <div className="ev-cell-sub">#{ev.id} · {typeLabel}</div>
+                          <div style={{ minWidth: 0 }}>
+                            <div className="ev-cell-main" style={{ fontSize: '12px' }}>{ev.event_name}</div>
+                            <div className="ev-cell-sub" style={{ fontSize: '10px' }}>{typeLabel}</div>
                           </div>
                         </div>
                       </td>
+
+                      {/* DATE COLUMN */}
                       <td><div className="ev-cell-date">{formatDate(ev.event_date, { day: '2-digit', month: '2-digit', year: 'numeric' })}</div></td>
-                      <td><div className="ev-cell-time"><Clock size={12} />{formatTime(ev.event_start_time)}</div></td>
+
+                      {/* START COLUMN */}
+                      <td><div className="ev-cell-time" style={{ color: '#1d4ed8' }}>{formatTime(ev.event_start_time)}</div></td>
+
+                      {/* END COLUMN */}
+                      <td><div className="ev-cell-time">{formatTime(ev.event_end_time)}</div></td>
+
+                      {/* DURATION COLUMN */}
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600, color: '#64868c' }}>
-                          <div style={{ width: 26, height: 26, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, background: 'linear-gradient(135deg,#1d4ed8,#00505e)', color: '#fff', flexShrink: 0 }}>
-                            {safeInitials(ev.organizer_name || '?')}
-                          </div>
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 120 }}>{ev.organizer_name || '—'}</span>
+                        <div style={{ fontSize: '11px', fontWeight: '600', color: '#64868c' }}>
+                          {ev.event_duration ? `${ev.event_duration}m` : '—'}
                         </div>
                       </td>
+
+                      {/* BCL ATTENDEE COLUMN — mirrors DashboardContent's table cell (Avatar + name) */}
+                      <td>
+                        {attendeeNames.length > 0 ? (
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-7 w-7 rounded">
+                              <AvatarFallback className="bg-slate-100 text-[10px] font-bold text-slate-500 rounded">{safeInitials(attendeeNames[0])}</AvatarFallback>
+                            </Avatar>
+                            <span className="text-xs text-slate-600">{attendeeNames[0]}</span>
+                            {attendeeNames.length > 1 && (
+                              <span className="text-[10px] font-bold text-slate-400">+{attendeeNames.length - 1}</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400">—</span>
+                        )}
+                      </td>
+
+                      {/* STATUS COLUMN */}
                       <td><StatusPill status={ev.status ?? 'upcoming'} /></td>
+
+                      {/* SYNCED COLUMN */}
+                      <td style={{ textAlign: 'center' }}>
+                        <div style={{ display: 'flex', justifyContent: 'center' }}>
+                          {ev.google_event_id ? (
+                            <div title="Synced to Google Calendar" style={{ color: '#22c55e', background: '#f0fdf4', padding: '4px', borderRadius: '6px' }}>
+                              <Cloud size={14} />
+                            </div>
+                          ) : (
+                            <div title="Not synced" style={{ color: '#94a3b8', padding: '4px' }}>
+                              <CloudOff size={14} />
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
                       <td style={{ textAlign: 'right', paddingRight: 12 }} onClick={e => e.stopPropagation()}>
                         <div className="ev-row-actions">
-                          <Button className="ev-row-btn" onClick={() => setSelectedEvent(ev)} title="View details">
+                          <Button className="ev-row-btn" onClick={() => setSelectedEvent(ev)}>
                             <MoreHorizontal size={14} />
                           </Button>
                         </div>
@@ -677,11 +738,10 @@ const EventsContent = () => {
                     </tr>
                   );
                 }) : (
-                  <tr><td colSpan={7}>
+                  <tr><td colSpan={10}>
                     <div className="ev-empty">
                       <div className="ev-empty-icon"><Calendar size={20} color="#8ca4a8" /></div>
                       <div className="ev-empty-title">No events found</div>
-                      <div className="ev-empty-sub">No events match this filter</div>
                     </div>
                   </td></tr>
                 )}
@@ -720,7 +780,7 @@ const EventsContent = () => {
       </div>
 
       <EventDetailDialog
-        event={ev}
+        event={detailEvent}
         onClose={() => setSelectedEvent(null)}
         isEditOpen={isEditOpen}
         setEditOpen={setEditOpen}
@@ -738,7 +798,7 @@ const EventsContent = () => {
         onConfirm={handleConfirm}
         onMarkDone={handleMarkDone}
         onCancel={handleCancel}
-        onSyncToCalendar={handleSyncToCalendar}s
+        onSyncToCalendar={handleSyncToCalendar}
         onSaveEdit={handleEdit}
         onOpenEdit={openEdit}
         onDelete={(event) => setDeletingEvent(event)}

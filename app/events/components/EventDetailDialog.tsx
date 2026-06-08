@@ -163,8 +163,8 @@ export function EventDetailDialog({
                           <Users size={14} /> BCL Attendees
                         </h4>
                         <div className="flex flex-wrap gap-2">
-                          {Array.isArray(ev.bcl_attendee) && ev.bcl_attendee.length > 0 ? (
-                            (ev.bcl_attendee_names ?? ev.bcl_attendee).map((name, i) => (
+                          {Array.isArray(ev.bcl_attendee_names) && ev.bcl_attendee_names.length > 0 ? (
+                            ev.bcl_attendee_names.map((name, i) => (
                               <div key={i} className="flex items-center gap-2 bg-white border border-slate-200 px-3 py-2 rounded-xl shadow-sm text-xs font-bold text-slate-700">
                                 <div className="w-5 h-5 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-[10px]">
                                   {name.charAt(0)}
