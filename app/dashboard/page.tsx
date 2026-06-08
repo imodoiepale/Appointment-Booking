@@ -14,19 +14,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Calendar, Clock, Building, MapPin, CheckCircle, XCircle, Table2, LayoutGrid,
-  Video, Trash2, Loader2, CloudOff, Cloud, ChevronLeft, ChevronRight, Search,
-  MoreHorizontal, Plus, Download, Hash, Globe, CheckCircle2, CalendarClock,
-  Edit2, Ban, UserCheck, AlertCircle, PartyPopper, Users,
-  ClipboardList, Zap, LinkIcon, ArrowRight,
-  RefreshCw, Timer, MoveRight, AlarmClock,
-  PlusCircle, Phone, Mail, User, Briefcase, FileText, Clock3, ChevronDown, ChevronUp,
-  Star, Tag, Info,
-} from 'lucide-react';
-import { getStatusColors, getBadgeStatusColor } from '@/utils/statusColors';
-import { MEETING_STATUS_COLORS } from '@/utils/appointmentStyles';
-import { formatTime } from './format';
+import { Calendar, Clock, Building, MapPin, CheckCircle, XCircle, Table2, LayoutGrid, Video, Trash2, Loader2, CloudOff, Cloud, ChevronLeft, ChevronRight, Search, MoreHorizontal, Plus, Download, Hash, Globe, CheckCircle2, CalendarClock, Edit2, Ban, UserCheck, AlertCircle, PartyPopper, Users, ClipboardList, Zap, LinkIcon, ArrowRight, RefreshCw, Timer, MoveRight, AlarmClock, PlusCircle, Phone, Mail, User, Briefcase, FileText, Clock3, ChevronDown, ChevronUp, Star, Tag, Info } from 'lucide-react';
+import { getStatusHexColor, getStatusLabel } from '@/utils/appointmentStatuses';
+import { formatTime, formatDate, parseLocalDate } from '../../utils/format';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -93,13 +83,6 @@ const DashboardStyles = () => (
     }
     .db-search:focus { border-color: #0057E7; outline: none; }
 
-    /* Table header with bg color */
-    .db-table-head { background: #0F1E3C !important; }
-    .db-table-head th { color: #CBD5E1 !important; font-size: 10px !important; font-weight: 700 !important; text-transform: uppercase !important; letter-spacing: 0.08em !important; padding: 12px 14px !important; }
-    .db-table-head th:first-child { border-radius: 0; }
-    .db-table-zebra tbody tr:nth-child(even) td { background: #f8fafc; }
-    .db-table-zebra tbody tr:hover td { background: #f0f4ff !important; }
-
     .db-dialog { border-radius: 16px !important; border: none !important; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important; }
 
     .db-content-switcher { display: flex; background: #F1F5F9; padding: 4px; border-radius: 10px; gap: 2px; }
@@ -125,37 +108,6 @@ const DashboardStyles = () => (
     .rsch-conflict { display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:8px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;font-size:12px;font-weight:600;margin-top:12px; }
 
     /* ── EDIT PANEL STYLES ── */
-    .edit-panel-overlay {
-      position: fixed; inset: 0; z-index: 50;
-      background: rgba(0, 0, 0, 0.45);
-      backdrop-filter: blur(4px);
-      display: flex; align-items: stretch; justify-content: flex-end;
-      animation: overlayIn 0.2s ease;
-    }
-    @keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
-    .edit-panel {
-      width: 560px; max-width: 95vw; height: 100vh;
-      background: #fff; display: flex; flex-direction: column;
-      box-shadow: -8px 0 40px rgba(0,0,0,0.18);
-      animation: panelSlideIn 0.28s cubic-bezier(.16,1,.3,1);
-      overflow: hidden;
-    }
-    @keyframes panelSlideIn { from { transform: translateX(100%); opacity: 0.5; } to { transform: translateX(0); opacity: 1; } }
-    .edit-panel-header {
-      background: linear-gradient(135deg, #0F1E3C 0%, #1a3a6b 100%);
-      padding: 24px 28px 20px;
-      flex-shrink: 0;
-    }
-    .edit-panel-badge {
-      display: inline-flex; align-items: center; gap: 5px;
-      background: rgba(255,255,255,0.12); color: #93c5fd;
-      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
-      padding: 3px 10px; border-radius: 20px; margin-bottom: 10px;
-      border: 1px solid rgba(255,255,255,0.1);
-    }
-    .edit-panel-title { font-size: 20px; font-weight: 800; color: #fff; letter-spacing: -0.02em; }
-    .edit-panel-sub { font-size: 12px; color: #94a3b8; margin-top: 4px; }
-
     .edit-panel-tabs {
       display: flex; gap: 0; border-bottom: 1px solid #E2E8F0;
       background: #F8FAFC; padding: 0 20px; flex-shrink: 0;
@@ -259,24 +211,10 @@ function getAttendeeDetails(appointment: any, usersById: Record<string, any> = {
   return [];
 }
 
-function parseLocalDate(dateStr?: string) {
-  if (!dateStr) return null;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-    const [year, month, day] = dateStr.split('-').map(Number);
-    return new Date(year, month - 1, day);
-  }
-  const date = new Date(dateStr); return Number.isNaN(date.getTime()) ? null : date;
-}
-
 function parseLocalDateTime(dateStr?: string, timeStr?: string) {
   const date = parseLocalDate(dateStr); if (!date) return null;
   const [hours = 0, minutes = 0] = (timeStr || '00:00').split(':').map(Number);
   date.setHours(hours || 0, minutes || 0, 0, 0); return date;
-}
-
-function formatDate(dateStr?: string, options?: Intl.DateTimeFormatOptions, fallback = '—') {
-  const date = parseLocalDate(dateStr);
-  return date ? date.toLocaleDateString('en-GB', options) : fallback;
 }
 
 function getTodayLocalDateString() {
@@ -362,11 +300,10 @@ function todayGroup(item: any, now: Date): { rank: number; label: string; emoji:
 const initials = (n: string) => n?.split(' ').map(c => c[0]).join('').slice(0, 2).toUpperCase() ?? '??';
 
 function StatusPill({ status }: { status?: string }) {
-  const s = (status ?? 'upcoming').toLowerCase();
-  const col = MEETING_STATUS_COLORS[s] ?? { hex: '#8ca4a8', bg: 'rgba(140,164,168,0.12)', text: '#64868c' };
+  const col = getStatusHexColor(status);
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 9px', borderRadius: 5, fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'capitalize', background: col.bg, color: col.text, border: `1px solid ${col.hex}40` }}>
-      {status ?? 'upcoming'}
+    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 9px', borderRadius: 5, fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', background: col.bg, color: col.text, border: `1px solid ${col.hex}40` }}>
+      {getStatusLabel(status)}
     </span>
   );
 }
@@ -428,12 +365,11 @@ function DateTile({ dateStr, dim = false }: { dateStr?: string; dim?: boolean })
   );
 }
 
-// ── EDIT PANEL (slide-in right drawer) ────────────────────────────
+// ── EDIT DETAILS FORM (rendered inline inside the detail dialog) ──
 const EDIT_TABS = ['Client', 'Schedule', 'Details'] as const;
 
-const EditPanel = ({ open, onClose, appointment, onSave, loading }: {
-  open: boolean; onClose: () => void;
-  appointment: any; onSave: (data: any) => void; loading: boolean;
+const EditDetailsForm = ({ appointment, onSave, onCancel, loading }: {
+  appointment: any; onSave: (data: any) => void; onCancel: () => void; loading: boolean;
 }) => {
   const [activeTab, setActiveTab] = useState<typeof EDIT_TABS[number]>('Client');
   const [data, setData] = useState<any>({});
@@ -457,6 +393,9 @@ const EditPanel = ({ open, onClose, appointment, onSave, loading }: {
         meeting_notes: appointment.meeting_notes || '',
         badge_status: appointment.badge_status || '',
         venue_distance: String(appointment.venue_distance ?? 10),
+        virtual_meeting_mode: appointment.virtual_meeting_mode || '',
+        meeting_link: appointment.meeting_link || '',
+        meeting_id: appointment.meeting_id || '',
       });
       setActiveTab('Client');
     }
@@ -470,33 +409,30 @@ const EditPanel = ({ open, onClose, appointment, onSave, loading }: {
         const d = field === 'meeting_duration' ? parseInt(val) || 60 : parseInt(prev.meeting_duration) || 60;
         if (s) next.meeting_end_time = addMinutesToTime(s, d);
       }
+      if (field === 'meeting_type' && val !== 'virtual') {
+        next.virtual_meeting_mode = '';
+        next.meeting_link = '';
+        next.meeting_id = '';
+      }
+      if (field === 'virtual_meeting_mode' && val !== 'external') {
+        next.meeting_link = '';
+        next.meeting_id = '';
+      }
       return next;
     });
   };
 
-  if (!open) return null;
-
   return (
-    <div className="edit-panel-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="edit-panel">
-        {/* Header */}
-        <div className="edit-panel-header">
-          <div className="edit-panel-badge"><Edit2 size={10} /> Edit Meeting</div>
-          <div className="edit-panel-title">{appointment?.client_name || 'Meeting'}</div>
-          <div className="edit-panel-sub">
-            {appointment?.client_company && <span>{appointment.client_company} · </span>}
-            ID #{appointment?.id_main}
-          </div>
-        </div>
+    <div className="flex flex-col" style={{ height: '65vh' }}>
+      {/* Tabs */}
+      <div className="edit-panel-tabs">
+        {EDIT_TABS.map(t => (
+          <button key={t} className={`edit-panel-tab ${activeTab === t ? 'active' : ''}`} onClick={() => setActiveTab(t)}>{t}</button>
+        ))}
+      </div>
 
-        {/* Tabs */}
-        <div className="edit-panel-tabs">
-          {EDIT_TABS.map(t => (
-            <button key={t} className={`edit-panel-tab ${activeTab === t ? 'active' : ''}`} onClick={() => setActiveTab(t)}>{t}</button>
-          ))}
-        </div>
-
-        {/* Body */}
+      {/* Body */}
+      <ScrollArea className="flex-1 bg-white">
         <div className="edit-panel-body">
 
           {/* ── CLIENT TAB ── */}
@@ -553,7 +489,7 @@ const EditPanel = ({ open, onClose, appointment, onSave, loading }: {
                   </EditField>
                   <EditField label="Duration">
                     <select className="edit-input" value={data.meeting_duration} onChange={e => set('meeting_duration', e.target.value)}>
-                      {[['15','15 min'],['30','30 min'],['45','45 min'],['60','1 hour'],['90','1.5 hrs'],['120','2 hrs'],['180','3 hrs'],['240','4 hrs'],['300','5 hrs']].map(([v,l]) =>
+                      {[['15', '15 min'], ['30', '30 min'], ['45', '45 min'], ['60', '1 hour'], ['90', '1.5 hrs'], ['120', '2 hrs'], ['180', '3 hrs'], ['240', '4 hrs'], ['300', '5 hrs']].map(([v, l]) =>
                         <option key={v} value={v}>{l}</option>
                       )}
                     </select>
@@ -572,9 +508,28 @@ const EditPanel = ({ open, onClose, appointment, onSave, loading }: {
                       <option value="virtual">Virtual</option>
                     </select>
                   </EditField>
+                  {data.meeting_type === 'virtual' && (
+                    <EditField label="How will this be joined?">
+                      <select className="edit-input" value={data.virtual_meeting_mode} onChange={e => set('virtual_meeting_mode', e.target.value)}>
+                        <option value="">— Select —</option>
+                        <option value="hosted">We'll generate a Google Meet link</option>
+                        <option value="external">Provide an existing link</option>
+                      </select>
+                    </EditField>
+                  )}
+                  {data.meeting_type === 'virtual' && data.virtual_meeting_mode === 'external' && (
+                    <>
+                      <EditField label="Meeting Link" icon={<LinkIcon size={13} />}>
+                        <input className="edit-input with-icon" value={data.meeting_link} onChange={e => set('meeting_link', e.target.value)} placeholder="https://zoom.us/j/..." />
+                      </EditField>
+                      <EditField label="Meeting ID" icon={<Hash size={13} />}>
+                        <input className="edit-input with-icon" value={data.meeting_id} onChange={e => set('meeting_id', e.target.value)} placeholder="e.g. 123 4567 8901" />
+                      </EditField>
+                    </>
+                  )}
                   <EditField label="Travel Time (mins)">
                     <select className="edit-input" value={data.venue_distance} onChange={e => set('venue_distance', e.target.value)}>
-                      {[['0','0 (Virtual)'],['10','10 min'],['15','15 min'],['30','30 min'],['45','45 min'],['60','1 hour'],['90','1.5 hrs'],['120','2 hrs']].map(([v,l]) =>
+                      {[['0', '0 (Virtual)'], ['10', '10 min'], ['15', '15 min'], ['30', '30 min'], ['45', '45 min'], ['60', '1 hour'], ['90', '1.5 hrs'], ['120', '2 hrs']].map(([v, l]) =>
                         <option key={v} value={v}>{l}</option>
                       )}
                     </select>
@@ -617,23 +572,23 @@ const EditPanel = ({ open, onClose, appointment, onSave, loading }: {
             </div>
           )}
         </div>
+      </ScrollArea>
 
-        {/* Footer */}
-        <div className="edit-panel-footer">
-          <button
-            onClick={onClose}
-            style={{ flex: 1, padding: '10px', borderRadius: 8, border: '1px solid #E2E8F0', background: '#fff', fontSize: 13, fontWeight: 600, color: '#64748b', cursor: 'pointer' }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => onSave(data)}
-            disabled={loading}
-            style={{ flex: 2, padding: '10px', borderRadius: 8, border: 'none', background: loading ? '#94a3b8' : '#0057E7', fontSize: 13, fontWeight: 700, color: '#fff', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-          >
-            {loading ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : <><CheckCircle size={14} /> Save Changes</>}
-          </button>
-        </div>
+      {/* Footer */}
+      <div className="edit-panel-footer">
+        <button
+          onClick={onCancel}
+          style={{ flex: 1, padding: '10px', borderRadius: 8, border: '1px solid #E2E8F0', background: '#fff', fontSize: 13, fontWeight: 600, color: '#64748b', cursor: 'pointer' }}
+        >
+          Cancel
+        </button>
+        <button
+          onClick={() => onSave(data)}
+          disabled={loading}
+          style={{ flex: 2, padding: '10px', borderRadius: 8, border: 'none', background: loading ? '#94a3b8' : '#0057E7', fontSize: 13, fontWeight: 700, color: '#fff', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+        >
+          {loading ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : <><CheckCircle size={14} /> Save Changes</>}
+        </button>
       </div>
     </div>
   );
@@ -831,7 +786,7 @@ const DashboardContent = () => {
       await patchMeeting(selectedAppointment.id_main, patch);
       updateLocal(selectedAppointment.id_main, patch);
       if (calendarConnectionStatus === 'connected' && selectedAppointment.google_event_id) {
-        try { await updateCalendarEvent({ ...selectedAppointment, ...patch }); } catch {}
+        try { await updateCalendarEvent({ ...selectedAppointment, ...patch }); } catch { }
       }
       notify.success('Meeting extended', `New end time: ${newEndTime}`);
       setExtendOpen(false);
@@ -850,7 +805,7 @@ const DashboardContent = () => {
       await patchMeeting(selectedAppointment.id_main, extPatch);
       updateLocal(selectedAppointment.id_main, extPatch);
       if (calendarConnectionStatus === 'connected' && selectedAppointment.google_event_id) {
-        try { await updateCalendarEvent({ ...selectedAppointment, ...extPatch }); } catch {}
+        try { await updateCalendarEvent({ ...selectedAppointment, ...extPatch }); } catch { }
       }
       for (const { meeting, newStart, newEnd } of cascadeProposal) {
         const dur = meeting.meeting_duration
@@ -860,7 +815,7 @@ const DashboardContent = () => {
         await patchMeeting(meeting.id_main, movePatch);
         updateLocal(meeting.id_main, movePatch);
         if (calendarConnectionStatus === 'connected' && meeting.google_event_id) {
-          try { await updateCalendarEvent({ ...meeting, ...movePatch }); } catch {}
+          try { await updateCalendarEvent({ ...meeting, ...movePatch }); } catch { }
         }
       }
       notify.success('Done', `Meeting extended; ${cascadeProposal.length} meeting(s) moved forward`);
@@ -962,7 +917,7 @@ const DashboardContent = () => {
     finally { setActionLoading(''); }
   };
 
-  // Updated handleEdit uses EditPanel data shape
+  // Updated handleEdit uses EditDetailsForm data shape
   const handleEdit = async (editData: any) => {
     if (!selectedAppointment) return;
     setActionLoading('edit');
@@ -1102,14 +1057,14 @@ const DashboardContent = () => {
               {calendarConnectionStatus === 'checking' ? 'Checking…' : `Calendar ${calendarConnectionStatus}`}
             </div>
             {calendarConnectionStatus === 'connected' && (
-              <Button variant="outline" size="sm" className="h-8 text-xs text-red-500 border-red-200 hover:bg-red-50" onClick={async () => { try { await fetch('/api/auth/google/disconnect', { method: 'POST' }); setCalendarConnectionStatus('disconnected'); } catch {} }}>Disconnect</Button>
+              <Button variant="outline" size="sm" className="h-8 text-xs text-red-500 border-red-200 hover:bg-red-50" onClick={async () => { try { await fetch('/api/auth/google/disconnect', { method: 'POST' }); setCalendarConnectionStatus('disconnected'); } catch { } }}>Disconnect</Button>
             )}
             {calendarConnectionStatus === 'disconnected' && (
               <Button variant="outline" size="sm" className="h-8 text-xs text-blue-600 border-blue-200 hover:bg-blue-50" onClick={() => { window.location.href = '/api/auth/google'; }}>Connect Calendar</Button>
             )}
           </div>
           <div>
-            <Button className="h-9 text-xs bg-indigo-600 hover:bg-indigo-700 text-white gap-2 px-4 shadow-sm shadow-indigo-100" onClick={() => setScheduleOpen(true)}>
+            <Button className="h-9 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-2 px-4 shadow-sm shadow-blue-100" onClick={() => setScheduleOpen(true)}>
               <PlusCircle size={15} /><span>Create New Meeting</span>
             </Button>
             <ScheduleDialog open={scheduleOpen} onOpenChange={setScheduleOpen} />
@@ -1138,27 +1093,27 @@ const DashboardContent = () => {
         </div>
 
         {viewMode === 'table' ? (
-          <div className="overflow-x-auto p-4">
-            <Table className='border rounded-2xl db-table-zebra overflow-hidden'>
-              <TableHeader className="db-table-head">
+          <div className="overflow-x-auto p-4 border">
+            <Table className='border rounded-2xl overflow-hidden'>
+              <TableHeader className='bg-slate-50 border'>
                 <TableRow className="hover:bg-transparent border-0">
-                  <TableHead className="w-[44px] border-r border-white/10">#</TableHead>
-                  <TableHead className="border-r border-white/10">
+                  <TableHead className="w-[44px] border-r">#</TableHead>
+                  <TableHead className="border-r">
                     <div className="flex items-center justify-between">
-                      <span>Client / Opportunity</span>
+                      <span>Client Name</span>
                       <span className="text-[9px] font-normal text-slate-400 italic hidden sm:inline">
                         {activeTab === 'today' ? 'by urgency' : activeTab === 'pending' ? 'oldest first' : activeTab === 'completed' || activeTab === 'canceled' ? 'newest first' : 'earliest first'}
                       </span>
                     </div>
                   </TableHead>
-                  <TableHead className="border-r border-white/10">Category</TableHead>
-                  <TableHead className="border-r border-white/10">Date</TableHead>
-                  <TableHead className="border-r border-white/10">Start</TableHead>
-                  <TableHead className="border-r border-white/10">End</TableHead>
-                  <TableHead className="border-r border-white/10">Duration</TableHead>
-                  <TableHead className="border-r border-white/10">BCL Attendee</TableHead>
-                  <TableHead className="border-r border-white/10">Status</TableHead>
-                  <TableHead className="border-r border-white/10">Synced</TableHead>
+                  <TableHead className="border-r">Category</TableHead>
+                  <TableHead className="border-r">Date</TableHead>
+                  <TableHead className="border-r">Start</TableHead>
+                  <TableHead className="border-r">End</TableHead>
+                  <TableHead className="border-r">Duration</TableHead>
+                  <TableHead className="border-r">BCL Attendee</TableHead>
+                  <TableHead className="border-r">Status</TableHead>
+                  <TableHead className="border-r">Synced</TableHead>
                   <TableHead className="text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1301,288 +1256,295 @@ const DashboardContent = () => {
         <DialogContent className="max-w-4xl p-0 overflow-hidden border-slate-200 bg-white text-slate-900 shadow-2xl rounded-2xl">
 
           {/* ── HERO HEADER ── */}
-          <div style={{ background: 'linear-gradient(135deg, #0F1E3C 0%, #1a3a6b 100%)', padding: '24px 28px 20px', position: 'relative', overflow: 'hidden' }}>
-            {/* Decorative circles */}
-            <div style={{ position: 'absolute', top: -30, right: -30, width: 140, height: 140, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
-            <div style={{ position: 'absolute', bottom: -20, right: 60, width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
+          {(() => {
+            const statusCol = getStatusHexColor(effectiveStatus(selectedAppointment, now));
+            return (
+              <div className="border-b border-slate-100" style={{ padding: '24px 28px 20px', position: 'relative', overflow: 'hidden' }}>
+                {/* Decorative circles — tinted with the meeting's status color so it reads at a glance */}
+                <div style={{ position: 'absolute', top: -30, right: -30, width: 140, height: 140, borderRadius: '50%', background: `${statusCol.hex}14` }} />
+                <div style={{ position: 'absolute', bottom: -20, right: 60, width: 80, height: 80, borderRadius: '50%', background: `${statusCol.hex}0d` }} />
 
-            <div className="flex items-start justify-between gap-4 relative">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-2">
-                  <span style={{ fontSize: 10, fontWeight: 800, color: '#93c5fd', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Meeting · #{selectedAppointment?.id_main}</span>
-                  <StatusPill status={effectiveStatus(selectedAppointment, now)} />
-                </div>
-                <h2 style={{ fontSize: 22, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em', marginBottom: 4 }}>{selectedAppointment?.client_name}</h2>
-                <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#94a3b8' }}>
-                  <Building size={13} /> {selectedAppointment?.client_company || 'Independent'}
-                  {selectedAppointment?.client_mobile && <><span style={{ color: '#374151' }}>·</span><Phone size={12} />{selectedAppointment.client_mobile}</>}
-                  {selectedAppointment?.client_email && <><span style={{ color: '#374151' }}>·</span><Mail size={12} />{selectedAppointment.client_email}</>}
-                </p>
-              </div>
-              <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                <Badge variant="secondary" className={cn("px-3 py-1 gap-1.5 text-xs font-bold border shadow-sm", selectedAppointment?.meeting_type === 'virtual' ? "bg-indigo-900/50 text-indigo-300 border-indigo-700" : "bg-sky-900/50 text-sky-300 border-sky-700")}>
-                  {selectedAppointment?.meeting_type === 'virtual' ? <Video size={13} /> : <MapPin size={13} />}
-                  {selectedAppointment?.meeting_type === 'virtual' ? 'Virtual' : 'In-person'}
-                </Badge>
-                <SyncBadge synced={!!selectedAppointment?.google_event_id} />
-              </div>
-            </div>
-
-            {/* Quick stats strip */}
-            <div className="flex items-center gap-3 mt-4 flex-wrap">
-              {selectedAppointment?.meeting_date && (
-                <span className="detail-stat-chip" style={{ background: 'rgba(255,255,255,0.1)', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.1)' }}>
-                  <Calendar size={11} />
-                  {formatDate(selectedAppointment.meeting_date, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
-                </span>
-              )}
-              {selectedAppointment?.meeting_start_time && (
-                <span className="detail-stat-chip" style={{ background: 'rgba(255,255,255,0.1)', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.1)' }}>
-                  <Clock size={11} />
-                  {formatTime(selectedAppointment.meeting_start_time)}
-                  {selectedAppointment?.meeting_end_time && ` – ${formatTime(selectedAppointment.meeting_end_time)}`}
-                </span>
-              )}
-              {selectedAppointment?.meeting_duration && (
-                <span className="detail-stat-chip" style={{ background: 'rgba(255,255,255,0.1)', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.1)' }}>
-                  <Timer size={11} />
-                  {selectedAppointment.meeting_duration >= 60
-                    ? `${Math.floor(selectedAppointment.meeting_duration / 60)}h${selectedAppointment.meeting_duration % 60 ? ` ${selectedAppointment.meeting_duration % 60}m` : ''}`
-                    : `${selectedAppointment.meeting_duration}m`}
-                </span>
-              )}
-              {selectedAppointment?.meeting_venue_area && (
-                <span className="detail-stat-chip" style={{ background: 'rgba(255,255,255,0.1)', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.1)' }}>
-                  <MapPin size={11} /> {selectedAppointment.meeting_venue_area}
-                </span>
-              )}
-              {selectedAppointment?.badge_status && (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: 'rgba(34,197,94,0.15)', color: '#86efac', border: '1px solid rgba(34,197,94,0.25)' }}>
-                  <Star size={10} /> {selectedAppointment.badge_status}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* ── OVERDUE BANNER ── */}
-          {effectiveStatus(selectedAppointment, now) === 'overdue' && (
-            <div className="mx-6 mt-4 p-4 rounded-xl bg-yellow-50 border border-yellow-300 flex items-start gap-3">
-              <AlarmClock size={18} className="text-yellow-600 flex-shrink-0 mt-0.5" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-yellow-900">Scheduled to end at {formatTime(selectedAppointment?.meeting_end_time)}</p>
-                <p className="text-xs text-yellow-700 mt-0.5 mb-3">How would you like to proceed?</p>
-                <div className="flex flex-wrap gap-2">
-                  <Button size="sm" variant="outline" className="h-8 text-xs bg-green-50 border-green-300 text-green-800 hover:bg-green-100 font-semibold" disabled={!!actionLoading} onClick={handleEndMeeting}>
-                    {actionLoading === 'end' ? <Loader2 size={12} className="animate-spin mr-1" /> : <CheckCircle size={12} className="mr-1" />} End Meeting
-                  </Button>
-                  <Button size="sm" variant="outline" className="h-8 text-xs font-semibold" disabled={!!actionLoading} onClick={() => handleExtend(15)}><Timer size={12} className="mr-1" />+15 min</Button>
-                  <Button size="sm" variant="outline" className="h-8 text-xs font-semibold" disabled={!!actionLoading} onClick={() => handleExtend(30)}><Timer size={12} className="mr-1" />+30 min</Button>
-                  <Button size="sm" variant="outline" className="h-8 text-xs font-semibold" disabled={!!actionLoading} onClick={() => setExtendOpen(true)}><Clock size={12} className="mr-1" />Custom</Button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Body */}
-          <div className="flex" style={{ height: '65vh' }}>
-            {/* ── LEFT CONTENT ── */}
-            <ScrollArea className="flex-1 border-r border-slate-100 bg-white">
-              <div className="p-6 space-y-7">
-
-                {/* Agenda */}
-                <section>
-                  <div className="detail-section-label"><ClipboardList size={11} /> Agenda</div>
-                  <div className="p-4 rounded-xl bg-gradient-to-br from-slate-50 to-blue-50/30 border border-slate-100">
-                    <p className="text-sm text-slate-600 italic leading-relaxed">"{selectedAppointment?.meeting_agenda || 'No agenda provided.'}"</p>
+                <div className="flex items-start justify-between gap-4 relative">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span style={{ fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Meeting · #{selectedAppointment?.id_main}</span>
+                      <StatusPill status={effectiveStatus(selectedAppointment, now)} />
+                    </div>
+                    <h2 style={{ fontSize: 22, fontWeight: 800, color: '#0F172A', letterSpacing: '-0.02em', marginBottom: 4 }}>{selectedAppointment?.client_name}</h2>
+                    <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#64748b' }}>
+                      <Building size={13} /> {selectedAppointment?.client_company || 'Independent'}
+                      {selectedAppointment?.client_mobile && <><span style={{ color: '#cbd5e1' }}>·</span><Phone size={12} />{selectedAppointment.client_mobile}</>}
+                      {selectedAppointment?.client_email && <><span style={{ color: '#cbd5e1' }}>·</span><Mail size={12} />{selectedAppointment.client_email}</>}
+                    </p>
                   </div>
-                </section>
-
-                {/* Schedule */}
-                <section>
-                  <div className="detail-section-label"><Calendar size={11} /> Schedule</div>
-                  <div className="grid grid-cols-3 gap-3">
-                    {/* Date tile */}
-                    <div className="detail-info-card flex items-center gap-3">
-                      <DateTile dateStr={selectedAppointment?.meeting_date} />
-                      <div>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">Date</p>
-                        <p className="text-sm font-bold text-slate-900">{formatDate(selectedAppointment?.meeting_date, { day: '2-digit', month: 'short', year: 'numeric' })}</p>
-                        <p className="text-xs text-slate-500">{formatDate(selectedAppointment?.meeting_date, { weekday: 'long' }, '')}</p>
-                      </div>
-                    </div>
-                    {/* Time */}
-                    <div className="detail-info-card">
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight mb-1">Start → End</p>
-                      <p className="text-lg font-black text-[#0057E7] leading-none tabular-nums">{formatTime(selectedAppointment?.meeting_start_time)}</p>
-                      {selectedAppointment?.meeting_end_time && (
-                        <p className="text-xs text-slate-500 mt-1 font-semibold">→ {formatTime(selectedAppointment.meeting_end_time)}</p>
-                      )}
-                    </div>
-                    {/* Duration */}
-                    <div className="detail-info-card flex flex-col justify-center">
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight mb-1">Duration</p>
-                      <p className="text-lg font-black text-slate-800 leading-none">
-                        {selectedAppointment?.meeting_duration >= 60
-                          ? `${Math.floor(selectedAppointment.meeting_duration / 60)}h${selectedAppointment.meeting_duration % 60 ? ` ${selectedAppointment.meeting_duration % 60}m` : ''}`
-                          : `${selectedAppointment?.meeting_duration || '—'}m`}
-                      </p>
-                      {selectedAppointment?.venue_distance > 0 && (
-                        <p className="text-[10px] text-slate-400 mt-1">+{selectedAppointment.venue_distance}m travel</p>
-                      )}
-                    </div>
+                  <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                    <Badge variant="secondary" className={cn("px-3 py-1 gap-1.5 text-xs font-bold border shadow-sm", selectedAppointment?.meeting_type === 'virtual' ? "bg-indigo-50 text-indigo-700 border-indigo-200" : "bg-sky-50 text-sky-700 border-sky-200")}>
+                      {selectedAppointment?.meeting_type === 'virtual' ? <Video size={13} /> : <MapPin size={13} />}
+                      {selectedAppointment?.meeting_type === 'virtual' ? 'Virtual' : 'In-person'}
+                    </Badge>
+                    <SyncBadge synced={!!selectedAppointment?.google_event_id} />
                   </div>
+                </div>
 
-                  {/* Slot times row */}
-                  {(selectedAppointment?.meeting_slot_start_time || selectedAppointment?.meeting_slot_end_time) && (
-                    <div className="mt-3 flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
-                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide w-24 flex-shrink-0">Calendar Slot</div>
-                      <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 tabular-nums">
-                        <Clock size={11} className="text-slate-400" />
-                        {formatTime(selectedAppointment.meeting_slot_start_time)} → {formatTime(selectedAppointment.meeting_slot_end_time)}
-                      </div>
-                    </div>
+                {/* Quick stats strip */}
+                <div className="flex items-center gap-3 mt-4 flex-wrap">
+                  {selectedAppointment?.meeting_date && (
+                    <span className="detail-stat-chip">
+                      <Calendar size={11} />
+                      {formatDate(selectedAppointment.meeting_date, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                    </span>
                   )}
-                </section>
+                  {selectedAppointment?.meeting_start_time && (
+                    <span className="detail-stat-chip">
+                      <Clock size={11} />
+                      {formatTime(selectedAppointment.meeting_start_time)}
+                      {selectedAppointment?.meeting_end_time && ` – ${formatTime(selectedAppointment.meeting_end_time)}`}
+                    </span>
+                  )}
+                  {selectedAppointment?.meeting_duration && (
+                    <span className="detail-stat-chip">
+                      <Timer size={11} />
+                      {selectedAppointment.meeting_duration >= 60
+                        ? `${Math.floor(selectedAppointment.meeting_duration / 60)}h${selectedAppointment.meeting_duration % 60 ? ` ${selectedAppointment.meeting_duration % 60}m` : ''}`
+                        : `${selectedAppointment.meeting_duration}m`}
+                    </span>
+                  )}
+                  {selectedAppointment?.meeting_venue_area && (
+                    <span className="detail-stat-chip">
+                      <MapPin size={11} /> {selectedAppointment.meeting_venue_area}
+                    </span>
+                  )}
+                  {selectedAppointment?.badge_status && (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: '#dcfce7', color: '#15803d', border: '1px solid #bbf7d0' }}>
+                      <Star size={10} /> {selectedAppointment.badge_status}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
 
-                {/* Client Info */}
-                <section>
-                  <div className="detail-section-label"><User size={11} /> Client Information</div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <DetailBox label="Full Name" value={selectedAppointment?.client_name} icon={<User size={11} />} />
-                    <DetailBox label="Company" value={selectedAppointment?.client_company || 'Independent'} icon={<Building size={11} />} />
-                    <DetailBox label="Mobile" value={selectedAppointment?.client_mobile} icon={<Phone size={11} />} />
-                    <DetailBox label="Email" value={selectedAppointment?.client_email} icon={<Mail size={11} />} />
-                  </div>
-                </section>
-
-                {/* Attendees */}
-                {selectedAttendees.length > 0 && (
-                  <section>
-                    <div className="detail-section-label"><Users size={11} /> BCL Attendees</div>
+          {isEditOpen ? (
+            <EditDetailsForm
+              appointment={selectedAppointment}
+              onSave={handleEdit}
+              onCancel={() => setEditOpen(false)}
+              loading={actionLoading === 'edit'}
+            />
+          ) : (
+            <>
+              {/* ── OVERDUE BANNER ── */}
+              {effectiveStatus(selectedAppointment, now) === 'overdue' && (
+                <div className="mx-6 mt-4 p-4 rounded-xl bg-yellow-50 border border-yellow-300 flex items-start gap-3">
+                  <AlarmClock size={18} className="text-yellow-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-yellow-900">Scheduled to end at {formatTime(selectedAppointment?.meeting_end_time)}</p>
+                    <p className="text-xs text-yellow-700 mt-0.5 mb-3">How would you like to proceed?</p>
                     <div className="flex flex-wrap gap-2">
-                      {selectedAttendees.map((att, i) => (
-                        <div key={att.id || i} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 border border-slate-100 hover:border-slate-200 transition-colors">
-                          <Avatar className="h-6 w-6"><AvatarFallback className="text-[9px] bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-bold">{initials(att.name)}</AvatarFallback></Avatar>
-                          <div className="min-w-0">
-                            <span className="block text-xs font-semibold text-slate-700">{att.name}</span>
-                            {att.email && <span className="block text-[10px] text-slate-400 truncate">{att.email}</span>}
+                      <Button size="sm" variant="outline" className="h-8 text-xs bg-green-50 border-green-300 text-green-800 hover:bg-green-100 font-semibold" disabled={!!actionLoading} onClick={handleEndMeeting}>
+                        {actionLoading === 'end' ? <Loader2 size={12} className="animate-spin mr-1" /> : <CheckCircle size={12} className="mr-1" />} End Meeting
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-8 text-xs font-semibold" disabled={!!actionLoading} onClick={() => handleExtend(15)}><Timer size={12} className="mr-1" />+15 min</Button>
+                      <Button size="sm" variant="outline" className="h-8 text-xs font-semibold" disabled={!!actionLoading} onClick={() => handleExtend(30)}><Timer size={12} className="mr-1" />+30 min</Button>
+                      <Button size="sm" variant="outline" className="h-8 text-xs font-semibold" disabled={!!actionLoading} onClick={() => setExtendOpen(true)}><Clock size={12} className="mr-1" />Custom</Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Body */}
+              <div className="flex" style={{ height: '65vh' }}>
+                {/* ── LEFT CONTENT ── */}
+                <ScrollArea className="flex-1 border-r border-slate-100 bg-white">
+                  <div className="p-6 space-y-7">
+
+                    {/* Agenda */}
+                    <section>
+                      <div className="detail-section-label"><ClipboardList size={11} /> Agenda</div>
+                      <div className="p-4 rounded-xl bg-gradient-to-br from-slate-50 to-blue-50/30 border border-slate-100">
+                        <p className="text-sm text-slate-600 italic leading-relaxed">"{selectedAppointment?.meeting_agenda || 'No agenda provided.'}"</p>
+                      </div>
+                    </section>
+
+                    {/* Schedule */}
+                    <section>
+                      <div className="detail-section-label"><Calendar size={11} /> Schedule</div>
+                      <div className="grid grid-cols-3 gap-3">
+                        {/* Date tile */}
+                        <div className="detail-info-card flex items-center gap-3">
+                          <DateTile dateStr={selectedAppointment?.meeting_date} />
+                          <div>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">Date</p>
+                            <p className="text-sm font-bold text-slate-900">{formatDate(selectedAppointment?.meeting_date, { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                            <p className="text-xs text-slate-500">{formatDate(selectedAppointment?.meeting_date, { weekday: 'long' }, '')}</p>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  </section>
-                )}
+                        {/* Time */}
+                        <div className="detail-info-card">
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight mb-1">Start → End</p>
+                          <p className="text-lg font-black text-[#0057E7] leading-none tabular-nums">{formatTime(selectedAppointment?.meeting_start_time)}</p>
+                          {selectedAppointment?.meeting_end_time && (
+                            <p className="text-xs text-slate-500 mt-1 font-semibold">→ {formatTime(selectedAppointment.meeting_end_time)}</p>
+                          )}
+                        </div>
+                        {/* Duration */}
+                        <div className="detail-info-card flex flex-col justify-center">
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight mb-1">Duration</p>
+                          <p className="text-lg font-black text-slate-800 leading-none">
+                            {selectedAppointment?.meeting_duration >= 60
+                              ? `${Math.floor(selectedAppointment.meeting_duration / 60)}h${selectedAppointment.meeting_duration % 60 ? ` ${selectedAppointment.meeting_duration % 60}m` : ''}`
+                              : `${selectedAppointment?.meeting_duration || '—'}m`}
+                          </p>
+                          {selectedAppointment?.venue_distance > 0 && (
+                            <p className="text-[10px] text-slate-400 mt-1">+{selectedAppointment.venue_distance}m travel</p>
+                          )}
+                        </div>
+                      </div>
+                    </section>
 
-                {/* Booking details */}
-                <section>
-                  <div className="detail-section-label"><CalendarClock size={11} /> Booking Details</div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <DetailBox label="Booking Date" value={formatDate(selectedAppointment?.booking_date, { day: '2-digit', month: 'short', year: 'numeric' })} />
-                    <DetailBox label="Meeting Day" value={selectedAppointment?.meeting_day || formatDate(selectedAppointment?.meeting_date, { weekday: 'long' })} />
-                    <DetailBox label="Badge Status" value={selectedAppointment?.badge_status} />
-                    <DetailBox label="Distance" value={selectedAppointment?.venue_distance != null ? `${selectedAppointment.venue_distance} km` : undefined} />
-                    <DetailBox label="Created By" value={selectedAppointment?.created_by} />
-                    <DetailBox label="Booking Day" value={selectedAppointment?.booking_day} />
-                  </div>
-                </section>
+                    {/* Client Info */}
+                    <section>
+                      <div className="detail-section-label"><User size={11} /> Client Information</div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <DetailBox label="Full Name" value={selectedAppointment?.client_name} icon={<User size={11} />} />
+                        <DetailBox label="Company" value={selectedAppointment?.client_company || 'Independent'} icon={<Building size={11} />} />
+                        <DetailBox label="Mobile" value={selectedAppointment?.client_mobile} icon={<Phone size={11} />} />
+                        <DetailBox label="Email" value={selectedAppointment?.client_email} icon={<Mail size={11} />} />
+                      </div>
+                    </section>
 
-                {/* Google Calendar */}
-                <section>
-                  <div className="detail-section-label"><Cloud size={11} /> Google Calendar</div>
-                  <div className={cn("p-4 rounded-xl border flex items-start gap-3", selectedAppointment?.google_event_id ? "bg-green-50 border-green-200" : "bg-slate-50 border-slate-200")}>
-                    <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0", selectedAppointment?.google_event_id ? "bg-green-100 text-green-700" : "bg-slate-200 text-slate-500")}>
-                      {selectedAppointment?.google_event_id ? <Cloud size={18} /> : <CloudOff size={18} />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={cn("text-sm font-bold", selectedAppointment?.google_event_id ? "text-green-800" : "text-slate-700")}>
-                        {selectedAppointment?.google_event_id ? 'Synced to Google Calendar' : 'Not synced to calendar'}
-                      </p>
-                      {selectedAppointment?.google_event_id && <p className="text-[11px] text-green-600 font-medium mt-0.5 truncate">ID: {selectedAppointment.google_event_id}</p>}
-                      {selectedAppointment?.google_meet_link && (
-                        <a href={selectedAppointment.google_meet_link} target="_blank" rel="noreferrer" className="text-[11px] text-blue-600 underline mt-1 block truncate">Join Google Meet</a>
+                    {/* Attendees */}
+                    {selectedAttendees.length > 0 && (
+                      <section>
+                        <div className="detail-section-label"><Users size={11} /> BCL Attendees</div>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedAttendees.map((att, i) => (
+                            <div key={att.id || i} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 border border-slate-100 hover:border-slate-200 transition-colors">
+                              <Avatar className="h-6 w-6"><AvatarFallback className="text-[9px] bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-bold">{initials(att.name)}</AvatarFallback></Avatar>
+                              <div className="min-w-0">
+                                <span className="block text-xs font-semibold text-slate-700">{att.name}</span>
+                                {att.email && <span className="block text-[10px] text-slate-400 truncate">{att.email}</span>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+                    )}
+
+                    {/* Booking details */}
+                    <section>
+                      <div className="detail-section-label"><CalendarClock size={11} /> Booking Details</div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <DetailBox label="Booking Date" value={formatDate(selectedAppointment?.booking_date, { day: '2-digit', month: 'short', year: 'numeric' })} />
+                        <DetailBox label="Meeting Day" value={selectedAppointment?.meeting_day || formatDate(selectedAppointment?.meeting_date, { weekday: 'long' })} />
+                        <DetailBox label="Badge Status" value={selectedAppointment?.badge_status} />
+                        <DetailBox label="Distance" value={selectedAppointment?.venue_distance != null ? `${selectedAppointment.venue_distance} km` : undefined} />
+                        <DetailBox label="Created By" value={selectedAppointment?.created_by} />
+                        <DetailBox label="Booking Day" value={selectedAppointment?.booking_day} />
+                      </div>
+                    </section>
+
+                    {/* Google Calendar */}
+                    <section className='p-2'>
+                      <div className="detail-section-label"><Cloud size={11} /> Google Calendar</div>
+                      {/* Slot times row */}
+                      {(selectedAppointment?.meeting_slot_start_time || selectedAppointment?.meeting_slot_end_time) && (
+                        <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide w-24 flex-shrink-0">Calendar Slot</div>
+                          <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 tabular-nums">
+                            <Clock size={11} className="text-slate-400" />
+                            {formatTime(selectedAppointment.meeting_slot_start_time)} → {formatTime(selectedAppointment.meeting_slot_end_time)}
+                          </div>
+                        </div>
                       )}
+
+                      <div className={cn("p-4 rounded-xl border flex items-start gap-3", selectedAppointment?.google_event_id ? "bg-green-50 border-green-200" : "bg-slate-50 border-slate-200")}>
+                        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0", selectedAppointment?.google_event_id ? "bg-green-100 text-green-700" : "bg-slate-200 text-slate-500")}>
+                          {selectedAppointment?.google_event_id ? <Cloud size={18} /> : <CloudOff size={18} />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={cn("text-sm font-bold", selectedAppointment?.google_event_id ? "text-green-800" : "text-slate-700")}>
+                            {selectedAppointment?.google_event_id ? 'Synced to Google Calendar' : 'Not synced to calendar'}
+                          </p>
+                          {selectedAppointment?.google_event_id && <p className="text-[11px] text-green-600 font-medium mt-0.5 truncate">ID: {selectedAppointment.google_event_id}</p>}
+                          {selectedAppointment?.google_meet_link && (
+                            <a href={selectedAppointment.google_meet_link} target="_blank" rel="noreferrer" className="text-[11px] text-blue-600 underline mt-1 block truncate">Join Google Meet</a>
+                          )}
+                        </div>
+                      </div>
+                    </section>
+
+                    {selectedAppointment?.meeting_notes && (
+                      <section>
+                        <div className="detail-section-label"><FileText size={11} /> Notes</div>
+                        <div className="p-4 rounded-xl bg-amber-50 border border-amber-100">
+                          <p className="text-sm text-amber-800 leading-relaxed">{selectedAppointment.meeting_notes}</p>
+                        </div>
+                      </section>
+                    )}
+                  </div>
+                </ScrollArea>
+                      
+                {/* ── RIGHT ACTIONS PANEL ── */}
+                <div className="w-[260px] p-5 bg-slate-50/80 border-l border-slate-100 flex flex-col gap-4 overflow-y-auto">
+
+                  {/* Venue card */}
+                  <div>
+                    <p className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest mb-2">Venue</p>
+                    <div className={cn("p-3 rounded-xl border shadow-sm flex items-center gap-3 bg-white", selectedAppointment?.meeting_type === 'virtual' ? "border-indigo-100" : "border-sky-100")}>
+                      <div className={cn("h-9 w-9 rounded-lg flex items-center justify-center shrink-0", selectedAppointment?.meeting_type === 'virtual' ? "bg-indigo-100 text-indigo-600" : "bg-sky-100 text-sky-600")}>
+                        {selectedAppointment?.meeting_type === 'virtual' ? <Video size={16} /> : <MapPin size={16} />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-900">{selectedAppointment?.meeting_type === 'virtual' ? 'Virtual' : 'In-person'}</p>
+                        <p className="text-[11px] text-slate-500 truncate">{selectedAppointment?.meeting_venue_area || (selectedAppointment?.meeting_type === 'virtual' ? 'Online' : 'Venue TBC')}</p>
+                      </div>
                     </div>
                   </div>
-                </section>
 
-                {selectedAppointment?.meeting_notes && (
-                  <section>
-                    <div className="detail-section-label"><FileText size={11} /> Notes</div>
-                    <div className="p-4 rounded-xl bg-amber-50 border border-amber-100">
-                      <p className="text-sm text-amber-800 leading-relaxed">{selectedAppointment.meeting_notes}</p>
-                    </div>
-                  </section>
-                )}
-              </div>
-            </ScrollArea>
+                  {(selectedAppointment?.google_meet_link || selectedAppointment?.meeting_link) && (
+                    <Button asChild className="w-full bg-[#0057E7] text-white hover:bg-[#004bc7] border-none shadow-md text-xs h-9">
+                      <a href={selectedAppointment.google_meet_link || selectedAppointment.meeting_link} target="_blank" rel="noreferrer">
+                        <LinkIcon className="mr-2 h-3 w-3" /> Join Meeting <ArrowRight className="ml-auto h-3 w-3" />
+                      </a>
+                    </Button>
+                  )}
 
-            {/* ── RIGHT ACTIONS PANEL ── */}
-            <div className="w-[260px] p-5 bg-slate-50/80 border-l border-slate-100 flex flex-col gap-4 overflow-y-auto">
+                  <div className="space-y-1.5 pt-2 border-t border-slate-200">
+                    <p className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5"><Zap size={10} /> Actions</p>
 
-              {/* Venue card */}
-              <div>
-                <p className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest mb-2">Venue</p>
-                <div className={cn("p-3 rounded-xl border shadow-sm flex items-center gap-3 bg-white", selectedAppointment?.meeting_type === 'virtual' ? "border-indigo-100" : "border-sky-100")}>
-                  <div className={cn("h-9 w-9 rounded-lg flex items-center justify-center shrink-0", selectedAppointment?.meeting_type === 'virtual' ? "bg-indigo-100 text-indigo-600" : "bg-sky-100 text-sky-600")}>
-                    {selectedAppointment?.meeting_type === 'virtual' ? <Video size={16} /> : <MapPin size={16} />}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-slate-900">{selectedAppointment?.meeting_type === 'virtual' ? 'Virtual' : 'In-person'}</p>
-                    <p className="text-[11px] text-slate-500 truncate">{selectedAppointment?.meeting_venue_area || (selectedAppointment?.meeting_type === 'virtual' ? 'Online' : 'Venue TBC')}</p>
+                    {['upcoming', 'pending', 'rescheduled'].includes(selectedAppointment?.status) && (
+                      <ActionButton onClick={handleConfirm} loading={actionLoading === 'confirm'} icon={<UserCheck size={13} />} label="Confirm Meeting" className="bg-[#0057E7] hover:bg-[#004bc7] text-white border-none shadow-sm" />
+                    )}
+
+                    {selectedAppointment?.status !== 'completed' && (
+                      <ActionButton onClick={handleMarkDone} loading={actionLoading === 'done'} icon={<CheckCircle size={13} />} label="Mark as Done" className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200" />
+                    )}
+
+                    <ActionButton onClick={openReschedule} icon={<RefreshCw size={13} />} label="Reschedule" />
+                    <ActionButton onClick={() => setEditOpen(true)} icon={<Edit2 size={13} />} label="Edit Details" />
+
+                    {selectedAppointment?.status !== 'canceled' && (
+                      <ActionButton onClick={handleCancel} loading={actionLoading === 'cancel'} icon={<Ban size={13} />} label="Cancel Meeting" className="hover:bg-red-50 text-red-600 border-red-100" />
+                    )}
+
+                    <Separator className="my-2" />
+
+                    {calendarConnectionStatus === 'connected' && (
+                      selectedAppointment?.google_event_id
+                        ? <ActionButton onClick={handleUnsync} loading={actionLoading === 'unsync'} icon={<CloudOff size={13} />} label="Remove from Calendar" className="hover:bg-red-50 text-red-500 border-red-100" />
+                        : <ActionButton onClick={handleSyncToCalendar} loading={actionLoading === 'sync'} icon={<Cloud size={13} />} label="Sync to Calendar" className="hover:bg-blue-50 text-blue-600 border-blue-100" />
+                    )}
+
+                    <Separator className="my-2" />
+                    <ActionButton onClick={() => setDeleteOpen(true)} icon={<Trash2 size={13} />} label="Delete Permanently" className="hover:bg-slate-100 text-slate-400 border-slate-200" />
                   </div>
                 </div>
               </div>
-
-              {(selectedAppointment?.google_meet_link || selectedAppointment?.meeting_link) && (
-                <Button asChild className="w-full bg-[#0057E7] text-white hover:bg-[#004bc7] border-none shadow-md text-xs h-9">
-                  <a href={selectedAppointment.google_meet_link || selectedAppointment.meeting_link} target="_blank" rel="noreferrer">
-                    <LinkIcon className="mr-2 h-3 w-3" /> Join Meeting <ArrowRight className="ml-auto h-3 w-3" />
-                  </a>
-                </Button>
-              )}
-
-              <div className="space-y-1.5 pt-2 border-t border-slate-200">
-                <p className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5"><Zap size={10} /> Actions</p>
-
-                {['upcoming', 'pending', 'rescheduled'].includes(selectedAppointment?.status) && (
-                  <ActionButton onClick={handleConfirm} loading={actionLoading === 'confirm'} icon={<UserCheck size={13} />} label="Confirm Meeting" className="bg-[#0057E7] hover:bg-[#004bc7] text-white border-none shadow-sm" />
-                )}
-
-                {selectedAppointment?.status !== 'completed' && (
-                  <ActionButton onClick={handleMarkDone} loading={actionLoading === 'done'} icon={<CheckCircle size={13} />} label="Mark as Done" className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200" />
-                )}
-
-                <ActionButton onClick={openReschedule} icon={<RefreshCw size={13} />} label="Reschedule" />
-                <ActionButton onClick={() => setEditOpen(true)} icon={<Edit2 size={13} />} label="Edit Details" />
-
-                {selectedAppointment?.status !== 'canceled' && (
-                  <ActionButton onClick={handleCancel} loading={actionLoading === 'cancel'} icon={<Ban size={13} />} label="Cancel Meeting" className="hover:bg-red-50 text-red-600 border-red-100" />
-                )}
-
-                <Separator className="my-2" />
-
-                {calendarConnectionStatus === 'connected' && (
-                  selectedAppointment?.google_event_id
-                    ? <ActionButton onClick={handleUnsync} loading={actionLoading === 'unsync'} icon={<CloudOff size={13} />} label="Remove from Calendar" className="hover:bg-red-50 text-red-500 border-red-100" />
-                    : <ActionButton onClick={handleSyncToCalendar} loading={actionLoading === 'sync'} icon={<Cloud size={13} />} label="Sync to Calendar" className="hover:bg-blue-50 text-blue-600 border-blue-100" />
-                )}
-
-                <Separator className="my-2" />
-                <ActionButton onClick={() => setDeleteOpen(true)} icon={<Trash2 size={13} />} label="Delete Permanently" className="hover:bg-slate-100 text-slate-400 border-slate-200" />
-              </div>
-            </div>
-          </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
-
-      {/* ── EDIT PANEL (slide-in drawer) ── */}
-      <EditPanel
-        open={isEditOpen}
-        onClose={() => setEditOpen(false)}
-        appointment={selectedAppointment}
-        onSave={handleEdit}
-        loading={actionLoading === 'edit'}
-      />
 
       {/* ── RESCHEDULE DIALOG ── */}
       <Dialog open={isRescheduleOpen} onOpenChange={o => { if (!o) { setRescheduleOpen(false); setRescheduleConflict(''); } }}>
@@ -1611,7 +1573,7 @@ const DashboardContent = () => {
               <Select value={rescheduleData.meeting_duration} onValueChange={handleRschdDuration}>
                 <SelectTrigger className="bg-slate-50 border-slate-200"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {[['15','15 min'],['30','30 min'],['45','45 min'],['60','1 hour'],['90','1.5 hrs'],['120','2 hrs'],['180','3 hrs'],['240','4 hrs'],['300','5 hrs']].map(([v,l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                  {[['15', '15 min'], ['30', '30 min'], ['45', '45 min'], ['60', '1 hour'], ['90', '1.5 hrs'], ['120', '2 hrs'], ['180', '3 hrs'], ['240', '4 hrs'], ['300', '5 hrs']].map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -1624,7 +1586,7 @@ const DashboardContent = () => {
               <Select value={rescheduleData.venue_distance} onValueChange={handleRschdTravel}>
                 <SelectTrigger className="bg-slate-50 border-slate-200"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {[['0','0 min (Virtual)'],['10','10 min'],['15','15 min'],['30','30 min'],['45','45 min'],['60','1 hour'],['90','1.5 hrs'],['120','2 hrs']].map(([v,l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                  {[['0', '0 min (Virtual)'], ['10', '10 min'], ['15', '15 min'], ['30', '30 min'], ['45', '45 min'], ['60', '1 hour'], ['90', '1.5 hrs'], ['120', '2 hrs']].map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

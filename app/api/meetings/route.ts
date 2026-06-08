@@ -58,6 +58,9 @@ function toMeetingPayload(body: Record<string, any>, callerUser?: { id: string; 
     updated_by: body.updated_by ?? body.updatedBy ?? null,
     google_event_id: body.google_event_id ?? null,
     google_meet_link: body.google_meet_link ?? null,
+    virtual_meeting_mode: body.virtual_meeting_mode ?? body.virtualMeetingMode ?? null,
+    meeting_link: body.meeting_link ?? body.meetingLink ?? '',
+    meeting_id: body.meeting_id ?? body.meetingId ?? '',
   };
 }
 

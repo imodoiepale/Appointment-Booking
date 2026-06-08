@@ -3,14 +3,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel,
-  AlertDialogContent, AlertDialogDescription,
-  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -18,21 +10,23 @@ import { Textarea } from '@/components/ui/textarea';
 import { Toaster } from '@/components/ui/toaster';
 import { useToast } from '@/hooks/use-toast';
 import {
-  Calendar, Clock, MapPin, Trash2, Loader2,
+  Calendar, Clock, MapPin, Loader2,
   ChevronLeft, ChevronRight, Search, MoreHorizontal, Plus, Download,
-  Hash, CheckCircle2, Edit2, Ban, UserCheck, Users,
-  Table2, LayoutGrid, Building, AlertCircle, Cloud, CloudOff,
-  ChevronUp, ChevronDown, ChevronsUpDown, Link as LinkIcon, X, User, Phone,
+  Table2, LayoutGrid, Building, Cloud,
+  ChevronUp, ChevronDown, ChevronsUpDown,
 } from 'lucide-react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
-  getEventTypeConfig, EventTypeIcon, EVENT_TYPES, EVENT_TYPE_CONFIG,
-  formatDateDDMMYYYY, sortItems, SortConfig,
+  getEventTypeConfig, EventTypeIcon, EVENT_TYPE_CONFIG,
+  sortItems, SortConfig,
+  EVENT_TYPES,
 } from '@/utils/appointmentStyles';
-import {
-  MEETING_STATUSES, STATUS_PILL_CLASSES, getStatusPillClass, getStatusHexColor,
-} from '@/utils/appointmentStatuses';
+import { MEETING_STATUSES } from '@/utils/appointmentStatuses';
+import { formatDate } from '../../utils/format';
+import { formatTime, safeInitials, StatusPill } from './components/eventShared';
+import { EventDetailDialog } from './components/EventDetailDialog';
+import { DeleteEventDialog } from './components/DeleteEventDialog';
+import { BLANK_FORM } from './components/EventFormFields';
+import { EventFormDialog } from './components/EventFormDialog';
 
 // ── TYPES ────────────────────────────────────────────────────────────────────
 interface BclEvent {
@@ -46,6 +40,12 @@ interface BclEvent {
   event_duration?: number;
   event_slot_start_time?: string;
   event_slot_end_time?: string;
+  venue_distance?: number;
+  event_format?: 'virtual' | 'physical';
+  virtual_meeting_mode?: 'hosted' | 'external' | null;
+  meeting_link?: string;
+  meeting_id?: string;
+  google_meet_link?: string;
   event_venue?: string;
   event_venue_area?: string;
   event_description?: string;
@@ -63,34 +63,6 @@ interface BclEvent {
 }
 
 const STATUSES = MEETING_STATUSES.map(s => s.value);
-
-function formatTime(t: string) {
-  if (!t) return '—';
-  const [h, m] = t.split(':').map(Number);
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  return `${((h % 12) || 12).toString().padStart(2, '0')}:${m.toString().padStart(2, '0')} ${ampm}`;
-}
-
-function StatusPill({ status }: { status?: string }) {
-  const pillClass = getStatusPillClass(status);
-  const label = MEETING_STATUSES.find(s => s.value === status?.toLowerCase().replace(/[\s-]+/g, '_'))?.label ?? (status ?? 'Upcoming');
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold tracking-wide border ${pillClass}`} style={{ borderColor: 'transparent' }}>
-      {label}
-    </span>
-  );
-}
-
-function safeInitials(n: string) {
-  if (!n || typeof n !== 'string') return '??';
-  return n.split(' ').filter(Boolean).map(c => c[0]).join('').slice(0, 2).toUpperCase();
-}
-
-function addMinutes(time: string, mins: number) {
-  const [h, m] = time.split(':').map(Number);
-  const t = h * 60 + m + mins;
-  return `${String(Math.floor(t / 60) % 24).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
-}
 
 // ── STYLES ───────────────────────────────────────────────────────────────────
 const EventsStyles = () => (
@@ -249,7 +221,7 @@ const EventCard = ({ event, onClick }: { event: BclEvent; onClick: () => void })
             </div>
             <div>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#1d4ed8' }}>
-                {formatDateDDMMYYYY(event.event_date)}
+                {formatDate(event.event_date, { day: '2-digit', month: '2-digit', year: 'numeric' })}
               </div>
             </div>
           </div>
@@ -272,20 +244,6 @@ const EventCard = ({ event, onClick }: { event: BclEvent; onClick: () => void })
       </div>
     </div>
   );
-};
-
-// ── BLANK CREATE FORM ────────────────────────────────────────────────────────
-const BLANK_FORM = {
-  event_name: '', event_type: 'other',
-  event_date: '', event_start_time: '', event_end_time: '',
-  event_duration: '',
-  event_slot_start_time: '', event_slot_end_time: '',
-  event_venue: '', event_venue_area: '',
-  organizer_name: '', organizer_company: '', organizer_email: '', organizer_mobile: '',
-  event_description: '', expected_attendees: '',
-  bcl_attendee: [] as string[],
-  bcl_attendee_names: [] as string[],
-  status: 'upcoming',
 };
 
 // ── MAIN PAGE ────────────────────────────────────────────────────────────────
@@ -509,8 +467,13 @@ const EventsContent = () => {
       event_duration: String(selectedEvent.event_duration || ''),
       event_slot_start_time: selectedEvent.event_slot_start_time || '',
       event_slot_end_time: selectedEvent.event_slot_end_time || '',
+      venue_distance: String(selectedEvent.venue_distance ?? 10),
       event_venue: selectedEvent.event_venue || '',
       event_venue_area: selectedEvent.event_venue_area || '',
+      event_format: selectedEvent.event_format || 'physical',
+      virtual_meeting_mode: selectedEvent.virtual_meeting_mode || '',
+      meeting_link: selectedEvent.meeting_link || '',
+      meeting_id: selectedEvent.meeting_id || '',
       organizer_name: selectedEvent.organizer_name || '',
       organizer_company: selectedEvent.organizer_company || '',
       organizer_email: selectedEvent.organizer_email || '',
@@ -572,187 +535,6 @@ const EventsContent = () => {
     </div>
   );
 
-  // ── BCL Attendee toggle helper ─────────────────────────────────────────────
-  const toggleEventAttendee = (form: any, setForm: any, attendeeOpen: boolean, setAttendeeOpen: any, id: string, name: string, checked: boolean) => {
-    setForm(p => {
-      const ids: string[] = Array.isArray(p.bcl_attendee) ? p.bcl_attendee : [];
-      const names: string[] = Array.isArray(p.bcl_attendee_names) ? p.bcl_attendee_names : [];
-      if (checked) return { ...p, bcl_attendee: [...ids, id], bcl_attendee_names: [...names, name] };
-      const i = ids.indexOf(id);
-      return { ...p, bcl_attendee: ids.filter((_, j) => j !== i), bcl_attendee_names: names.filter((_, j) => j !== i) };
-    });
-  };
-
-  // Auto-calc duration from start/end times
-  const calcEventDuration = (start: string, end: string): string => {
-    if (!start || !end) return '';
-    const [sh, sm] = start.split(':').map(Number);
-    const [eh, em] = end.split(':').map(Number);
-    const diff = (eh * 60 + em) - (sh * 60 + sm);
-    return diff > 0 ? String(diff) : '';
-  };
-
-  // ── Shared form fields renderer ──────────────────────────────────────────
-  const renderFormFields = (form: typeof BLANK_FORM, setForm: (fn: (prev: any) => any) => void, attendeeOpen: boolean, setAttendeeOpen: (v: boolean) => void) => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12, maxHeight: '60vh', overflowY: 'auto', paddingRight: 4 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <div style={{ gridColumn: '1/-1' }}>
-          <label className="ev-field-label">Event Name *</label>
-          <Input className="ev-input" placeholder="e.g. Annual Gala Dinner" value={form.event_name} onChange={e => setForm(p => ({ ...p, event_name: e.target.value }))} />
-        </div>
-        <div>
-          <label className="ev-field-label">Event Type *</label>
-          <Select value={form.event_type} onValueChange={v => setForm(p => ({ ...p, event_type: v }))}>
-            <SelectTrigger className="ev-select-trigger"><SelectValue /></SelectTrigger>
-            <SelectContent>{EVENT_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
-          </Select>
-        </div>
-        <div>
-          <label className="ev-field-label">Status</label>
-          <Select value={form.status} onValueChange={v => setForm(p => ({ ...p, status: v }))}>
-            <SelectTrigger className="ev-select-trigger"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {MEETING_STATUSES.map(s => (
-                <SelectItem key={s.value} value={s.value}>
-                  <span className={`inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold ${STATUS_PILL_CLASSES[s.value] ?? ''}`}>
-                    {s.label}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <label className="ev-field-label">Event Date *</label>
-          <Input type="date" className="ev-input" value={form.event_date} onChange={e => setForm(p => ({ ...p, event_date: e.target.value }))} />
-        </div>
-
-        {/* Times row */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <div>
-            <label className="ev-field-label">Start Time *</label>
-            <Input type="time" className="ev-input" value={form.event_start_time} onChange={e => {
-              const start = e.target.value;
-              const dur = calcEventDuration(start, form.event_end_time);
-              setForm(p => ({ ...p, event_start_time: start, event_duration: dur }));
-            }} />
-          </div>
-          <div>
-            <label className="ev-field-label">End Time *</label>
-            <Input type="time" className="ev-input" value={form.event_end_time} onChange={e => {
-              const end = e.target.value;
-              const dur = calcEventDuration(form.event_start_time, end);
-              setForm(p => ({ ...p, event_end_time: end, event_duration: dur }));
-            }} />
-          </div>
-        </div>
-
-        {/* Duration (read-only, auto-calc) */}
-        <div>
-          <label className="ev-field-label">Duration (mins)</label>
-          <Input className="ev-input" readOnly value={form.event_duration ? `${form.event_duration} min` : '—'} style={{ background: '#f7fafa', color: '#8ca4a8' }} />
-        </div>
-
-        {/* Slot times */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, gridColumn: '1/-1' }}>
-          <div>
-            <label className="ev-field-label">Slot Start Time</label>
-            <Input type="time" className="ev-input" value={form.event_slot_start_time} onChange={e => setForm(p => ({ ...p, event_slot_start_time: e.target.value }))} />
-          </div>
-          <div>
-            <label className="ev-field-label">Slot End Time</label>
-            <Input type="time" className="ev-input" value={form.event_slot_end_time} onChange={e => setForm(p => ({ ...p, event_slot_end_time: e.target.value }))} />
-          </div>
-        </div>
-
-        <div>
-          <label className="ev-field-label">Venue Name</label>
-          <Input className="ev-input" placeholder="e.g. Grand Ballroom" value={form.event_venue} onChange={e => setForm(p => ({ ...p, event_venue: e.target.value }))} />
-        </div>
-        <div>
-          <label className="ev-field-label">Venue Area / Location</label>
-          <Input className="ev-input" placeholder="e.g. Nairobi CBD" value={form.event_venue_area} onChange={e => setForm(p => ({ ...p, event_venue_area: e.target.value }))} />
-        </div>
-        <div>
-          <label className="ev-field-label">Organizer Name</label>
-          <Input className="ev-input" value={form.organizer_name} onChange={e => setForm(p => ({ ...p, organizer_name: e.target.value }))} />
-        </div>
-        <div>
-          <label className="ev-field-label">Organizer Company</label>
-          <Input className="ev-input" value={form.organizer_company} onChange={e => setForm(p => ({ ...p, organizer_company: e.target.value }))} />
-        </div>
-        <div>
-          <label className="ev-field-label">Organizer Mobile</label>
-          <Input className="ev-input" value={form.organizer_mobile} onChange={e => setForm(p => ({ ...p, organizer_mobile: e.target.value }))} />
-        </div>
-        <div>
-          <label className="ev-field-label">Organizer Email</label>
-          <Input type="email" className="ev-input" value={form.organizer_email} onChange={e => setForm(p => ({ ...p, organizer_email: e.target.value }))} />
-        </div>
-        <div>
-          <label className="ev-field-label">Expected Attendees</label>
-          <Input type="number" className="ev-input" min={0} value={form.expected_attendees} onChange={e => setForm(p => ({ ...p, expected_attendees: e.target.value }))} />
-        </div>
-
-        {/* BCL Attendees */}
-        <div style={{ gridColumn: '1/-1' }}>
-          <label className="ev-field-label">BCL Attendees</label>
-          {loadingBclAttendees ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 38, color: '#8ca4a8', fontSize: 13 }}>
-              <Loader2 size={13} className="animate-spin" /> Loading attendees…
-            </div>
-          ) : (
-            <Popover open={attendeeOpen} onOpenChange={setAttendeeOpen}>
-              <PopoverTrigger asChild>
-                <button style={{
-                  width: '100%', minHeight: 38, padding: '6px 12px 6px 12px',
-                  fontSize: 13, fontWeight: 500, fontFamily: 'Inter, sans-serif',
-                  border: '1px solid #e2e8e9', borderRadius: 8,
-                  background: '#fff', color: '#1d4ed8', cursor: 'pointer',
-                  textAlign: 'left', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 5,
-                  transition: 'all 0.15s ease', boxSizing: 'border-box',
-                }}>
-                  {(!form.bcl_attendee || (form.bcl_attendee as string[]).length === 0)
-                    ? <span style={{ color: '#b0c4c8' }}>Select BCL attendees…</span>
-                    : (form.bcl_attendee_names as string[]).map((name, i) => (
-                      <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#eef2f3', borderRadius: 5, padding: '2px 8px', fontSize: 11, fontWeight: 700, color: '#1d4ed8' }}>
-                        {name}
-                        <span style={{ cursor: 'pointer', color: '#8ca4a8', display: 'flex', alignItems: 'center' }}
-                          onClick={e => { e.stopPropagation(); toggleEventAttendee(form, setForm, attendeeOpen, setAttendeeOpen, (form.bcl_attendee as string[])[i], name, false); }}>
-                          <X size={10} />
-                        </span>
-                      </span>
-                    ))
-                  }
-                </button>
-              </PopoverTrigger>
-              <PopoverContent style={{ width: 260, padding: 10, borderRadius: 10, border: '1px solid #eef2f3', background: '#fff', boxShadow: '0 8px 24px rgba(0,48,56,0.1)' }} align="start">
-                <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8ca4a8', padding: '0 4px', marginBottom: 8 }}>Select BCL Attendees</div>
-                <div style={{ maxHeight: 200, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {bclAttendeesList.map(a => {
-                    const sel = Array.isArray(form.bcl_attendee) && (form.bcl_attendee as string[]).includes(a.id);
-                    return (
-                      <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 6px', borderRadius: 7, cursor: 'pointer', background: sel ? '#f0f4f5' : 'transparent', transition: 'background 0.12s' }}
-                        onClick={() => toggleEventAttendee(form, setForm, attendeeOpen, setAttendeeOpen, a.id, a.displayName, !sel)}>
-                        <Checkbox checked={sel} onCheckedChange={c => toggleEventAttendee(form, setForm, attendeeOpen, setAttendeeOpen, a.id, a.displayName, !!c)} onClick={e => e.stopPropagation()} />
-                        <span style={{ fontSize: 13, fontWeight: 500, color: '#1d4ed8' }}>{a.displayName}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </PopoverContent>
-            </Popover>
-          )}
-        </div>
-
-        <div style={{ gridColumn: '1/-1' }}>
-          <label className="ev-field-label">Description / Notes</label>
-          <Textarea className="ev-textarea" rows={3} value={form.event_description} onChange={e => setForm(p => ({ ...p, event_description: e.target.value }))} />
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <div className="ev-shell">
       <EventsStyles />
@@ -796,7 +578,7 @@ const EventsContent = () => {
             )}
           </div>
           <Button className="ev-btn-outline h-auto"><Download size={13} /> Export</Button>
-          <Button className="ev-btn-primary h-auto" onClick={() => setCreateOpen(true)}><Plus size={14} /> New Event</Button>
+          <Button className="h-9 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-2 px-4 shadow-sm shadow-blue-100" onClick={() => setCreateOpen(true)}><Plus size={14} /> Create New Event</Button>
         </div>
       </div>
 
@@ -874,7 +656,7 @@ const EventsContent = () => {
                           </div>
                         </div>
                       </td>
-                      <td><div className="ev-cell-date">{formatDateDDMMYYYY(ev.event_date)}</div></td>
+                      <td><div className="ev-cell-date">{formatDate(ev.event_date, { day: '2-digit', month: '2-digit', year: 'numeric' })}</div></td>
                       <td><div className="ev-cell-time"><Clock size={12} />{formatTime(ev.event_start_time)}</div></td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600, color: '#64868c' }}>
@@ -937,168 +719,50 @@ const EventsContent = () => {
         </div>
       </div>
 
-      {/* ── DETAIL DIALOG ─────────────────────────────────────────────────── */}
-      <Dialog open={!!selectedEvent} onOpenChange={o => !o && setSelectedEvent(null)}>
-        <DialogContent className="ev-dialog" style={{ maxWidth: 820, padding: 0 }}>
-          {ev && (() => {
-            const col = getEventTypeConfig(ev.event_type);
-            const typeLabel = EVENT_TYPES.find(t => t.value === ev.event_type)?.label ?? ev.event_type;
-            return (
-              <>
-                <div className="ev-dialog-header" style={{ background: col.light, borderBottom: `2px solid ${col.bg}20` }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                        <div style={{ width: 32, height: 32, borderRadius: 8, background: col.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
-                          <EventTypeIcon type={ev.event_type} size={16} />
-                        </div>
-                        <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: col.bg }}>{typeLabel} · #{ev.id}</span>
-                      </div>
-                      <div style={{ fontSize: 20, fontWeight: 800, color: '#1d4ed8', letterSpacing: '-0.02em' }}>{ev.event_name}</div>
-                      {ev.organizer_name && (
-                        <div style={{ fontSize: 13, color: '#64868c', display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }}>
-                          <Building size={13} />{ev.organizer_name}{ev.organizer_company ? ` · ${ev.organizer_company}` : ''}
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ flexShrink: 0 }}><StatusPill status={ev.status ?? 'upcoming'} /></div>
-                  </div>
-                </div>
+      <EventDetailDialog
+        event={ev}
+        onClose={() => setSelectedEvent(null)}
+        isEditOpen={isEditOpen}
+        setEditOpen={setEditOpen}
+        editForm={editForm}
+        setEditForm={setEditForm}
+        editAttendeeOpen={editAttendeeOpen}
+        setEditAttendeeOpen={setEditAttendeeOpen}
+        bclAttendeesList={bclAttendeesList}
+        loadingBclAttendees={loadingBclAttendees}
+        isSubmitting={isSubmitting}
+        actionLoading={actionLoading}
+        calStatus={calStatus}
+        canEdit={canEdit}
+        canDelete={canDelete}
+        onConfirm={handleConfirm}
+        onMarkDone={handleMarkDone}
+        onCancel={handleCancel}
+        onSyncToCalendar={handleSyncToCalendar}s
+        onSaveEdit={handleEdit}
+        onOpenEdit={openEdit}
+        onDelete={(event) => setDeletingEvent(event)}
+      />
 
-                <div className="ev-dialog-body">
-                  <div className="ev-dialog-left">
-                    <div className="ev-section-label">Description</div>
-                    <div className="ev-desc-box">{ev.event_description || 'No description provided.'}</div>
+      <EventFormDialog
+        open={isCreateOpen}
+        onOpenChange={(o) => { if (!o) setCreateOpen(false); }}
+        form={createForm}
+        setForm={setCreateForm}
+        attendeeOpen={createAttendeeOpen}
+        setAttendeeOpen={setCreateAttendeeOpen}
+        bclAttendeesList={bclAttendeesList}
+        loadingBclAttendees={loadingBclAttendees}
+        isSubmitting={isSubmitting}
+        onSubmit={handleCreate}
+      />
 
-                    <div className="ev-section-label">Schedule & Venue</div>
-                    <div className="ev-meta-grid">
-                      <div><div className="ev-meta-label">Date</div><div className="ev-meta-value">{formatDateDDMMYYYY(ev.event_date)}</div></div>
-                      <div><div className="ev-meta-label">Time</div><div className="ev-meta-value">{formatTime(ev.event_start_time)} — {formatTime(ev.event_end_time)}</div></div>
-                      <div><div className="ev-meta-label">Duration</div><div className="ev-meta-value">{ev.event_duration ? `${ev.event_duration} min` : '—'}</div></div>
-                      <div><div className="ev-meta-label">Expected Guests</div><div className="ev-meta-value">{ev.expected_attendees ?? '—'}</div></div>
-                      {(ev.event_slot_start_time || ev.event_slot_end_time) && (
-                        <div style={{ gridColumn: '1/-1' }}>
-                          <div className="ev-meta-label">Calendar Slot</div>
-                          <div className="ev-meta-value">{formatTime(ev.event_slot_start_time || '')} — {formatTime(ev.event_slot_end_time || '')}</div>
-                        </div>
-                      )}
-                      {ev.event_venue && <div style={{ gridColumn: '1/-1' }}><div className="ev-meta-label">Venue</div><div className="ev-meta-value">{ev.event_venue}</div></div>}
-                      {ev.event_venue_area && <div><div className="ev-meta-label">Area</div><div className="ev-meta-value"><span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><MapPin size={13} />{ev.event_venue_area}</span></div></div>}
-                    </div>
-
-                    {Array.isArray(ev.bcl_attendee) && ev.bcl_attendee.length > 0 && (
-                      <>
-                        <div className="ev-section-label">BCL Attendees</div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                          {(ev.bcl_attendee_names ?? ev.bcl_attendee).map((name, i) => (
-                            <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#eef2f3', borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 700, color: '#1d4ed8' }}>
-                              <User size={10} />{name}
-                            </span>
-                          ))}
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  <div className="ev-dialog-right">
-                    <div className="ev-section-label">Organizer Contact</div>
-                    <div className="ev-contact-box">
-                      {[
-                        { label: 'Name', value: ev.organizer_name },
-                        { label: 'Company', value: ev.organizer_company },
-                        { label: 'Mobile', value: ev.organizer_mobile },
-                        { label: 'Email', value: ev.organizer_email },
-                      ].map(({ label, value }) => value ? (
-                        <div key={label} className="ev-contact-row">
-                          <div className="ev-contact-label">{label}</div>
-                          <div className="ev-contact-value">{value}</div>
-                        </div>
-                      ) : null)}
-                    </div>
-
-                    <div className="ev-section-label">Google Calendar</div>
-                    <div className="ev-sync-box" style={{ borderColor: ev.google_event_id ? '#bbf7d0' : '#eef2f3', background: ev.google_event_id ? '#f0fdf4' : '#ffffff' }}>
-                      <div className="ev-sync-icon" style={{ background: ev.google_event_id ? '#dcfce7' : '#eef2f3', color: ev.google_event_id ? '#16a34a' : '#8ca4a8' }}>
-                        {ev.google_event_id ? <Cloud size={16} /> : <CloudOff size={16} />}
-                      </div>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: ev.google_event_id ? '#14532d' : '#1d4ed8' }}>{ev.google_event_id ? 'Calendar Synced' : 'Not Synced'}</div>
-                        <div style={{ fontSize: 11, marginTop: 3, color: ev.google_event_id ? '#16a34a' : '#8ca4a8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {ev.google_event_id ? `ID: ${ev.google_event_id.slice(0, 12)}…` : 'Click Sync to add to Google Calendar'}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="ev-dialog-footer">
-                  <div className="ev-action-group">
-                    {canEdit && <Button className="ev-action-btn ev-action-confirm h-auto" onClick={handleConfirm} disabled={!!actionLoading || ev.status === 'confirmed'}>{actionLoading === 'confirm' ? <Loader2 size={12} className="animate-spin" /> : <UserCheck size={12} />} Confirm</Button>}
-                    {canEdit && <Button className="ev-action-btn ev-action-done h-auto" onClick={handleMarkDone} disabled={!!actionLoading}>{actionLoading === 'done' ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />} Mark Done</Button>}
-                    {canEdit && <Button className="ev-action-btn ev-action-danger h-auto" onClick={handleCancel} disabled={!!actionLoading}>{actionLoading === 'cancel' ? <Loader2 size={12} className="animate-spin" /> : <Ban size={12} />} Cancel</Button>}
-                  </div>
-                  <div className="ev-action-group">
-                    <Button className="ev-action-btn ev-action-neutral h-auto" onClick={handleSyncToCalendar} disabled={!!actionLoading || calStatus !== 'connected'}>{actionLoading === 'sync' ? <Loader2 size={12} className="animate-spin" /> : <Cloud size={12} />} Sync</Button>
-                    {canEdit && <Button className="ev-action-btn ev-action-neutral h-auto" onClick={openEdit} disabled={!!actionLoading}><Edit2 size={12} /> Edit</Button>}
-                    {canDelete && <Button className="ev-action-btn ev-action-danger h-auto" onClick={() => setDeletingEvent(ev)} disabled={!!actionLoading}><Trash2 size={12} /> Delete</Button>}
-                    <Button className="ev-action-btn ev-action-close h-auto" onClick={() => setSelectedEvent(null)}>Close</Button>
-                  </div>
-                </div>
-              </>
-            );
-          })()}
-        </DialogContent>
-      </Dialog>
-
-      {/* CREATE */}
-      <Dialog open={isCreateOpen} onOpenChange={o => { if (!o) setCreateOpen(false); }}>
-        <DialogContent className="ev-form-dialog" style={{ maxWidth: 560, padding: 24 }}>
-          <DialogHeader><DialogTitle className="ev-form-title"><Plus size={17} color="#00a3a3" /> Create Event</DialogTitle></DialogHeader>
-          {renderFormFields(createForm, setCreateForm, createAttendeeOpen, setCreateAttendeeOpen)}
-          <div className="ev-form-footer">
-            <Button className="ev-form-cancel h-auto" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button className="ev-form-submit h-auto" onClick={handleCreate}
-              disabled={isSubmitting || !createForm.event_name || !createForm.event_date || !createForm.event_start_time || !createForm.event_end_time}>
-              {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : 'Create Event'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* EDIT */}
-      <Dialog open={isEditOpen} onOpenChange={o => { if (!o) setEditOpen(false); }}>
-        <DialogContent className="ev-form-dialog" style={{ maxWidth: 560, padding: 24 }}>
-          <DialogHeader><DialogTitle className="ev-form-title"><Edit2 size={17} color="#00a3a3" /> Edit Event</DialogTitle></DialogHeader>
-          {renderFormFields(editForm, setEditForm, editAttendeeOpen, setEditAttendeeOpen)}
-          <div className="ev-form-footer">
-            <Button className="ev-form-cancel h-auto" onClick={() => setEditOpen(false)}>Cancel</Button>
-            <Button className="ev-form-submit h-auto" onClick={handleEdit} disabled={isSubmitting}>
-              {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : 'Save Changes'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* DELETE */}
-      <AlertDialog open={!!deletingEvent} onOpenChange={o => !o && setDeletingEvent(null)}>
-        <AlertDialogContent className="ev-delete-dialog" style={{ padding: 24 }}>
-          <AlertDialogHeader>
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: 'linear-gradient(135deg,#ef4444,#dc2626)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12, boxShadow: '0 4px 14px rgba(239,68,68,.3)' }}>
-              <Trash2 size={20} color="#fff" />
-            </div>
-            <AlertDialogTitle style={{ fontFamily: 'Inter,sans-serif', fontSize: 16, fontWeight: 800, color: '#1d4ed8' }}>Delete Event</AlertDialogTitle>
-            <AlertDialogDescription style={{ fontFamily: 'Inter,sans-serif', fontSize: 13, color: '#64868c', lineHeight: 1.6 }}>
-              Permanently remove <strong style={{ color: '#1d4ed8' }}>{deletingEvent?.event_name}</strong>? This cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter style={{ marginTop: 16, gap: 8 }}>
-            <AlertDialogCancel style={{ flex: 1, height: 38, borderRadius: 8, fontFamily: 'Inter,sans-serif', fontWeight: 700, fontSize: 13, border: '1px solid #eef2f3', background: '#f7fafa', color: '#64868c', cursor: 'pointer' }}>Keep</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={isDeleting} style={{ flex: 1, height: 38, borderRadius: 8, fontFamily: 'Inter,sans-serif', fontWeight: 700, fontSize: 13, border: 'none', background: 'linear-gradient(135deg,#ef4444,#dc2626)', color: '#fff', cursor: 'pointer', boxShadow: '0 3px 10px rgba(239,68,68,.3)' }}>
-              {isDeleting ? <Loader2 size={14} className="animate-spin" /> : 'Delete Permanently'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteEventDialog
+        event={deletingEvent}
+        isDeleting={isDeleting}
+        onOpenChange={(o) => !o && setDeletingEvent(null)}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 };

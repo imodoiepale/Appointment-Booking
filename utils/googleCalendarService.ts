@@ -21,6 +21,9 @@ interface MeetingEvent {
   meeting_agenda: string;
   meeting_venue_area: string;
   meeting_type: 'virtual' | 'physical';
+  virtual_meeting_mode?: 'hosted' | 'external' | null;
+  meeting_link?: string | null;
+  meeting_id?: string | null;
   client_mobile?: string;
   status?: string;
   badge_status?: string;
@@ -168,6 +171,12 @@ function buildEventDescription(meeting: MeetingEvent) {
     `Location: ${meeting.meeting_venue_area}`,
     `Type:     ${meeting.meeting_type === 'virtual' ? 'Virtual / Online' : 'In Person'}`,
     ...(meeting.venue_distance ? [`Distance: ${meeting.venue_distance}`] : []),
+    ...(meeting.meeting_type === 'virtual' && meeting.virtual_meeting_mode === 'external'
+      ? [
+          ...(meeting.meeting_link ? [`Meeting Link: ${meeting.meeting_link}`] : []),
+          ...(meeting.meeting_id ? [`Meeting ID:   ${meeting.meeting_id}`] : []),
+        ]
+      : []),
     '',
     '── AGENDA ──',
     meeting.meeting_agenda || 'No agenda provided.',
@@ -193,9 +202,14 @@ function buildCalendarEvent(meeting: MeetingEvent) {
     ? meeting.meeting_slot_end_time!
     : meeting.meeting_end_time;
 
+  const isVirtual = meeting.meeting_type === 'virtual';
+  const isExternal = isVirtual && meeting.virtual_meeting_mode === 'external';
+  const isHosted = isVirtual && !isExternal;
+
   return {
     summary: `Meeting with ${meeting.client_name} - ${meeting.client_company}`,
     description: buildEventDescription(meeting),
+    ...(isExternal && meeting.meeting_link ? { location: meeting.meeting_link } : {}),
     start: {
       dateTime: `${meeting.meeting_date}T${toHHMM(eventStart)}:00+03:00`,
       timeZone: 'Africa/Nairobi',
@@ -215,7 +229,7 @@ function buildCalendarEvent(meeting: MeetingEvent) {
         { method: 'popup', minutes: 0 },
       ],
     },
-    ...(meeting.meeting_type === 'virtual' && {
+    ...(isHosted && {
       conferenceData: {
         createRequest: {
           requestId: `meeting_${meeting.id_main}_${Date.now()}`,
@@ -435,6 +449,13 @@ interface BclEventRecord {
   event_start_time: string;
   event_end_time: string;
   event_duration?: number;
+  event_slot_start_time?: string;
+  event_slot_end_time?: string;
+  venue_distance?: number;
+  event_format?: 'virtual' | 'physical';
+  virtual_meeting_mode?: 'hosted' | 'external' | null;
+  meeting_link?: string | null;
+  meeting_id?: string | null;
   event_venue?: string;
   event_venue_area?: string;
   event_description?: string;
@@ -474,10 +495,15 @@ function buildBclEventDescription(ev: BclEventRecord): string {
     `Time:     ${toHHMM(ev.event_start_time)} → ${toHHMM(ev.event_end_time)}  (${ev.event_duration ?? '?'} min)`,
   ];
 
-  if (ev.event_venue || ev.event_venue_area) {
+  if (ev.event_venue || ev.event_venue_area || ev.event_format) {
     lines.push('', '── VENUE ──');
     if (ev.event_venue) lines.push(`Venue:    ${ev.event_venue}`);
     if (ev.event_venue_area) lines.push(`Area:     ${ev.event_venue_area}`);
+    if (ev.event_format) lines.push(`Format:   ${ev.event_format === 'virtual' ? 'Virtual / Online' : 'Physical'}`);
+    if (ev.event_format === 'virtual' && ev.virtual_meeting_mode === 'external') {
+      if (ev.meeting_link) lines.push(`Meeting Link: ${ev.meeting_link}`);
+      if (ev.meeting_id) lines.push(`Meeting ID:   ${ev.meeting_id}`);
+    }
   }
 
   if (ev.organizer_name || ev.organizer_company) {
@@ -513,16 +539,28 @@ function buildGCalEventFromBclEvent(ev: BclEventRecord) {
     ? `${typeLabel}: ${ev.event_name} (${ev.organizer_name})`
     : `${typeLabel}: ${ev.event_name}`;
 
+  // Use slot times (which include travel) if available, otherwise fall back to event times
+  const eventStart = toHHMM(ev.event_slot_start_time) !== '--:--'
+    ? ev.event_slot_start_time!
+    : ev.event_start_time;
+  const eventEnd = toHHMM(ev.event_slot_end_time) !== '--:--'
+    ? ev.event_slot_end_time!
+    : ev.event_end_time;
+
+  const isVirtual = ev.event_format === 'virtual';
+  const isExternal = isVirtual && ev.virtual_meeting_mode === 'external';
+  const isHosted = isVirtual && !isExternal;
+
   return {
     summary,
     description: buildBclEventDescription(ev),
-    location: ev.event_venue || ev.event_venue_area || undefined,
+    location: (isExternal && ev.meeting_link) ? ev.meeting_link : (ev.event_venue || ev.event_venue_area || undefined),
     start: {
-      dateTime: `${ev.event_date}T${toHHMM(ev.event_start_time)}:00+03:00`,
+      dateTime: `${ev.event_date}T${toHHMM(eventStart)}:00+03:00`,
       timeZone: 'Africa/Nairobi',
     },
     end: {
-      dateTime: `${ev.event_date}T${toHHMM(ev.event_end_time)}:00+03:00`,
+      dateTime: `${ev.event_date}T${toHHMM(eventEnd)}:00+03:00`,
       timeZone: 'Africa/Nairobi',
     },
     reminders: {
@@ -533,6 +571,14 @@ function buildGCalEventFromBclEvent(ev: BclEventRecord) {
         { method: 'popup', minutes: 30 },
       ],
     },
+    ...(isHosted && {
+      conferenceData: {
+        createRequest: {
+          requestId: `event_${ev.id}_${Date.now()}`,
+          conferenceSolutionKey: 'hangoutsMeet' as any,
+        },
+      },
+    }),
   };
 }
 
@@ -542,13 +588,15 @@ export async function createGoogleCalendarEntryForEvent(ev: BclEventRecord): Pro
     const response = await calendar.events.insert({
       calendarId: 'primary',
       requestBody: buildGCalEventFromBclEvent(ev),
+      conferenceDataVersion: 1,
     });
 
     const gCalId = response.data?.id || '';
+    const meetLink = response.data?.hangoutLink || null;
 
     await supabase
       .from('bcl_events')
-      .update({ google_event_id: gCalId })
+      .update({ google_event_id: gCalId, google_meet_link: meetLink })
       .eq('id', ev.id);
 
     return gCalId;
@@ -576,11 +624,17 @@ export async function updateGoogleCalendarEntryForEvent(ev: BclEventRecord): Pro
       eventId: stored.google_event_id,
     });
 
-    await calendar.events.update({
+    const updateResponse = await calendar.events.update({
       calendarId: 'primary',
       eventId: stored.google_event_id,
       requestBody: { ...existing.data, ...buildGCalEventFromBclEvent(ev) },
+      conferenceDataVersion: 1,
     });
+
+    const meetLink = updateResponse.data?.hangoutLink || null;
+    if (meetLink) {
+      await supabase.from('bcl_events').update({ google_meet_link: meetLink }).eq('id', ev.id);
+    }
 
     return stored.google_event_id;
   } catch (error: any) {

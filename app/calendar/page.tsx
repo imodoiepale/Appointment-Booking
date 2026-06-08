@@ -892,7 +892,7 @@ const STATUS_CONFIG: Record<string, {
     icon: Info,
   },
   pending_confirmation: {
-    label: 'Pending Confirmation',
+    label: 'Pending Confirmation (Tentative)',
     bg: 'bg-amber-100',
     text: 'text-amber-800',
     border: 'border-amber-200',
@@ -900,7 +900,7 @@ const STATUS_CONFIG: Record<string, {
     icon: Timer,
   },
   pending: {
-    label: 'Pending Confirmation',
+    label: 'Pending Confirmation (Tentative)',
     bg: 'bg-amber-100',
     text: 'text-amber-800',
     border: 'border-amber-200',
@@ -1782,11 +1782,11 @@ const CalendarView = () => {
           </Button>
 
           <Button
-            className="h-9 text-xs bg-indigo-600 hover:bg-indigo-700 text-white gap-2 px-4 shadow-sm shadow-indigo-100"
+            className="h-9 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-2 px-4 shadow-sm shadow-blue-100"
             onClick={() => setScheduleOpen(true)}
           >
             <PlusCircle size={15} />
-            <span>Schedule</span>
+            <span>Create New Meeting</span>
           </Button>
           <ScheduleDialog open={scheduleOpen} onOpenChange={setScheduleOpen} />
         </div>

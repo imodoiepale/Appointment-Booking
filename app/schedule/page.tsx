@@ -12,10 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
-import {
-    Calendar, Clock, Mic, MicOff, Building, User, Phone, Mail,
-    MapPin, Check, ChevronRight, ChevronLeft, Loader2, Info, X, Video, Plus
-} from 'lucide-react';
+import { Calendar, Clock, Mic, MicOff, Building, User, Phone, Mail, MapPin, Check, ChevronRight, ChevronLeft, Loader2, Info, X, Video, Plus, Link2, Hash } from 'lucide-react';
 import supabase from '@/utils/supabaseClient';
 import { MEETING_STATUSES } from '@/utils/appointmentStatuses';
 
@@ -100,13 +97,6 @@ const SchedulerStyles = () => (
     }
     .sch-title { font-size: 22px; font-weight: 800; color: #1d4ed8; letter-spacing: -0.02em; }
     .sch-subtitle { font-size: 13px; color: #64868c; margin-top: 4px; max-width: 420px; line-height: 1.5; }
-    .sch-header-chips { display: flex; gap: 10px; flex-shrink: 0; }
-    .sch-chip {
-      background: #ffffff; border: 1px solid #eef2f3;
-      border-radius: 9px; padding: 10px 16px;
-      box-shadow: 0 8px 20px rgba(0,48,56,0.07);
-    }
-    .sch-chip-val { font-size: 13px; font-weight: 800; color: #1d4ed8; }
     .sch-chip-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #8ca4a8; margin-top: 3px; }
 
     /* ── STEP INDICATOR ── */
@@ -349,6 +339,7 @@ const INITIAL_FORM = {
     meetingAgenda: '', otherMeetingAgenda: '', meetingDuration: '',
     venueDistance: '10', meetingStartTime: '', meetingEndTime: '',
     meetingSlotStartTime: '', meetingSlotEndTime: '',
+    virtualMeetingMode: '', meetingLink: '', meetingId: '',
     status: 'upcoming',
 };
 
@@ -482,6 +473,12 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
 
     const handleSelect = (name: string, val: string) => {
         setFormData(p => ({ ...p, [name]: val }));
+        if (name === 'meetingType' && val !== 'virtual') {
+            setFormData(p => ({ ...p, meetingType: val, virtualMeetingMode: '', meetingLink: '', meetingId: '' }));
+        }
+        if (name === 'virtualMeetingMode' && val !== 'external') {
+            setFormData(p => ({ ...p, virtualMeetingMode: val, meetingLink: '', meetingId: '' }));
+        }
         if (name === 'meetingVenueArea') setShowOtherVenue(val === 'Other');
         if (name === 'meetingAgenda') { setShowOtherAgenda(val === 'Other'); if (val !== 'Other') set('otherMeetingAgenda', ''); }
         if (name === 'companyType') { setShowOtherCompany(val === 'new'); setFormData(p => ({ ...p, clientCompany: '', otherClientCompany: '', clientMobile: '', clientEmail: '' })); }
@@ -515,6 +512,10 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
 
     const validateStep = (step: number): boolean => {
         let req = [...(FIELDS_TO_VALIDATE[step] || [])];
+        if (step === 0 && formData.meetingType === 'virtual') {
+            req.push('virtualMeetingMode');
+            if (formData.virtualMeetingMode === 'external') req.push('meetingLink');
+        }
         if (step === 1) {
             if (formData.companyType === 'existing') req.push('clientCompany');
             if (formData.companyType === 'new') req.push('otherClientCompany');
@@ -568,6 +569,9 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
                 venue_distance: parseInt(formData.venueDistance),
                 meeting_start_time: formData.meetingStartTime, meeting_end_time: formData.meetingEndTime,
                 meeting_slot_start_time: formData.meetingSlotStartTime, meeting_slot_end_time: formData.meetingSlotEndTime,
+                virtual_meeting_mode: formData.meetingType === 'virtual' ? (formData.virtualMeetingMode || null) : null,
+                meeting_link: formData.meetingType === 'virtual' ? formData.meetingLink : '',
+                meeting_id: formData.meetingType === 'virtual' ? formData.meetingId : '',
                 badge_status: 'Open', status: formData.status || 'upcoming', google_event_id: null, google_meet_link: null,
             }]).select();
             if (error) throw error;
@@ -625,6 +629,23 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
                     placeholder="Select type" invalid={inv('meetingType')}
                     items={[{ value: 'virtual', label: 'Virtual' }, { value: 'inPerson', label: 'In Person' }]} />
             </Field>
+            {formData.meetingType === 'virtual' && (
+                <Field label="How will this be joined? *" error={inv('virtualMeetingMode')}>
+                    <SchSelect value={formData.virtualMeetingMode} onValueChange={v => handleSelect('virtualMeetingMode', v)}
+                        placeholder="Select mode" invalid={inv('virtualMeetingMode')}
+                        items={[{ value: 'hosted', label: "We'll generate a Google Meet link" }, { value: 'external', label: 'Provide an existing link' }]} />
+                </Field>
+            )}
+            {formData.meetingType === 'virtual' && formData.virtualMeetingMode === 'external' && (
+                <>
+                    <Field label="Meeting Link *" error={inv('meetingLink')}>
+                        <TextInput name="meetingLink" value={formData.meetingLink} onChange={handleChange} placeholder="https://zoom.us/j/..." icon={Link2} invalid={inv('meetingLink')} />
+                    </Field>
+                    <Field label="Meeting ID">
+                        <TextInput name="meetingId" value={formData.meetingId} onChange={handleChange} placeholder="e.g. 123 4567 8901" icon={Hash} />
+                    </Field>
+                </>
+            )}
             <Field label="Meeting Venue *" error={inv('meetingVenueArea')}>
                 <SchSelect value={formData.meetingVenueArea} onValueChange={v => handleSelect('meetingVenueArea', v)}
                     placeholder="Select venue" invalid={inv('meetingVenueArea')}
@@ -778,6 +799,13 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
             { label: 'Calendar Slot', value: `${formData.meetingSlotStartTime || '--:--'} – ${formData.meetingSlotEndTime || '--:--'}` },
             { label: 'Duration', value: formData.meetingDuration ? `${formData.meetingDuration} min` : '—' },
             { label: 'Type', value: formData.meetingType === 'inPerson' ? 'In Person' : 'Virtual' },
+            ...(formData.meetingType === 'virtual' ? [
+                { label: 'Joining via', value: formData.virtualMeetingMode === 'external' ? 'External link (provided)' : "Google Meet (auto-generated)" },
+                ...(formData.virtualMeetingMode === 'external' ? [
+                    { label: 'Meeting Link', value: formData.meetingLink || '—' },
+                    { label: 'Meeting ID', value: formData.meetingId || '—' },
+                ] : []),
+            ] : []),
             { label: 'Venue', value: formData.meetingVenueArea === 'Other' ? formData.otherMeetingVenueArea : formData.meetingVenueArea },
             { label: 'Agenda', value: finalAgenda },
             { label: 'BCL Attendee(s)', value: (formData.bclAttendeeNames as string[]).join(', ') || '—' },
@@ -808,26 +836,26 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
     };
 
     return (
-        <div className="sch-card">
+        <div className="bg-white">
             {/* HEADER */}
-            <div className="sch-header">
+            <div className="flex gap-4 p-4">
                 <div>
                     <div className="sch-badge"><Calendar size={11} /> Booksmart Scheduler</div>
-                    <div className="sch-title">Schedule New Meeting</div>
+                    <h2 className="text-2xl font-bold text-blue-700">Schedule New Meeting</h2>
                     <div className="sch-subtitle">Capture client, attendee, slot, and agenda details in one guided flow.</div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
-                    <div className="sch-header-chips">
-                        <div className="sch-chip">
-                            <div className="sch-chip-val">{formData.meetingDate || 'No date'}</div>
-                            <div className="sch-chip-label">Meeting date</div>
+                <div className='flex gap-4 h-full'>
+                    <div className="flex gap-4">
+                        <div className="p-4 rounded-md bg-white border text-xs shadow-md">
+                            <div className="text-blue-700 font-bold text-sm">{formData.meetingDate || 'No date'}</div>
+                            <div className="text-[10px] font-bold text-slate-400 uppercase">Meeting date</div>
                         </div>
-                        <div className="sch-chip">
-                            <div className="sch-chip-val">{formData.meetingStartTime || '--:--'}</div>
-                            <div className="sch-chip-label">Start time</div>
+                        <div className="p-4 rounded-md bg-white border text-xs shadow-md">
+                            <div className="text-blue-700 font-bold text-sm">{formData.meetingStartTime || '--:--'}</div>
+                            <div className="text-[10px] font-bold text-slate-400 uppercase">Start time</div>
                         </div>
                     </div>
-                    <Button className={`sch-voice-btn h-auto ${isListening ? 'sch-voice-on' : 'sch-voice-off'}`} onClick={toggleListening}>
+                    <Button className={`p-4 rounded-md bg-white border text-xs shadow-md h-auto ${isListening ? 'sch-voice-on' : 'sch-voice-off'}`} onClick={toggleListening}>
                         {isListening ? <><MicOff size={13} /> Stop</> : <><Mic size={13} /> Voice</>}
                     </Button>
                 </div>

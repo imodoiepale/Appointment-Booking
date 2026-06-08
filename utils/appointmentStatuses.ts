@@ -8,7 +8,7 @@
 
 export const MEETING_STATUSES = [
   { value: 'draft',               label: 'Draft' },
-  { value: 'pending_confirmation', label: 'Pending Confirmation' },
+  { value: 'pending_confirmation', label: 'Pending Confirmation (Tentative)' },
   { value: 'confirmed',           label: 'Confirmed' },
   { value: 'upcoming',            label: 'Upcoming' },
   { value: 'in_progress',         label: 'In Progress' },
@@ -66,7 +66,7 @@ export const STATUS_TAILWIND: Record<string, {
     bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-200', dot: 'bg-gray-400',
   },
   pending_confirmation: {
-    label: 'Pending Confirmation',
+    label: 'Pending Confirmation (Tentative)',
     bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-amber-200', dot: 'bg-amber-500',
   },
   confirmed: {
