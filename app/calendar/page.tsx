@@ -11,10 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from "@/lib/utils";
 import supabase from '@/utils/supabaseClient';
 import { getStatusGradient } from '@/utils/meetingStatusColors';
-import {
-  getEventTypeConfig, EventTypeIcon as EvTypeIconUtil, EVENT_TYPE_CONFIG,
-  getMeetingStatusHex, MEETING_STATUS_COLORS, formatDateDDMMYYYY,
-} from '@/utils/appointmentStyles';
+import { getEventTypeConfig, EventTypeIcon as EvTypeIconUtil, EVENT_TYPE_CONFIG, getMeetingStatusHex, MEETING_STATUS_COLORS, formatDateDDMMYYYY } from '@/utils/appointmentStyles';
 import { ScheduleDialog } from '@/app/schedule/page';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -986,7 +983,7 @@ const CalendarView = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [allMeetings, setAllMeetings] = useState<Meeting[]>([]);
   const [allEvents, setAllEvents] = useState<BclEvent[]>([]);
-  const [contentType, setContentType] = useState<ContentFilter>('meetings');
+  const [contentType, setContentType] = useState<ContentFilter>('all');
   const [loading, setLoading] = useState(true);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [selectedMeeting, setSelectedMeeting] = useState<any>(null);

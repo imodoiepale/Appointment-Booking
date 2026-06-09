@@ -12,6 +12,7 @@ import {
     Calendar,
     CalendarDays,
     CheckCircle,
+    Clipboard,
     Clock,
     HelpCircle,
     LayoutDashboard,
@@ -56,6 +57,8 @@ const Sidebar = () => {
         { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
         { name: "Meetings", href: "/dashboard", icon: Video },
         { name: "Events", href: "/events", icon: PartyPopper },
+        { name: "Birthdays", href: "/birthdays", icon: PartyPopper },
+        { name: "Tasks Reports", href: "/tasks", icon: Clipboard },
         { name: "Calendar", href: "/calendar", icon: CalendarDays },
         { name: "Notifications", href: "/notifications", icon: Bell, count: 3 },
     ];

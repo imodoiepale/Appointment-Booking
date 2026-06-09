@@ -692,9 +692,9 @@ const DashboardContent = () => {
 
         {viewMode === 'table' ? (
           <div className="overflow-x-auto p-4 border">
-            <Table className='border rounded-2xl overflow-hidden'>
+            <Table className='border rounded-2xl overflow-auto'>
               <TableHeader className='bg-slate-50 border'>
-                <TableRow className="hover:bg-transparent border-0">
+                <TableRow className="hover:bg-transparent border">
                   <TableHead className="w-[44px] border-r">#</TableHead>
                   <TableHead className="border-r">
                     <div className="flex items-center justify-between">
