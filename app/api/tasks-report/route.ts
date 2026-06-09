@@ -80,18 +80,29 @@ function getTaskManagerParticipant(task: any) {
   return getParticipant(task, (role) => role.includes("task_manager"));
 }
 
+function getTaskAssistantParticipant(task: any) {
+  return getParticipant(task, (role) => role.includes("task_assistant"));
+}
+
+function getClassNameFromJobLevel(jl: any, subdepartments: { id: string; name: string; classes?: any[] }[]): string {
+  if (!jl || typeof jl !== "object") return "";
+  const subdept = subdepartments.find((s) => s.id === String(jl.subdepartment_id ?? ""));
+  if (!subdept) return "";
+  if (jl.class_id && Array.isArray(subdept.classes)) {
+    const cls = subdept.classes.find((c: any) => String(c.id) === String(jl.class_id));
+    return cls?.name ?? "";
+  }
+  return subdept.name ?? "";
+}
+
 function getApplicantName(task: any): string {
   return task.applicant_details?.name || task.applicant_name || "Unknown";
 }
 
 // ─── Route ────────────────────────────────────────────────────────────────────
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const subdeptIdsParam = searchParams.get("subdeptIds");
-    const subdeptIds = subdeptIdsParam ? subdeptIdsParam.split(",").filter(Boolean) : [];
-
     // 1. Fetch report config
     const { data: report, error: reportError } = await supabase
       .from("tm_memorized_reports")
@@ -118,43 +129,60 @@ export async function GET(req: NextRequest) {
       (a: any, b: any) => (a.order_num || 0) - (b.order_num || 0)
     );
 
-    // 2b. Fetch subdepartments in a separate query to avoid join failures
+    // 2b. Fetch subdepartments (with classes for job_level class name resolution)
     const { data: subdeptRows } = await supabase
       .from("tm_subdepartments")
-      .select("id, name")
+      .select("id, name, classes")
       .eq("department_id", deptId)
       .order("id");
 
-    const subdepartments: { id: string; name: string }[] = (subdeptRows ?? []).map(
-      (s: any) => ({ id: String(s.id), name: s.name })
+    const subdepartments: { id: string; name: string; classes?: any[] }[] = (subdeptRows ?? []).map(
+      (s: any) => ({ id: String(s.id), name: s.name, classes: s.classes ?? [] })
     );
 
-    // 3. Fetch all tasks for this department; optionally filter by subdepartment
-    let tasksQuery = supabase
+    // 3. Fetch all tasks for this department (all statuses — frontend handles status filtering)
+    const tasksQuery = supabase
       .from("tm_tasks")
       .select("*")
       .eq("job_level->>department_id", String(deptId))
-      .not("status", "in", "(cancel,endorsed,archived)");
-
-    if (subdeptIds.length > 0) {
-      // Filter to tasks whose job_level->subdepartment_id is in the selected list
-      tasksQuery = tasksQuery.in("job_level->>subdepartment_id", subdeptIds);
-    }
+      .not("status", "in", "(completed,archived)");
 
     const { data: rawTasks, error: tasksError } = await tasksQuery;
     if (tasksError) throw tasksError;
+
+    // 3b. Batch fetch registry_individuals for r_number / passport_number
+    const individualIds = Array.from(new Set((rawTasks ?? []).map((t: any) => t.individual_id).filter(Boolean)));
+    const individualMap = new Map<number, any>();
+    if (individualIds.length > 0) {
+      const { data: individuals } = await supabase
+        .from("registry_individuals")
+        .select("id, r_number, passport_number")
+        .in("id", individualIds);
+      (individuals ?? []).forEach((ind: any) => individualMap.set(ind.id, ind));
+    }
 
     // 4. Process tasks — derive virtual fields from participants_details + job_level
     const tasks = (rawTasks ?? []).map((task) => {
       const jl = task.job_level ?? {};
       const subdeptId = jl.subdepartment_id?.toString() ?? "";
       const subdeptEntry = subdepartments.find((s) => s.id === subdeptId);
+      const individual = individualMap.get(task.individual_id);
+      const jobAnswers = task.job_specific_answers ?? {};
+      const tracking = getCurrentStageTracking(task, stages);
       return {
         ...task,
         applicant_name: getApplicantName(task),
         company_name: getCompanyParticipant(task)?.name ?? "",
-        task_manager: getTaskManagerParticipant(task) ?? null,
         sub_department: subdeptEntry?.name ?? "",
+        job_level_class: getClassNameFromJobLevel(jl, subdepartments),
+        r_number: individual?.r_number ?? "",
+        passport_number: individual?.passport_number ?? task.passport_number ?? "",
+        duration: jobAnswers["1769582847128"] ?? "",
+        renewal_status: jobAnswers["1769582847129"] ?? task.renewal_status ?? "New",
+        current_stage_name: tracking?.stage?.name ?? "",
+        current_stage_follow_up: tracking?.stage?.follow_up ?? "",
+        task_manager_name: getTaskManagerParticipant(task)?.name ?? "",
+        task_assistant_name: getTaskAssistantParticipant(task)?.name ?? "",
       };
     });
 
@@ -188,6 +216,16 @@ export async function GET(req: NextRequest) {
       applicant_name: string;
       company_name: string;
       sub_department: string;
+      sub_department_id: string;
+      job_level: string;
+      r_number: string;
+      passport_number: string;
+      duration: string;
+      renewal_status: string;
+      current_stage_name: string;
+      current_stage_follow_up: string;
+      task_manager: string;
+      task_assistant: string;
       status: string;
     };
 
@@ -201,6 +239,16 @@ export async function GET(req: NextRequest) {
         applicant_name: task.applicant_name,
         company_name: task.company_name,
         sub_department: task.sub_department,
+        sub_department_id: (task.job_level?.subdepartment_id ?? "").toString(),
+        job_level: task.job_level_class,
+        r_number: task.r_number,
+        passport_number: task.passport_number,
+        duration: task.duration,
+        renewal_status: task.renewal_status,
+        current_stage_name: task.current_stage_name,
+        current_stage_follow_up: task.current_stage_follow_up,
+        task_manager: task.task_manager_name,
+        task_assistant: task.task_assistant_name,
         status: task.status ?? "wip",
       };
 
@@ -224,9 +272,9 @@ export async function GET(req: NextRequest) {
       // Managers (BCL)
       const tracking = getCurrentStageTracking(task, stages);
       if (tracking?.stage?.follow_up === "BCL") {
-        const mgr = task.task_manager;
-        const mgrId = mgr?.id ? String(mgr.id) : "__unallocated__";
-        const mgrName = mgr?.name ?? "Unallocated";
+        const mgrParticipant = getTaskManagerParticipant(task);
+        const mgrId = mgrParticipant?.id ? String(mgrParticipant.id) : "__unallocated__";
+        const mgrName = mgrParticipant?.name ?? "Unallocated";
         if (!managerGroups.has(mgrId)) managerGroups.set(mgrId, { name: mgrName, tasks: [] });
         managerGroups.get(mgrId)!.tasks.push(row);
       }
