@@ -1,8 +1,7 @@
-// @ts-nocheck
 "use client"
 
 import { useEffect, useState } from "react";
-import { LayoutGrid, Loader2, LogOut, Menu, Search, User, X } from "lucide-react";
+import { LayoutGrid, Loader2, LogOut, Menu, Search, User, X, Calendar } from "lucide-react"; // Added Calendar icon
 
 import { useSidebar } from "@/contexts/SidebarContext";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -25,7 +24,20 @@ export default function Header() {
   const [user, setUser] = useState(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
+  // State for the formatted date
+  const [formattedDate, setFormattedDate] = useState("");
+
   useEffect(() => {
+    // Set the date only on the client side to avoid hydration mismatch
+    const date = new Date();
+    const options: Intl.DateTimeFormatOptions = {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    };
+    setFormattedDate(date.toLocaleDateString('en-US', options));
+
     async function fetchUser() {
       try {
         const res = await fetch("/api/auth/session");
@@ -53,30 +65,14 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-30 flex h-16 w-full shrink-0 items-center border-b border-slate-200 bg-white/95 px-4 backdrop-blur-md transition-colors md:px-8">
       <div className="flex w-full items-center justify-between gap-8">
-        <div className="flex flex-1 items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsMobileOpen(!isMobileOpen)}
-            className="flex h-9 w-9 shrink-0 text-slate-500 hover:text-slate-900 lg:hidden"
-          >
-            {isMobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </Button>
-
-          {/* Search Bar - Matches the Image style (Wide, Rounded-Full) */}
-          <div className="group relative w-full max-w-2xl">
-            <Input
-              type="text"
-              placeholder="Search"
-              className="h-10 w-full rounded-full border-slate-200 bg-white pr-10 text-sm shadow-sm transition-all focus:border-blue-400 focus:ring-4 focus:ring-blue-500/5 placeholder:text-slate-400"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            <Search className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-blue-500" />
-          </div>
+        {/* Date Display - Hidden on small screens, visible on medium+ */}
+        <div className="hidden flex md:flex">
+          <p className="text-xl font-bold text-slate-900">{formattedDate}</p>
         </div>
 
         <div className="flex items-center gap-3">
+          <Separator orientation="vertical" className="hidden h-8 bg-slate-200 md:block" />
+
           <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-500 hover:bg-slate-100" aria-label="Apps">
             <LayoutGrid className="h-5 w-5" />
           </Button>
