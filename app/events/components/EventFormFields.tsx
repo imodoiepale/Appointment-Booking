@@ -7,11 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, X, User } from 'lucide-react';
+import { Loader2, X, Calendar, Clock, MapPin, Users, Info, Building, Phone, Mail, Globe } from 'lucide-react';
 import { EVENT_TYPES } from '@/utils/appointmentStyles';
 import { MEETING_STATUSES, STATUS_PILL_CLASSES } from '@/utils/appointmentStatuses';
 
-// ── BLANK CREATE FORM ────────────────────────────────────────────────────────
+// ── CONSTANTS ────────────────────────────────────────────────────────
 export const BLANK_FORM = {
   event_name: '', event_type: 'other',
   event_date: '', event_start_time: '', event_end_time: '',
@@ -38,7 +38,7 @@ const TRAVEL_OPTIONS: [string, string][] = [
   ['45', '45 min'], ['60', '1 hour'], ['90', '1.5 hrs'], ['120', '2 hrs'],
 ];
 
-// ── TIME HELPERS — mirrors app/schedule/page.tsx calcEndTime/calcSlotTime ───
+// ── TIME HELPERS ──────────────────────────────────────────────────────
 export function calcEndTime(start: string, mins: number): string {
   if (!start || isNaN(mins) || mins <= 0) return '';
   const [h, m] = start.split(':').map(Number);
@@ -72,10 +72,15 @@ interface EventFormFieldsProps {
   setAttendeeOpen: (v: boolean) => void;
   bclAttendeesList: { id: string; displayName: string }[];
   loadingBclAttendees: boolean;
+  tab?: "logistics" | "organizer" | "details";
 }
 
-// ── Shared form fields renderer — mirrors the meetings creation/edit dialog ─
-export function EventFormFields({ form, setForm, attendeeOpen, setAttendeeOpen, bclAttendeesList, loadingBclAttendees }: EventFormFieldsProps) {
+export function EventFormFields({ 
+  form, setForm, attendeeOpen, setAttendeeOpen, 
+  bclAttendeesList, loadingBclAttendees, 
+  tab = "logistics" 
+}: EventFormFieldsProps) {
+
   const handleStartTime = (val: string) => {
     const dur = parseInt(form.event_duration) || 0;
     const end = calcEndTime(val, dur);
@@ -113,195 +118,168 @@ export function EventFormFields({ form, setForm, attendeeOpen, setAttendeeOpen, 
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12, maxHeight: '60vh', overflowY: 'auto', paddingRight: 4 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <div style={{ gridColumn: '1/-1' }}>
-          <label className="ev-field-label">Event Name *</label>
-          <Input className="ev-input" placeholder="e.g. Annual Gala Dinner" value={form.event_name} onChange={e => setForm(p => ({ ...p, event_name: e.target.value }))} />
-        </div>
-        <div>
-          <label className="ev-field-label">Event Type *</label>
-          <Select value={form.event_type} onValueChange={v => setForm(p => ({ ...p, event_type: v }))}>
-            <SelectTrigger className="ev-select-trigger"><SelectValue /></SelectTrigger>
-            <SelectContent>{EVENT_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
-          </Select>
-        </div>
-        <div>
-          <label className="ev-field-label">Status</label>
-          <Select value={form.status} onValueChange={v => setForm(p => ({ ...p, status: v }))}>
-            <SelectTrigger className="ev-select-trigger"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {MEETING_STATUSES.map(s => (
-                <SelectItem key={s.value} value={s.value}>
-                  <span className={`inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold ${STATUS_PILL_CLASSES[s.value] ?? ''}`}>
-                    {s.label}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <label className="ev-field-label">Event Date *</label>
-          <Input type="date" className="ev-input" value={form.event_date} onChange={e => setForm(p => ({ ...p, event_date: e.target.value }))} />
-        </div>
-
-        {/* Start → Duration → End */}
-        <div>
-          <label className="ev-field-label">Start Time *</label>
-          <Input type="time" className="ev-input" value={form.event_start_time} onChange={e => handleStartTime(e.target.value)} />
-        </div>
-        <div>
-          <label className="ev-field-label">Duration (mins) *</label>
-          <Select value={form.event_duration} onValueChange={handleDuration}>
-            <SelectTrigger className="ev-select-trigger"><SelectValue placeholder="Select duration" /></SelectTrigger>
-            <SelectContent>{DURATION_OPTIONS.map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
-          </Select>
-        </div>
-        <div>
-          <label className="ev-field-label">End Time (auto-calc)</label>
-          <Input className="ev-input" readOnly value={form.event_end_time || '—'} style={{ background: '#f7fafa', color: '#8ca4a8' }} />
-        </div>
-
-        {/* Travel + Calendar Slot */}
-        <div>
-          <label className="ev-field-label">Travel Time (Each Way) *</label>
-          <Select value={form.venue_distance} onValueChange={handleTravel}>
-            <SelectTrigger className="ev-select-trigger"><SelectValue placeholder="Select travel time" /></SelectTrigger>
-            <SelectContent>{TRAVEL_OPTIONS.map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
-          </Select>
-        </div>
-        <div>
-          <label className="ev-field-label">Calendar Slot Start (auto-calc)</label>
-          <Input className="ev-input" readOnly value={form.event_slot_start_time || '—'} style={{ background: '#f7fafa', color: '#8ca4a8' }} />
-        </div>
-        <div>
-          <label className="ev-field-label">Calendar Slot End (auto-calc)</label>
-          <Input className="ev-input" readOnly value={form.event_slot_end_time || '—'} style={{ background: '#f7fafa', color: '#8ca4a8' }} />
-        </div>
-
-        <div>
-          <label className="ev-field-label">Venue Name</label>
-          <Input className="ev-input" placeholder="e.g. Grand Ballroom" value={form.event_venue} onChange={e => setForm(p => ({ ...p, event_venue: e.target.value }))} />
-        </div>
-        <div>
-          <label className="ev-field-label">Venue Area / Location</label>
-          <Input className="ev-input" placeholder="e.g. Nairobi CBD" value={form.event_venue_area} onChange={e => setForm(p => ({ ...p, event_venue_area: e.target.value }))} />
-        </div>
-
-        {/* Format + virtual sub-fields */}
-        <div>
-          <label className="ev-field-label">Format *</label>
-          <Select value={form.event_format} onValueChange={handleFormat}>
-            <SelectTrigger className="ev-select-trigger"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="physical">Physical</SelectItem>
-              <SelectItem value="virtual">Virtual</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        {form.event_format === 'virtual' && (
+    <div className="grid grid-cols-2 gap-x-6 gap-y-5">
+      
+      {/* ── LOGISTICS TAB ── */}
+      {tab === "logistics" && (
+        <>
+          <div className="col-span-2">
+            <label className="ev-field-label">Event Name *</label>
+            <Input className="h-10" placeholder="e.g. Annual Gala Dinner" value={form.event_name} onChange={e => setForm(p => ({ ...p, event_name: e.target.value }))} />
+          </div>
+          
           <div>
-            <label className="ev-field-label">How will this be joined? *</label>
-            <Select value={form.virtual_meeting_mode} onValueChange={handleVirtualMode}>
-              <SelectTrigger className="ev-select-trigger"><SelectValue placeholder="Select mode" /></SelectTrigger>
+            <label className="ev-field-label">Event Type *</label>
+            <Select value={form.event_type} onValueChange={v => setForm(p => ({ ...p, event_type: v }))}>
+              <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+              <SelectContent>{EVENT_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <label className="ev-field-label">Status</label>
+            <Select value={form.status} onValueChange={v => setForm(p => ({ ...p, status: v }))}>
+              <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="hosted">We'll generate a Google Meet link</SelectItem>
-                <SelectItem value="external">Provide an existing link</SelectItem>
+                {MEETING_STATUSES.map(s => (
+                  <SelectItem key={s.value} value={s.value}>
+                    <span className={`inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold ${STATUS_PILL_CLASSES[s.value] ?? ''}`}>
+                      {s.label}
+                    </span>
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
-        )}
-        {form.event_format === 'virtual' && form.virtual_meeting_mode === 'external' && (
-          <>
-            <div>
-              <label className="ev-field-label">Meeting Link *</label>
-              <Input className="ev-input" placeholder="https://zoom.us/j/..." value={form.meeting_link} onChange={e => setForm(p => ({ ...p, meeting_link: e.target.value }))} />
-            </div>
-            <div>
-              <label className="ev-field-label">Meeting ID</label>
-              <Input className="ev-input" placeholder="e.g. 123 4567 8901" value={form.meeting_id} onChange={e => setForm(p => ({ ...p, meeting_id: e.target.value }))} />
-            </div>
-          </>
-        )}
 
-        <div>
-          <label className="ev-field-label">Organizer Name</label>
-          <Input className="ev-input" value={form.organizer_name} onChange={e => setForm(p => ({ ...p, organizer_name: e.target.value }))} />
-        </div>
-        <div>
-          <label className="ev-field-label">Organizer Company</label>
-          <Input className="ev-input" value={form.organizer_company} onChange={e => setForm(p => ({ ...p, organizer_company: e.target.value }))} />
-        </div>
-        <div>
-          <label className="ev-field-label">Organizer Mobile</label>
-          <Input className="ev-input" value={form.organizer_mobile} onChange={e => setForm(p => ({ ...p, organizer_mobile: e.target.value }))} />
-        </div>
-        <div>
-          <label className="ev-field-label">Organizer Email</label>
-          <Input type="email" className="ev-input" value={form.organizer_email} onChange={e => setForm(p => ({ ...p, organizer_email: e.target.value }))} />
-        </div>
-        <div>
-          <label className="ev-field-label">Expected Attendees</label>
-          <Input type="number" className="ev-input" min={0} value={form.expected_attendees} onChange={e => setForm(p => ({ ...p, expected_attendees: e.target.value }))} />
-        </div>
+          <div>
+            <label className="ev-field-label">Event Date *</label>
+            <Input type="date" className="h-10" value={form.event_date} onChange={e => setForm(p => ({ ...p, event_date: e.target.value }))} />
+          </div>
 
-        {/* BCL Attendees */}
-        <div style={{ gridColumn: '1/-1' }}>
-          <label className="ev-field-label">BCL Attendees</label>
-          {loadingBclAttendees ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 38, color: '#8ca4a8', fontSize: 13 }}>
-              <Loader2 size={13} className="animate-spin" /> Loading attendees…
-            </div>
-          ) : (
-            <Popover open={attendeeOpen} onOpenChange={setAttendeeOpen}>
-              <PopoverTrigger asChild>
-                <button style={{
-                  width: '100%', minHeight: 38, padding: '6px 12px 6px 12px',
-                  fontSize: 13, fontWeight: 500, fontFamily: 'Inter, sans-serif',
-                  border: '1px solid #e2e8e9', borderRadius: 8,
-                  background: '#fff', color: '#1d4ed8', cursor: 'pointer',
-                  textAlign: 'left', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 5,
-                  transition: 'all 0.15s ease', boxSizing: 'border-box',
-                }}>
-                  {(!form.bcl_attendee || (form.bcl_attendee as string[]).length === 0)
-                    ? <span style={{ color: '#b0c4c8' }}>Select BCL attendees…</span>
-                    : (form.bcl_attendee_names as string[]).map((name, i) => (
-                      <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#eef2f3', borderRadius: 5, padding: '2px 8px', fontSize: 11, fontWeight: 700, color: '#1d4ed8' }}>
-                        {name}
-                        <span style={{ cursor: 'pointer', color: '#8ca4a8', display: 'flex', alignItems: 'center' }}
-                          onClick={e => { e.stopPropagation(); toggleEventAttendee(setForm, (form.bcl_attendee as string[])[i], name, false); }}>
-                          <X size={10} />
+          <div>
+            <label className="ev-field-label">Start Time *</label>
+            <Input type="time" className="h-10" value={form.event_start_time} onChange={e => handleStartTime(e.target.value)} />
+          </div>
+
+          <div>
+            <label className="ev-field-label">Duration (mins) *</label>
+            <Select value={form.event_duration} onValueChange={handleDuration}>
+              <SelectTrigger className="h-10"><SelectValue placeholder="Select duration" /></SelectTrigger>
+              <SelectContent>{DURATION_OPTIONS.map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <label className="ev-field-label">End Time (auto-calc)</label>
+            <Input className="h-10 bg-slate-50 text-slate-400" readOnly value={form.event_end_time || '—'} />
+          </div>
+
+          <div className="col-span-2 grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
+             <div>
+                <label className="ev-field-label">Travel Time (Each Way)</label>
+                <Select value={form.venue_distance} onValueChange={handleTravel}>
+                  <SelectTrigger className="h-10 bg-white"><SelectValue /></SelectTrigger>
+                  <SelectContent>{TRAVEL_OPTIONS.map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
+                </Select>
+             </div>
+             <div>
+                <label className="ev-field-label">Format *</label>
+                <Select value={form.event_format} onValueChange={handleFormat}>
+                  <SelectTrigger className="h-10 bg-white"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="physical">Physical</SelectItem>
+                    <SelectItem value="virtual">Virtual</SelectItem>
+                  </SelectContent>
+                </Select>
+             </div>
+          </div>
+
+          <div className="col-span-2">
+            <label className="ev-field-label">Venue Name</label>
+            <Input className="h-10" placeholder="e.g. Grand Ballroom" value={form.event_venue} onChange={e => setForm(p => ({ ...p, event_venue: e.target.value }))} />
+          </div>
+        </>
+      )}
+
+      {/* ── ORGANIZER TAB ── */}
+      {tab === "organizer" && (
+        <>
+          <div className="col-span-2">
+            <label className="ev-field-label">Organizer Name</label>
+            <Input className="h-10" value={form.organizer_name} onChange={e => setForm(p => ({ ...p, organizer_name: e.target.value }))} />
+          </div>
+          <div>
+            <label className="ev-field-label">Organizer Company</label>
+            <Input className="h-10" value={form.organizer_company} onChange={e => setForm(p => ({ ...p, organizer_company: e.target.value }))} />
+          </div>
+          <div>
+            <label className="ev-field-label">Organizer Mobile</label>
+            <Input className="h-10" value={form.organizer_mobile} onChange={e => setForm(p => ({ ...p, organizer_mobile: e.target.value }))} />
+          </div>
+          <div>
+            <label className="ev-field-label">Organizer Email</label>
+            <Input type="email" className="h-10" value={form.organizer_email} onChange={e => setForm(p => ({ ...p, organizer_email: e.target.value }))} />
+          </div>
+          <div>
+            <label className="ev-field-label">Expected Attendees</label>
+            <Input type="number" className="h-10" min={0} value={form.expected_attendees} onChange={e => setForm(p => ({ ...p, expected_attendees: e.target.value }))} />
+          </div>
+
+          <div className="col-span-2 pt-4 border-t mt-2">
+            <label className="ev-field-label">BCL Attendees</label>
+            {loadingBclAttendees ? (
+              <div className="flex items-center gap-2 h-10 text-slate-400 text-sm italic">
+                <Loader2 size={14} className="animate-spin" /> Loading attendees…
+              </div>
+            ) : (
+              <Popover open={attendeeOpen} onOpenChange={setAttendeeOpen}>
+                <PopoverTrigger asChild>
+                  <button className="w-full min-h-[40px] px-3 py-2 text-sm border rounded-lg bg-white flex flex-wrap gap-1.5 items-center text-left">
+                    {(!form.bcl_attendee || form.bcl_attendee.length === 0) ? (
+                      <span className="text-slate-400">Select internal attendees…</span>
+                    ) : (
+                      form.bcl_attendee_names.map((name, i) => (
+                        <span key={i} className="inline-flex items-center gap-1 bg-slate-100 px-2 py-1 rounded text-xs font-bold text-blue-700">
+                          {name}
+                          <X size={10} className="cursor-pointer text-slate-400" onClick={e => { e.stopPropagation(); toggleEventAttendee(setForm, form.bcl_attendee[i], name, false); }} />
                         </span>
-                      </span>
-                    ))
-                  }
-                </button>
-              </PopoverTrigger>
-              <PopoverContent style={{ width: 260, padding: 10, borderRadius: 10, border: '1px solid #eef2f3', background: '#fff', boxShadow: '0 8px 24px rgba(0,48,56,0.1)' }} align="start">
-                <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8ca4a8', padding: '0 4px', marginBottom: 8 }}>Select BCL Attendees</div>
-                <div style={{ maxHeight: 200, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {bclAttendeesList.map(a => {
-                    const sel = Array.isArray(form.bcl_attendee) && (form.bcl_attendee as string[]).includes(a.id);
-                    return (
-                      <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 6px', borderRadius: 7, cursor: 'pointer', background: sel ? '#f0f4f5' : 'transparent', transition: 'background 0.12s' }}
-                        onClick={() => toggleEventAttendee(setForm, a.id, a.displayName, !sel)}>
-                        <Checkbox checked={sel} onCheckedChange={c => toggleEventAttendee(setForm, a.id, a.displayName, !!c)} onClick={e => e.stopPropagation()} />
-                        <span style={{ fontSize: 13, fontWeight: 500, color: '#1d4ed8' }}>{a.displayName}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </PopoverContent>
-            </Popover>
-          )}
-        </div>
+                      ))
+                    )}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[280px] p-2 bg-white shadow-xl rounded-xl border-slate-200" align="start">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest p-2 border-b mb-1">Select Members</div>
+                  <div className="max-h-[200px] overflow-y-auto">
+                    {bclAttendeesList.map(a => {
+                      const isSel = form.bcl_attendee?.includes(a.id);
+                      return (
+                        <div key={a.id} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer" onClick={() => toggleEventAttendee(setForm, a.id, a.displayName, !isSel)}>
+                          <Checkbox checked={isSel} />
+                          <span className="text-sm font-medium text-slate-700">{a.displayName}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+          </div>
+        </>
+      )}
 
-        <div style={{ gridColumn: '1/-1' }}>
-          <label className="ev-field-label">Description / Notes</label>
-          <Textarea className="ev-textarea" rows={3} value={form.event_description} onChange={e => setForm(p => ({ ...p, event_description: e.target.value }))} />
+      {/* ── DETAILS TAB ── */}
+      {tab === "details" && (
+        <div className="col-span-2">
+          <label className="ev-field-label">Description / Internal Notes</label>
+          <Textarea 
+            className="min-h-[250px] leading-relaxed" 
+            placeholder="Describe event objectives, agenda items, or specific setup requirements..." 
+            value={form.event_description} 
+            onChange={e => setForm(p => ({ ...p, event_description: e.target.value }))} 
+          />
         </div>
-      </div>
+      )}
     </div>
   );
 }
