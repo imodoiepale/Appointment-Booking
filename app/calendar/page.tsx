@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { format, startOfMonth, startOfWeek, isSameDay, parseISO, addDays, addMonths, addWeeks, isToday as dateFnsIsToday, isValid } from 'date-fns';
-import { ChevronLeft, ChevronRight, Trash2, Loader2, Video, MapPin, Phone, Mail, PlusCircle, X, Download, CalendarDays, Calendar, Users, Clock, AlertCircle, CheckCircle2, XCircle, PartyPopper, CalendarClock, Timer, CheckCircle, RefreshCw, Building, MapPinned, ClipboardList, Info, Cloud, CloudOff, } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, Loader2, Video, MapPin, Phone, Mail, PlusCircle, X, Download, CalendarDays, Calendar, Users, Clock, AlertCircle, CheckCircle2, XCircle, PartyPopper, CalendarClock, Timer, CheckCircle, RefreshCw, Building, MapPinned, ClipboardList, Info, Cloud, CloudOff, Gift, MessageCircle, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
@@ -50,7 +50,7 @@ interface Meeting {
 }
 
 type ViewType = 'month' | 'week' | 'day';
-type ContentFilter = 'meetings' | 'events' | 'all';
+type ContentFilter = 'meetings' | 'events' | 'birthdays' | 'all';
 
 interface BclEvent {
   id: number;
@@ -73,6 +73,21 @@ interface BclEvent {
   google_event_id?: string;
 }
 
+interface Birthday {
+  id: string;
+  name: string;
+  company: string;
+  principalName?: string;
+  dob: string;
+  daysUntil: number;
+  gets_wish: boolean;
+  gets_cake: boolean;
+  gets_gift: boolean;
+  messageSent: boolean;
+  calendarSynced: boolean;
+  isDependant: boolean;
+  isSpecialClient?: boolean;
+}
 
 const getLightStatusColor = (status: string) => {
   const col = MEETING_STATUS_COLORS[(status ?? '').toLowerCase()];
@@ -682,6 +697,18 @@ function formatSafeDate(dateStr: string | undefined, pattern: string, fallback =
   return date ? format(date, pattern) : fallback;
 }
 
+function getBirthdayDate(daysUntil: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + daysUntil);
+  return format(d, 'yyyy-MM-dd');
+}
+
+function getItemDate(item: any): string {
+  if (item._kind === 'meeting') return item.meeting_date;
+  if (item._kind === 'event') return item.event_date;
+  return item.birthdayDate ?? '';
+}
+
 function parseBclAttendees(value: any): string[] {
   if (Array.isArray(value)) return value.map(String).filter(Boolean);
   if (typeof value === 'string' && value.trim()) {
@@ -993,14 +1020,17 @@ const CalendarView = () => {
   const [bclUsersById, setBclUsersById] = useState<Record<string, any>>({});
   const [calendarConnectionStatus, setCalendarConnectionStatus] = useState('checking');
   const [syncingId, setSyncingId] = useState<number | null>(null);
+  const [allBirthdays, setAllBirthdays] = useState<Birthday[]>([]);
+  const [showBirthdaysWithoutWish, setShowBirthdaysWithoutWish] = useState(false);
 
   const fetchMeetings = useCallback(async () => {
     setLoading(true);
     try {
-      const [mtgRes, evsRes, bclUsersRes] = await Promise.all([
+      const [mtgRes, evsRes, bclUsersRes, bdayRes] = await Promise.all([
         fetch('/api/meetings?order=asc'),
         fetch('/api/events?order=asc'),
         fetch('/api/users/bcl-attendees'),
+        fetch('/api/birthdays'),
       ]);
 
       if (!mtgRes.ok) throw new Error((await mtgRes.json()).error || 'Failed to fetch meetings');
@@ -1012,6 +1042,10 @@ const CalendarView = () => {
       if (bclUsersRes.ok) {
         const users = await bclUsersRes.json();
         setBclUsersById(buildUserMap(Array.isArray(users) ? users : []));
+      }
+      if (bdayRes.ok) {
+        const bdays = await bdayRes.json();
+        setAllBirthdays(Array.isArray(bdays) ? bdays : []);
       }
     } catch (e: any) {
       toast({ title: 'Error fetching calendar data', description: e.message, variant: 'destructive' });
@@ -1106,11 +1140,21 @@ const CalendarView = () => {
     const events = (contentType === 'events' || contentType === 'all')
       ? allEvents.map(e => ({ ...e, _kind: 'event' as const }))
       : [];
-    return [...meetings, ...events];
-  }, [allMeetings, allEvents, contentType]);
+    const filteredBdays = allBirthdays.filter(b =>
+      showBirthdaysWithoutWish ? true : b.gets_wish
+    );
+    const birthdays = (contentType === 'birthdays' || contentType === 'all')
+      ? filteredBdays.map(b => ({
+          ...b,
+          _kind: 'birthday' as const,
+          birthdayDate: getBirthdayDate(b.daysUntil),
+        }))
+      : [];
+    return [...meetings, ...events, ...birthdays];
+  }, [allMeetings, allEvents, allBirthdays, contentType, showBirthdaysWithoutWish]);
 
   const daysWithMeetings = useMemo(() => {
-    const dates = visibleItems.map(item => item._kind === 'meeting' ? item.meeting_date : item.event_date);
+    const dates = visibleItems.map(item => getItemDate(item));
     return Array.from(new Set(dates)).map(d => safeParseDate(d)).filter(Boolean) as Date[];
   }, [visibleItems]);
 
@@ -1127,10 +1171,7 @@ const CalendarView = () => {
 
   const todayMeetings = useMemo(() => {
     const t = format(new Date(), 'yyyy-MM-dd');
-    return visibleItems.filter(item => {
-      const date = item._kind === 'meeting' ? item.meeting_date : item.event_date;
-      return date === t;
-    });
+    return visibleItems.filter(item => getItemDate(item) === t);
   }, [visibleItems]);
 
   const headerLabel = useMemo(() => {
@@ -1154,10 +1195,7 @@ const CalendarView = () => {
       <div className="month-grid" style={{ flex: 1 }}>
         {calendarDays.map((day, idx) => {
           const ds = format(day, 'yyyy-MM-dd');
-          const dm = visibleItems.filter(item => {
-            const date = item._kind === 'meeting' ? item.meeting_date : item.event_date;
-            return date === ds;
-          });
+          const dm = visibleItems.filter(item => getItemDate(item) === ds);
           const isCur = day.getMonth() === currentDate.getMonth();
           const isSel = isSameDay(day, selectedDate);
           const isNow = dateFnsIsToday(day);
@@ -1166,8 +1204,24 @@ const CalendarView = () => {
               onClick={() => { setSelectedDate(day); setCurrentDate(day); }}>
               <div className={cn('month-day-num', isNow && 'today')}>{format(day, 'd')}</div>
               {dm.slice(0, 3).map(item => {
+                const isBday = item._kind === 'birthday';
                 const isMtg = item._kind === 'meeting';
-                const key = isMtg ? `m-${item.id_main}` : `e-${item.id}`;
+                const key = isBday ? `b-${item.id}` : isMtg ? `m-${item.id_main}` : `e-${item.id}`;
+
+                if (isBday) return (
+                  <div key={key}
+                    className="month-event event-card-base"
+                    style={{ borderTopColor: '#f43f5e', backgroundColor: 'rgba(244,63,94,0.07)', flexDirection: 'row', alignItems: 'center', gap: 3 }}
+                    onClick={e => { e.stopPropagation(); setSelectedMeeting(item); }}>
+                    <span style={{ fontSize: 9, flexShrink: 0 }}>🎂</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 700, fontSize: 10, color: '#f43f5e' }}>
+                      {item.name}
+                    </span>
+                    {item.gets_wish && <span style={{ fontSize: 8, color: '#3b82f6', flexShrink: 0 }}>✉</span>}
+                    {item.calendarSynced && <span style={{ fontSize: 8, color: '#22c55e', flexShrink: 0 }}>●</span>}
+                  </div>
+                );
+
                 const borderTopColor = isMtg ? getMeetingStatusHex(item.status || item.meeting_type) : getEventTypeConfig(item.event_type).bg;
                 const backgroundColor = isMtg ? getLightStatusColor(item.status || item.meeting_type) : getEventTypeConfig(item.event_type).light;
                 const startTime = isMtg ? item.meeting_start_time : item.event_start_time;
@@ -1176,13 +1230,7 @@ const CalendarView = () => {
                 return (
                   <div key={key}
                     className="month-event event-card-base"
-                    style={{
-                      borderTopColor,
-                      backgroundColor,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 3,
-                    }}
+                    style={{ borderTopColor, backgroundColor, flexDirection: 'row', alignItems: 'center', gap: 3 }}
                     onClick={e => { e.stopPropagation(); setSelectedMeeting(item); }}>
                     {isMtg ? (
                       item.meeting_type === 'virtual'
@@ -1229,19 +1277,33 @@ const CalendarView = () => {
         {weekDays.map(day => {
           const isNow = dateFnsIsToday(day);
           const ds = format(day, 'yyyy-MM-dd');
-          const dm = visibleItems.filter(item => {
-            const date = item._kind === 'meeting' ? item.meeting_date : item.event_date;
-            return date === ds;
-          });
+          const dm = visibleItems.filter(item => getItemDate(item) === ds);
           return (
             <div key={day.toString()} className="week-day-col">
               <div className={cn('week-day-header', isNow && 'today-col')}>
                 <span className="week-dow">{format(day, 'EEE')}</span>
                 <div className={cn('week-date', isNow && 'today')}>{format(day, 'd')}</div>
               </div>
+              {/* All-day birthday strip */}
+              {dm.some(i => i._kind === 'birthday') && (
+                <div style={{ borderBottom: '1px solid #ffe4e6', padding: '3px 4px', background: 'rgba(244,63,94,0.05)', display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                  {dm.filter(i => i._kind === 'birthday').map(b => (
+                    <button key={b.id} onClick={() => setSelectedMeeting(b)}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 2, padding: '1px 5px', borderRadius: 4, background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.3)', fontSize: 9, fontWeight: 700, color: '#f43f5e', cursor: 'pointer' }}>
+                      🎂 {b.name.split(' ')[0]}
+                      {b.gets_wish && <span title="Gets Wish" style={{ color: '#3b82f6' }}>✉</span>}
+                      {!b.gets_wish && <span title="No Wish" style={{ color: '#94a3b8', textDecoration: 'line-through' }}>✉</span>}
+                      {b.gets_cake && <span title="Gets Cake">🎂</span>}
+                      {b.gets_gift && <span title="Gets Gift">🎁</span>}
+                      {b.calendarSynced ? <span title="Synced" style={{ color: '#22c55e' }}>●</span> : <span title="Not Synced" style={{ color: '#cbd5e1' }}>○</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div style={{ position: 'relative' }}>
                 {TIME_SLOTS.map((_, i) => <div key={i} className="week-grid-row" />)}
                 {dm.map(item => {
+                  if (item._kind === 'birthday') return null;
                   const isMtg = item._kind === 'meeting';
                   const key = isMtg ? `m-${item.id_main}` : `e-${item.id}`;
                   const startTime = isMtg ? item.meeting_start_time : item.event_start_time;
@@ -1339,8 +1401,39 @@ const CalendarView = () => {
               <div style={{ fontSize: 11, color: '#8ca4a8' }}>{dm.length} schedule item{dm.length !== 1 ? 's' : ''}</div>
             </div>
           </div>
+          {/* All-day birthday section */}
+          {dm.some(i => i._kind === 'birthday') && (
+            <div style={{ borderBottom: '1px solid #ffe4e6', padding: '8px 20px', background: 'rgba(244,63,94,0.04)' }}>
+              <div style={{ fontSize: 9, fontWeight: 800, color: '#f43f5e', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>🎂 Birthdays</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {dm.filter(i => i._kind === 'birthday').map(b => (
+                  <button key={b.id} onClick={() => setSelectedMeeting(b)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', borderRadius: 8, background: 'white', border: '1px solid rgba(244,63,94,0.25)', cursor: 'pointer', transition: 'box-shadow 0.15s' }}>
+                    <span style={{ fontSize: 13 }}>🎂</span>
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#1e293b' }}>{b.name}</div>
+                      <div style={{ display: 'flex', gap: 4, marginTop: 2, flexWrap: 'wrap' }}>
+                        {b.gets_wish
+                          ? <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: 'rgba(59,130,246,0.1)', color: '#1d4ed8', border: '1px solid rgba(59,130,246,0.2)' }}>WISH</span>
+                          : <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: 'rgba(148,163,184,0.1)', color: '#94a3b8', border: '1px solid rgba(148,163,184,0.2)' }}>NO WISH</span>
+                        }
+                        {b.gets_cake && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: 'rgba(245,158,11,0.1)', color: '#b45309', border: '1px solid rgba(245,158,11,0.2)' }}>CAKE</span>}
+                        {b.gets_gift && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: 'rgba(16,185,129,0.1)', color: '#059669', border: '1px solid rgba(16,185,129,0.2)' }}>GIFT</span>}
+                        {b.messageSent && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: 'rgba(34,197,94,0.1)', color: '#15803d', border: '1px solid rgba(34,197,94,0.2)' }}>✓ SENT</span>}
+                        {b.calendarSynced
+                          ? <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: 'rgba(34,197,94,0.1)', color: '#15803d', border: '1px solid rgba(34,197,94,0.2)' }}>🗓 SYNCED</span>
+                          : <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: 'rgba(148,163,184,0.1)', color: '#94a3b8', border: '1px solid rgba(148,163,184,0.2)' }}>NOT SYNCED</span>
+                        }
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {TIME_SLOTS.map((_, i) => <div key={i} className="day-grid-row" />)}
           {dm.map(item => {
+            if (item._kind === 'birthday') return null;
             const isMtg = item._kind === 'meeting';
             const key = isMtg ? `m-${item.id_main}` : `e-${item.id}`;
             const startTime = isMtg ? item.meeting_start_time : item.event_start_time;
@@ -1460,7 +1553,111 @@ const CalendarView = () => {
     }
 
     const item = selectedMeeting;
+    const isBday = item._kind === 'birthday';
     const isMtg = item._kind === 'meeting';
+
+    // ── Birthday detail branch ───────────────────────────────────────
+    if (isBday) return (
+      <div className="h-full flex flex-col bg-white border-l border-slate-200 shadow-2xl relative">
+        {/* Header */}
+        <div className="p-8 text-white relative overflow-hidden bg-rose-900">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-6">
+              <span className="px-3 py-1 rounded-full bg-rose-700 text-white text-xs font-bold">🎂 Birthday</span>
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-white/10 hover:bg-white/20 text-white border-0" onClick={() => setSelectedMeeting(null)}>
+                <X size={16} />
+              </Button>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center text-3xl shadow-xl">🎂</div>
+              <div className="flex-1 min-w-0">
+                <h2 className="text-xl font-black tracking-tight truncate leading-tight">{item.name}</h2>
+                <p className="text-white/60 text-xs font-bold uppercase tracking-widest mt-1">
+                  {item.company && item.company !== 'Not Allocated' ? item.company : 'Private Client'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <ScrollArea className="flex-1">
+          <div className="p-8 space-y-8">
+
+            {/* DOB + Days until */}
+            <section>
+              <SectionLabel icon={Calendar}>Birthday Info</SectionLabel>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl">
+                  <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Date of Birth</p>
+                  <p className="text-xs font-bold text-slate-800">{item.dob || '—'}</p>
+                </div>
+                <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl">
+                  <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Days Until</p>
+                  <p className="text-xs font-bold text-slate-800">{item.daysUntil === 0 ? 'Today 🎉' : `${item.daysUntil} day${item.daysUntil !== 1 ? 's' : ''}`}</p>
+                </div>
+              </div>
+              {item.principalName && (
+                <div className="mt-3 bg-slate-50 border border-slate-100 p-3 rounded-xl">
+                  <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Principal</p>
+                  <p className="text-xs font-bold text-slate-800">{item.principalName}</p>
+                </div>
+              )}
+            </section>
+
+            {/* Gift / Treatment Flags */}
+            <section>
+              <SectionLabel icon={Gift}>Treatment</SectionLabel>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { flag: item.gets_wish, label: 'Wish', icon: <MessageCircle size={14} />, yes: 'bg-blue-50 border-blue-200 text-blue-700', no: 'bg-slate-50 border-slate-200 text-slate-400' },
+                  { flag: item.gets_cake, label: 'Cake', icon: <Sparkles size={14} />, yes: 'bg-amber-50 border-amber-200 text-amber-700', no: 'bg-slate-50 border-slate-200 text-slate-400' },
+                  { flag: item.gets_gift, label: 'Gift', icon: <Gift size={14} />, yes: 'bg-emerald-50 border-emerald-200 text-emerald-700', no: 'bg-slate-50 border-slate-200 text-slate-400' },
+                ].map(({ flag, label, icon, yes, no }) => (
+                  <div key={label} className={cn('flex flex-col items-center gap-1.5 p-3 rounded-xl border text-center', flag ? yes : no)}>
+                    {icon}
+                    <span className="text-[10px] font-black uppercase tracking-wide">{label}</span>
+                    <span className="text-[9px] font-bold opacity-70">{flag ? '✓ Yes' : '✗ No'}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* Status Indicators */}
+            <section>
+              <SectionLabel icon={CheckCircle2}>Status</SectionLabel>
+              <div className="space-y-2">
+                <div className={cn('flex items-center justify-between p-3 rounded-xl border', item.messageSent ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200')}>
+                  <div className="flex items-center gap-2">
+                    <MessageCircle size={14} className={item.messageSent ? 'text-green-600' : 'text-slate-400'} />
+                    <span className="text-xs font-bold text-slate-700">Wish Message</span>
+                  </div>
+                  <span className={cn('text-[10px] font-black uppercase', item.messageSent ? 'text-green-700' : 'text-slate-400')}>
+                    {item.messageSent ? '✓ Sent' : 'Not Sent'}
+                  </span>
+                </div>
+                <div className={cn('flex items-center justify-between p-3 rounded-xl border', item.calendarSynced ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200')}>
+                  <div className="flex items-center gap-2">
+                    {item.calendarSynced ? <Cloud size={14} className="text-green-600" /> : <CloudOff size={14} className="text-slate-400" />}
+                    <span className="text-xs font-bold text-slate-700">Calendar Sync</span>
+                  </div>
+                  <span className={cn('text-[10px] font-black uppercase', item.calendarSynced ? 'text-green-700' : 'text-slate-400')}>
+                    {item.calendarSynced ? '✓ Synced' : 'Not Synced'}
+                  </span>
+                </div>
+              </div>
+            </section>
+
+          </div>
+        </ScrollArea>
+
+        <div className="p-6 bg-slate-50 border-t border-slate-100">
+          <Button className="w-full h-12 bg-rose-600 hover:bg-rose-700 font-bold rounded-xl" onClick={() => router.push('/birthdays')}>
+            <PartyPopper size={16} className="mr-2" /> View All Birthdays
+          </Button>
+        </div>
+      </div>
+    );
 
     // Dynamic mapping based on previous logic
     const title = isMtg ? item.client_name : item.event_name;
@@ -1726,12 +1923,13 @@ const CalendarView = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Content Type Switcher (Meetings/Events/All) */}
+          {/* Content Type Switcher */}
           <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 shadow-inner">
             {([
-              { id: 'meetings', label: 'Meetings', icon: Calendar },
-              { id: 'events', label: 'Events', icon: PartyPopper },
-              { id: 'all', label: 'All', icon: Users },
+              { id: 'meetings',  label: 'Meetings',  icon: Calendar },
+              { id: 'events',    label: 'Events',    icon: PartyPopper },
+              { id: 'birthdays', label: 'Birthdays', icon: Gift },
+              { id: 'all',       label: 'All',       icon: Users },
             ] as const).map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
@@ -1739,15 +1937,31 @@ const CalendarView = () => {
                 className={cn(
                   "flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all",
                   contentType === id
-                    ? "bg-white text-indigo-700 shadow-sm"
+                    ? id === 'birthdays' ? "bg-white text-rose-700 shadow-sm" : "bg-white text-indigo-700 shadow-sm"
                     : "text-slate-500 hover:text-slate-800"
                 )}
               >
-                <Icon size={14} className={contentType === id ? "text-indigo-600" : "text-slate-400"} />
+                <Icon size={14} className={contentType === id ? (id === 'birthdays' ? "text-rose-600" : "text-indigo-600") : "text-slate-400"} />
                 {label}
               </button>
             ))}
           </div>
+
+          {/* Show without wish toggle — visible when birthdays are included */}
+          {(contentType === 'birthdays' || contentType === 'all') && (
+            <button
+              onClick={() => setShowBirthdaysWithoutWish(v => !v)}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all",
+                showBirthdaysWithoutWish
+                  ? "bg-rose-50 text-rose-700 border-rose-200"
+                  : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
+              )}
+            >
+              <PartyPopper size={13} />
+              {showBirthdaysWithoutWish ? "With Wish Only" : "+ Without Wish"}
+            </button>
+          )}
 
           <div className="h-6 w-px bg-slate-200 mx-1" />
 
@@ -1824,29 +2038,41 @@ const CalendarView = () => {
                 </div>
               ) : (
                 todayMeetings.map(item => {
+                  const isBday = item._kind === 'birthday';
                   const isMtg = item._kind === 'meeting';
-                  const color = isMtg ? getMeetingStatusHex(item.status || item.meeting_type) : getEventTypeConfig(item.event_type).bg;
+                  const color = isBday ? '#f43f5e' : isMtg ? getMeetingStatusHex(item.status || item.meeting_type) : getEventTypeConfig(item.event_type).bg;
+                  const key = isBday ? `b-${item.id}` : isMtg ? `m-${item.id_main}` : `e-${item.id}`;
+                  const label = isBday ? item.name : isMtg ? item.client_name : item.event_name;
+                  const sub = isBday ? (item.company || 'Birthday') : isMtg ? item.client_company : getEventTypeConfig(item.event_type).label;
+                  const time = isBday ? null : isMtg ? item.meeting_start_time?.slice(0, 5) : item.event_start_time?.slice(0, 5);
 
                   return (
                     <div
-                      key={isMtg ? `m-${item.id_main}` : `e-${item.id}`}
+                      key={key}
                       onClick={() => setSelectedMeeting(item)}
                       className="group relative flex items-start gap-3 p-3 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all cursor-pointer"
                     >
                       <div className="mt-1 w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="text-[13px] font-bold text-slate-800 truncate group-hover:text-indigo-600 transition-colors">
-                          {isMtg ? item.client_name : item.event_name}
+                          {isBday ? '🎂 ' : ''}{label}
                         </p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-[11px] font-semibold text-slate-500 flex items-center gap-1">
-                            <Clock size={10} />
-                            {isMtg ? item.meeting_start_time?.slice(0, 5) : item.event_start_time?.slice(0, 5)}
-                          </span>
-                          <span className="text-[11px] text-slate-300">•</span>
-                          <span className="text-[11px] text-slate-400 truncate font-medium">
-                            {isMtg ? item.client_company : getEventTypeConfig(item.event_type).label}
-                          </span>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          {time && (
+                            <span className="text-[11px] font-semibold text-slate-500 flex items-center gap-1">
+                              <Clock size={10} />{time}
+                            </span>
+                          )}
+                          {time && <span className="text-[11px] text-slate-300">•</span>}
+                          <span className="text-[11px] text-slate-400 truncate font-medium">{sub}</span>
+                          {isBday && (
+                            <div className="flex gap-1 ml-auto">
+                              {item.gets_wish && <span style={{ fontSize: 8, padding: '1px 4px', borderRadius: 3, background: 'rgba(59,130,246,0.1)', color: '#1d4ed8', fontWeight: 700 }}>W</span>}
+                              {item.gets_cake && <span style={{ fontSize: 8, padding: '1px 4px', borderRadius: 3, background: 'rgba(245,158,11,0.1)', color: '#b45309', fontWeight: 700 }}>C</span>}
+                              {item.gets_gift && <span style={{ fontSize: 8, padding: '1px 4px', borderRadius: 3, background: 'rgba(16,185,129,0.1)', color: '#059669', fontWeight: 700 }}>G</span>}
+                              {item.calendarSynced ? <Cloud size={10} className="text-green-500" /> : <CloudOff size={10} className="text-slate-300" />}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

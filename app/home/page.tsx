@@ -24,6 +24,8 @@ import {
   LayoutGrid,
   Table2,
   Clock3,
+  Cloud,
+  CloudOff,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -83,6 +85,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [showBdayWithoutWish, setShowBdayWithoutWish] = useState(false);
 
   const today = todayISO();
 
@@ -229,21 +232,47 @@ export default function HomePage() {
 
           {/* Birthdays Sub-section */}
           <div className="space-y-4">
-            <SectionHeader
-              icon={<PartyPopper className="text-rose-600" size={16} />}
-              title="Birthdays Today"
-              count={birthdays.length}
-              href="/birthdays"
-            />
-            {birthdays.length === 0 ? (
-              <EmptyState message="No birthdays today." />
-            ) : (
-              <div className="grid gap-3">
-                {birthdays.map((b) => (
-                  <BirthdayItem key={b.id} birthday={b} />
-                ))}
+            {/* Custom header with toggle */}
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center shadow-sm">
+                  <PartyPopper className="text-rose-600" size={16} />
+                </div>
+                <h2 className="text-[15px] font-bold text-slate-900">Birthdays Today</h2>
+                {birthdays.filter(b => showBdayWithoutWish || b.gets_wish).length > 0 && (
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#0057E7] px-1.5 text-[10px] font-black text-white">
+                    {birthdays.filter(b => showBdayWithoutWish || b.gets_wish).length}
+                  </span>
+                )}
               </div>
-            )}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowBdayWithoutWish(v => !v)}
+                  className={cn(
+                    "text-[10px] font-bold px-2 py-1 rounded-md border transition-colors",
+                    showBdayWithoutWish
+                      ? "bg-rose-50 text-rose-700 border-rose-200"
+                      : "bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100"
+                  )}
+                >
+                  {showBdayWithoutWish ? "With Wish Only" : "+ Without Wish"}
+                </button>
+                <Link href="/birthdays" className="text-xs font-bold text-[#0057E7] hover:underline flex items-center gap-0.5">
+                  View Hub <ChevronRight size={14} />
+                </Link>
+              </div>
+            </div>
+
+            {(() => {
+              const filtered = birthdays.filter(b => showBdayWithoutWish || b.gets_wish);
+              if (filtered.length === 0)
+                return <EmptyState message={showBdayWithoutWish ? "No birthdays today." : "No birthdays with wish today."} />;
+              return (
+                <div className="grid gap-3">
+                  {filtered.map(b => <BirthdayItem key={b.id} birthday={b} />)}
+                </div>
+              );
+            })()}
           </div>
         </section>
       </div>
@@ -383,21 +412,46 @@ function EventItem({ event }) {
 
 function BirthdayItem({ birthday }) {
   return (
-    <div className="bg-white rounded-xl border border-rose-100 p-3 shadow-sm hover:border-rose-200 transition-colors">
-      <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-rose-50 text-lg shadow-inner">
+    <div className={cn(
+      "bg-white rounded-xl border p-3 shadow-sm transition-colors",
+      birthday.gets_wish
+        ? "border-rose-100 hover:border-rose-200"
+        : "border-slate-100 hover:border-slate-200 opacity-80"
+    )}>
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-rose-50 text-lg shadow-inner mt-0.5">
           🎂
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold text-slate-900 truncate">{birthday.name}</p>
+          {/* Name + sync status */}
+          <div className="flex items-start justify-between gap-1 mb-0.5">
+            <p className="text-sm font-bold text-slate-900 truncate">{birthday.name}</p>
+            <span
+              title={birthday.calendarSynced ? "Synced to Google Calendar" : "Not synced to calendar"}
+              className="shrink-0 mt-0.5"
+            >
+              {birthday.calendarSynced
+                ? <Cloud size={12} className="text-green-500" />
+                : <CloudOff size={12} className="text-slate-300" />
+              }
+            </span>
+          </div>
+
           <p className="text-[10px] font-medium text-slate-500 truncate uppercase tracking-tight">
-            {birthday.company || 'Private Client'}
+            {birthday.company && birthday.company !== 'Not Allocated' ? birthday.company : 'Private Client'}
           </p>
+          {birthday.principalName && (
+            <p className="text-[10px] text-slate-400 truncate">Dep. of {birthday.principalName}</p>
+          )}
 
           <div className="mt-2 flex flex-wrap gap-1">
-            {birthday.gets_wish && <GiftTag icon={<MessageCircle size={10} />} label="WISH" color="blue" />}
+            {birthday.gets_wish
+              ? <GiftTag icon={<MessageCircle size={10} />} label="WISH" color="blue" />
+              : <GiftTag icon={<MessageCircle size={10} />} label="NO WISH" color="gray" />
+            }
             {birthday.gets_cake && <GiftTag icon={<Sparkles size={10} />} label="CAKE" color="amber" />}
             {birthday.gets_gift && <GiftTag icon={<Gift size={10} />} label="GIFT" color="emerald" />}
+            {birthday.messageSent && <GiftTag icon={null} label="✓ SENT" color="green" />}
           </div>
         </div>
       </div>
@@ -407,12 +461,14 @@ function BirthdayItem({ birthday }) {
 
 function GiftTag({ icon, label, color }) {
   const styles = {
-    blue: "bg-blue-50 text-blue-700 border-blue-100",
-    amber: "bg-amber-50 text-amber-700 border-amber-100",
+    blue:    "bg-blue-50 text-blue-700 border-blue-100",
+    amber:   "bg-amber-50 text-amber-700 border-amber-100",
     emerald: "bg-emerald-50 text-emerald-700 border-emerald-100",
+    green:   "bg-green-50 text-green-700 border-green-100",
+    gray:    "bg-slate-50 text-slate-400 border-slate-200",
   };
   return (
-    <span className={cn("inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[9px] font-black", styles[color])}>
+    <span className={cn("inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[9px] font-black", styles[color] ?? styles.gray)}>
       {icon} {label}
     </span>
   );
