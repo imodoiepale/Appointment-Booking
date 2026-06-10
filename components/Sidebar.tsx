@@ -54,7 +54,7 @@ const Sidebar = () => {
     useEffect(() => setMounted(true), []);
 
     const mainNav = [
-        { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
+        { name: "Overview", href: "/home", icon: LayoutDashboard },
         { name: "Meetings", href: "/dashboard", icon: Video },
         { name: "Events", href: "/events", icon: PartyPopper },
         { name: "Birthdays", href: "/birthdays", icon: PartyPopper },
