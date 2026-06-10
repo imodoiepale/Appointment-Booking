@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, X, Calendar, Clock, MapPin, Users, Info, Building, Phone, Mail, Globe } from 'lucide-react';
 import { EVENT_TYPES } from '@/utils/appointmentStyles';
-import { MEETING_STATUSES, STATUS_PILL_CLASSES } from '@/utils/appointmentStatuses';
+import { CREATION_STATUSES, STATUS_PILL_CLASSES } from '@/utils/appointmentStatuses';
 
 // ── CONSTANTS ────────────────────────────────────────────────────────
 export const BLANK_FORM = {
@@ -25,7 +25,7 @@ export const BLANK_FORM = {
   event_description: '', expected_attendees: '',
   bcl_attendee: [] as string[],
   bcl_attendee_names: [] as string[],
-  status: 'upcoming',
+  status: 'confirmed',
 };
 
 const DURATION_OPTIONS: [string, string][] = [
@@ -141,7 +141,7 @@ export function EventFormFields({
             <Select value={form.status} onValueChange={v => setForm(p => ({ ...p, status: v }))}>
               <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {MEETING_STATUSES.map(s => (
+                {CREATION_STATUSES.map(s => (
                   <SelectItem key={s.value} value={s.value}>
                     <span className={`inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold ${STATUS_PILL_CLASSES[s.value] ?? ''}`}>
                       {s.label}

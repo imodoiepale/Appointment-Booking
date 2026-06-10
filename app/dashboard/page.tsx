@@ -92,7 +92,7 @@ function timeToMins(t: string) { const [h, m] = t.split(':').map(Number); return
 const TERMINAL_STATUSES = new Set(['cancelled', 'canceled', 'completed', 'no_show']);
 
 function effectiveStatus(meeting: any, now: Date): string {
-  const base = (meeting?.status || 'upcoming').toLowerCase();
+  const base = (meeting?.status || 'pending_confirmation').toLowerCase();
   if (TERMINAL_STATUSES.has(base) || base === 'overdue') return base;
   if (!meeting?.meeting_date || !meeting?.meeting_start_time || !meeting?.meeting_end_time) return base;
   const start = parseLocalDateTime(meeting.meeting_date, meeting.meeting_start_time);
@@ -584,7 +584,7 @@ const DashboardContent = () => {
     const todayStr = getTodayLocalDateString();
     switch (activeTab) {
       case 'today': return list.filter(a => (a.meeting_date || a.event_date) === todayStr);
-      case 'pending': return list.filter(a => ['pending', 'pending_confirmation', 'draft'].includes(a.status || ''));
+      case 'pending': return list.filter(a => ['pending', 'pending_confirmation', 'confirmed'].includes(a.status || ''));
       case 'completed': return list.filter(a => a.status === 'completed');
       case 'canceled': return list.filter(a => a.status === 'canceled' || a.status === 'cancelled');
       default: return list.filter(a => !TERMINAL_STATUSES.has((a.status || 'upcoming').toLowerCase()));
@@ -674,8 +674,14 @@ const DashboardContent = () => {
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
           <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
-            {['upcoming', 'today', 'pending', 'completed', 'canceled'].map(tab => (
-              <button key={tab} className={cn("rounded-md px-4 py-1.5 text-xs font-semibold capitalize text-slate-500 transition-colors hover:text-slate-900", activeTab === tab && "bg-white text-blue-600 shadow-sm")} onClick={() => setActiveTab(tab)}>{tab}</button>
+            {[
+              { key: 'upcoming', label: 'All Active' },
+              { key: 'today',    label: 'Today' },
+              { key: 'pending',  label: 'Pending' },
+              { key: 'completed', label: 'Completed' },
+              { key: 'canceled', label: 'Cancelled' },
+            ].map(({ key, label }) => (
+              <button key={key} className={cn("rounded-md px-4 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:text-slate-900", activeTab === key && "bg-white text-blue-600 shadow-sm")} onClick={() => setActiveTab(key)}>{label}</button>
             ))}
           </div>
           <div className="flex items-center gap-4">

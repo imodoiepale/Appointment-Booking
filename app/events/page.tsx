@@ -10,12 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Toaster } from '@/components/ui/toaster';
 import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import {
   Calendar, Clock, MapPin, Loader2,
   ChevronLeft, ChevronRight, Search, MoreHorizontal, Plus, Download,
   Table2, LayoutGrid, Building, Cloud,
   ChevronUp, ChevronDown, ChevronsUpDown,
-  Hash,
+  Hash, RefreshCw, AlertCircle,
 } from 'lucide-react';
 import {
   getEventTypeConfig, EventTypeIcon, EVENT_TYPE_CONFIG,
@@ -65,6 +66,20 @@ interface BclEvent {
 }
 
 const STATUSES = MEETING_STATUSES.map(s => s.value);
+
+function addMins(time: string, mins: number): string {
+  if (!time) return '';
+  const [h, m] = time.split(':').map(Number);
+  const t = h * 60 + m + mins;
+  return `${String(Math.floor(t / 60) % 24).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
+}
+
+function calcSlot(base: string, offset: number): string {
+  if (!base) return '';
+  const [h, m] = base.split(':').map(Number);
+  const d = new Date(); d.setHours(h, m + offset, 0, 0);
+  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
 
 // ── STYLES ───────────────────────────────────────────────────────────────────
 const EventsStyles = () => (
@@ -288,6 +303,15 @@ const EventsContent = () => {
   const [createAttendeeOpen, setCreateAttendeeOpen] = useState(false);
   const [editAttendeeOpen, setEditAttendeeOpen] = useState(false);
 
+  // Reschedule state
+  const [isRescheduleOpen, setRescheduleOpen] = useState(false);
+  const [rescheduleConflict, setRescheduleConflict] = useState('');
+  const [rescheduleData, setRescheduleData] = useState({
+    event_date: '', event_start_time: '', event_duration: '60',
+    event_end_time: '', event_slot_start_time: '', event_slot_end_time: '',
+    venue_distance: '10',
+  });
+
   const bclUsersById = useMemo(
     () => Object.fromEntries(bclAttendeesList.map(u => [String(u.id), u.displayName])),
     [bclAttendeesList]
@@ -354,12 +378,15 @@ const EventsContent = () => {
         String(e.id).includes(q)
       );
     }
+    const TERMINAL = new Set(['cancelled', 'completed', 'no_show']);
     switch (activeTab) {
       case 'today': return list.filter(e => e.event_date === todayStr);
       case 'completed': return list.filter(e => e.status === 'completed');
-      case 'cancelled': return list.filter(e => e.status === 'cancelled');
+      case 'cancelled': return list.filter(e => e.status === 'cancelled' || e.status === 'canceled');
       case 'confirmed': return list.filter(e => e.status === 'confirmed');
-      default: return list.filter(e => ['upcoming', 'confirmed'].includes(e.status ?? 'upcoming'));
+      // 'upcoming' is a view/filter: future non-terminal events (regardless of stored status)
+      case 'upcoming': return list.filter(e => !TERMINAL.has(e.status ?? '') && (e.event_date ?? '') >= todayStr);
+      default: return list.filter(e => !TERMINAL.has(e.status ?? ''));
     }
   }, [events, activeTab, searchQuery]);
 
@@ -463,6 +490,53 @@ const EventsContent = () => {
     finally { setSubmitting(false); }
   };
 
+  const openReschedule = () => {
+    if (!selectedEvent) return;
+    setRescheduleConflict('');
+    const start = selectedEvent.event_start_time || '';
+    const dur = String(selectedEvent.event_duration || 60);
+    const end = start ? addMins(start, parseInt(dur)) : '';
+    const travel = parseInt(String(selectedEvent.venue_distance ?? 10));
+    setRescheduleData({
+      event_date: selectedEvent.event_date || '',
+      event_start_time: start,
+      event_duration: dur,
+      event_end_time: end,
+      event_slot_start_time: selectedEvent.event_slot_start_time || calcSlot(start, -travel),
+      event_slot_end_time: selectedEvent.event_slot_end_time || calcSlot(end, travel),
+      venue_distance: String(travel),
+    });
+    setRescheduleOpen(true);
+  };
+
+  const handleReschedule = async () => {
+    if (!selectedEvent) return;
+    setRescheduleConflict('');
+    setActionLoading('reschedule');
+    try {
+      const dur = parseInt(rescheduleData.event_duration) || 60;
+      const travel = parseInt(rescheduleData.venue_distance) || 0;
+      const endTime = addMins(rescheduleData.event_start_time, dur);
+      const slotStart = calcSlot(rescheduleData.event_start_time, -travel);
+      const slotEnd = calcSlot(endTime, travel);
+      const patch = {
+        status: 'rescheduled',
+        event_date: rescheduleData.event_date,
+        event_start_time: rescheduleData.event_start_time,
+        event_end_time: endTime,
+        event_duration: dur,
+        event_slot_start_time: slotStart,
+        event_slot_end_time: slotEnd,
+        venue_distance: travel,
+      };
+      await patchEvent(selectedEvent.id, patch);
+      updateLocal(selectedEvent.id, patch);
+      setRescheduleOpen(false);
+      notify.success('Event rescheduled', calStatus === 'connected' ? 'Calendar will be updated.' : '');
+    } catch (e: any) { notify.error('Reschedule failed', e.message); }
+    finally { setActionLoading(''); }
+  };
+
   const openEdit = () => {
     if (!selectedEvent) return;
     setEditForm({
@@ -489,7 +563,7 @@ const EventsContent = () => {
       expected_attendees: String(selectedEvent.expected_attendees || ''),
       bcl_attendee: Array.isArray(selectedEvent.bcl_attendee) ? selectedEvent.bcl_attendee : [],
       bcl_attendee_names: resolveAttendeeNames(selectedEvent, bclUsersById),
-      status: selectedEvent.status || 'upcoming',
+      status: selectedEvent.status || 'confirmed',
     });
     setEditOpen(true);
   };
@@ -798,11 +872,95 @@ const EventsContent = () => {
         onConfirm={handleConfirm}
         onMarkDone={handleMarkDone}
         onCancel={handleCancel}
+        onReschedule={openReschedule}
         onSyncToCalendar={handleSyncToCalendar}
         onSaveEdit={handleEdit}
         onOpenEdit={openEdit}
         onDelete={(event) => setDeletingEvent(event)}
       />
+
+      {/* ── RESCHEDULE EVENT DIALOG ── */}
+      <Dialog open={isRescheduleOpen} onOpenChange={o => { if (!o) { setRescheduleOpen(false); setRescheduleConflict(''); } }}>
+        <DialogContent className="max-w-md bg-white border-slate-200 text-slate-900 shadow-xl rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="text-orange-700 font-bold flex items-center gap-2">
+              <RefreshCw size={16} /> Reschedule Event
+            </DialogTitle>
+            {selectedEvent && (
+              <p className="text-xs text-slate-500 font-medium mt-1">
+                Postpone <strong>{selectedEvent.event_name}</strong> to a new date or time.
+              </p>
+            )}
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 py-2">
+            <div className="col-span-2">
+              <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400">New Event Date *</label>
+              <Input type="date" className="bg-slate-50 border-slate-200" value={rescheduleData.event_date}
+                onChange={e => { setRescheduleData(p => ({ ...p, event_date: e.target.value })); setRescheduleConflict(''); }} />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Start Time *</label>
+              <Input type="time" className="bg-slate-50 border-slate-200" value={rescheduleData.event_start_time}
+                onChange={e => {
+                  const val = e.target.value;
+                  const dur = parseInt(rescheduleData.event_duration) || 60;
+                  const travel = parseInt(rescheduleData.venue_distance) || 0;
+                  const end = addMins(val, dur);
+                  setRescheduleData(p => ({ ...p, event_start_time: val, event_end_time: end, event_slot_start_time: calcSlot(val, -travel), event_slot_end_time: calcSlot(end, travel) }));
+                  setRescheduleConflict('');
+                }} />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Duration</label>
+              <Select value={rescheduleData.event_duration}
+                onValueChange={val => {
+                  const dur = parseInt(val) || 60;
+                  const travel = parseInt(rescheduleData.venue_distance) || 0;
+                  const end = addMins(rescheduleData.event_start_time, dur);
+                  setRescheduleData(p => ({ ...p, event_duration: val, event_end_time: end, event_slot_end_time: calcSlot(end, travel) }));
+                }}>
+                <SelectTrigger className="bg-slate-50 border-slate-200"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {[['60','1 hour'],['90','1.5 hrs'],['120','2 hrs'],['180','3 hrs'],['240','4 hrs'],['300','5 hrs'],['360','6 hrs'],['480','8 hrs']].map(([v, l]) => (
+                    <SelectItem key={v} value={v}>{l}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400">End Time (calc.)</label>
+              <Input className="cursor-not-allowed border-slate-200 bg-slate-50 text-slate-500" readOnly value={rescheduleData.event_end_time || '—'} />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Travel Time</label>
+              <Select value={rescheduleData.venue_distance}
+                onValueChange={val => {
+                  const travel = parseInt(val) || 0;
+                  setRescheduleData(p => ({ ...p, venue_distance: val, event_slot_start_time: calcSlot(p.event_start_time, -travel), event_slot_end_time: calcSlot(p.event_end_time, travel) }));
+                }}>
+                <SelectTrigger className="bg-slate-50 border-slate-200"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {[['0','0 min'],['10','10 min'],['15','15 min'],['30','30 min'],['45','45 min'],['60','1 hour'],['90','1.5 hrs'],['120','2 hrs']].map(([v, l]) => (
+                    <SelectItem key={v} value={v}>{l}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {rescheduleConflict && (
+              <div className="col-span-2 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-xs font-semibold text-red-800">
+                <AlertCircle size={14} /> {rescheduleConflict}
+              </div>
+            )}
+          </div>
+          <DialogFooter className="bg-slate-50 -m-6 mt-2 p-4 flex gap-2">
+            <Button variant="ghost" className="text-slate-500 font-semibold" onClick={() => { setRescheduleOpen(false); setRescheduleConflict(''); }}>Cancel</Button>
+            <Button onClick={handleReschedule} disabled={!!actionLoading || !rescheduleData.event_date || !rescheduleData.event_start_time}
+              className="bg-orange-600 hover:bg-orange-700 text-white font-bold">
+              {actionLoading === 'reschedule' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Rescheduling…</> : <><RefreshCw className="mr-2 h-4 w-4" /> Confirm Reschedule</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <EventFormDialog
         open={isCreateOpen}

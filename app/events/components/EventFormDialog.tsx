@@ -16,7 +16,7 @@ import {
   ChevronRight, FileText, Briefcase, Globe 
 } from 'lucide-react';
 import { EVENT_TYPES } from '@/utils/appointmentStyles';
-import { MEETING_STATUSES } from '@/utils/appointmentStatuses';
+import { CREATION_STATUSES } from '@/utils/appointmentStatuses';
 
 // ── HELPERS ──────────────────────────────────────────────────────────────────
 
@@ -33,7 +33,7 @@ export const BLANK_FORM = {
   event_description: '', expected_attendees: '',
   bcl_attendee: [] as string[],
   bcl_attendee_names: [] as string[],
-  status: 'upcoming',
+  status: 'confirmed',
 };
 
 const DURATION_OPTIONS: [string, string][] = [
@@ -154,10 +154,19 @@ export function EventFormDialog({
                   <Select value={form.status} onValueChange={v => setForm(p => ({ ...p, status: v }))}>
                     <SelectTrigger className="h-11 border-slate-200 bg-white"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {MEETING_STATUSES.map(s => (
+                      {CREATION_STATUSES.map(s => (
                         <SelectItem key={s.value} value={s.value}>
                           <div className="flex items-center gap-2">
-                            <div className={`h-2 w-2 rounded-full ${s.value === 'upcoming' ? 'bg-blue-500' : 'bg-slate-400'}`} />
+                            <div className={`h-2 w-2 rounded-full ${
+                              s.value === 'draft' ? 'bg-gray-400' :
+                              s.value === 'pending_confirmation' ? 'bg-amber-500' :
+                              s.value === 'confirmed' ? 'bg-blue-500' :
+                              s.value === 'in_progress' ? 'bg-cyan-500' :
+                              s.value === 'completed' ? 'bg-green-500' :
+                              s.value === 'rescheduled' ? 'bg-orange-500' :
+                              s.value === 'cancelled' ? 'bg-red-500' :
+                              s.value === 'no_show' ? 'bg-rose-500' : 'bg-slate-400'
+                            }`} />
                             {s.label}
                           </div>
                         </SelectItem>

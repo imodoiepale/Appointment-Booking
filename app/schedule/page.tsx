@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 import { Calendar, Clock, Mic, MicOff, Building, User, Phone, Mail, MapPin, Check, ChevronRight, ChevronLeft, Loader2, Info, X, Video, Plus, Link2, Hash } from 'lucide-react';
 import supabase from '@/utils/supabaseClient';
-import { MEETING_STATUSES } from '@/utils/appointmentStatuses';
+import { CREATION_STATUSES } from '@/utils/appointmentStatuses';
 
 // ── SHARED DESIGN SYSTEM STYLES ──────────────────────────────────
 const SchedulerStyles = () => (
@@ -340,7 +340,7 @@ const INITIAL_FORM = {
     venueDistance: '10', meetingStartTime: '', meetingEndTime: '',
     meetingSlotStartTime: '', meetingSlotEndTime: '',
     virtualMeetingMode: '', meetingLink: '', meetingId: '',
-    status: 'upcoming',
+    status: 'confirmed',
 };
 
 // ── FIELD COMPONENTS ─────────────────────────────────────────────
@@ -622,7 +622,7 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
             <Field label="Meeting Status">
                 <SchSelect value={formData.status} onValueChange={v => set('status', v)}
                     placeholder="Select status"
-                    items={MEETING_STATUSES.map(s => ({ value: s.value, label: s.label }))} />
+                    items={CREATION_STATUSES.map(s => ({ value: s.value, label: s.label }))} />
             </Field>
             <Field label="Meeting Type *" error={inv('meetingType')}>
                 <SchSelect value={formData.meetingType} onValueChange={v => handleSelect('meetingType', v)}
@@ -787,7 +787,7 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
     const renderStep3 = () => {
         const finalCompany = formData.companyType === 'new' ? formData.otherClientCompany : formData.clientCompany;
         const finalAgenda = formData.meetingAgenda === 'Other' ? formData.otherMeetingAgenda : formData.meetingAgenda;
-        const statusLabel = MEETING_STATUSES.find(s => s.value === formData.status)?.label ?? formData.status;
+        const statusLabel = CREATION_STATUSES.find(s => s.value === formData.status)?.label ?? formData.status;
         const items = [
             { label: 'Status', value: statusLabel },
             { label: 'Client', value: formData.clientName },

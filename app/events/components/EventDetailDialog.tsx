@@ -6,8 +6,8 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import {
   Building, MapPin, Trash2, Loader2, CheckCircle2, Edit2, Ban, UserCheck,
-  Cloud, CloudOff, User, Link as LinkIcon, Hash, Video, Info, Clock, 
-  Phone, Mail, Users, Calendar as CalendarIcon, X, Save
+  Cloud, CloudOff, User, Link as LinkIcon, Hash, Video, Info, Clock,
+  Phone, Mail, Users, Calendar as CalendarIcon, X, Save, CalendarClock
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -22,7 +22,7 @@ export function EventDetailDialog({
   event, onClose, isEditOpen, setEditOpen, editForm, setEditForm,
   editAttendeeOpen, setAttendeeOpen, bclAttendeesList, loadingBclAttendees,
   isSubmitting, actionLoading, calStatus, canEdit, canDelete,
-  onConfirm, onMarkDone, onCancel, onSyncToCalendar, onSaveEdit, onOpenEdit, onDelete,
+  onConfirm, onMarkDone, onCancel, onReschedule, onSyncToCalendar, onSaveEdit, onOpenEdit, onDelete,
 }) {
   if (!event) return null;
 
@@ -218,16 +218,26 @@ export function EventDetailDialog({
             </>
           ) : (
             <>
-              <div className="flex gap-2">
-                {canEdit && (
-                  <>
-                    <Button variant="outline" size="sm" className="h-10 border-green-200 text-green-700 hover:bg-green-50 gap-2" onClick={onConfirm} disabled={!!actionLoading || event.status === 'confirmed'}>
-                      {actionLoading === 'confirm' ? <Loader2 className="animate-spin" size={14}/> : <UserCheck size={14}/>} Confirm
-                    </Button>
-                    <Button variant="outline" size="sm" className="h-10 border-blue-200 text-blue-700 hover:bg-blue-50 gap-2" onClick={onMarkDone} disabled={!!actionLoading}>
-                      {actionLoading === 'done' ? <Loader2 className="animate-spin" size={14}/> : <CheckCircle2 size={14}/>} Done
-                    </Button>
-                  </>
+              <div className="flex gap-2 flex-wrap">
+                {canEdit && !['confirmed', 'completed', 'cancelled', 'no_show'].includes(event.status ?? '') && (
+                  <Button variant="outline" size="sm" className="h-10 border-green-200 text-green-700 hover:bg-green-50 gap-2" onClick={onConfirm} disabled={!!actionLoading}>
+                    {actionLoading === 'confirm' ? <Loader2 className="animate-spin" size={14}/> : <UserCheck size={14}/>} Confirm
+                  </Button>
+                )}
+                {canEdit && event.status !== 'completed' && (
+                  <Button variant="outline" size="sm" className="h-10 border-blue-200 text-blue-700 hover:bg-blue-50 gap-2" onClick={onMarkDone} disabled={!!actionLoading}>
+                    {actionLoading === 'done' ? <Loader2 className="animate-spin" size={14}/> : <CheckCircle2 size={14}/>} Mark Complete
+                  </Button>
+                )}
+                {canEdit && !['cancelled', 'completed', 'no_show'].includes(event.status ?? '') && (
+                  <Button variant="outline" size="sm" className="h-10 border-orange-200 text-orange-700 hover:bg-orange-50 gap-2" onClick={onReschedule} disabled={!!actionLoading}>
+                    {actionLoading === 'reschedule' ? <Loader2 className="animate-spin" size={14}/> : <CalendarClock size={14}/>} Reschedule
+                  </Button>
+                )}
+                {canEdit && !['cancelled', 'no_show'].includes(event.status ?? '') && (
+                  <Button variant="outline" size="sm" className="h-10 border-red-200 text-red-600 hover:bg-red-50 gap-2" onClick={onCancel} disabled={!!actionLoading}>
+                    {actionLoading === 'cancel' ? <Loader2 className="animate-spin" size={14}/> : <Ban size={14}/>} Cancel
+                  </Button>
                 )}
               </div>
 
@@ -236,8 +246,8 @@ export function EventDetailDialog({
                   <Cloud size={14} /> Sync
                 </Button>
                 {canEdit && (
-                  <Button variant="secondary" size="sm" className="h-10 gap-2 font-bold" onClick={onOpenEdit}>
-                    <Edit2 size={14} /> Edit
+                  <Button variant="secondary" size="sm" className="h-10 gap-2 font-bold" onClick={onOpenEdit} title="Fix incorrect event details">
+                    <Edit2 size={14} /> Edit Details
                   </Button>
                 )}
                 {canDelete && (

@@ -6,6 +6,7 @@
 
 // ── STATUS LISTS ──────────────────────────────────────────────────────────────
 
+// Full list — includes 'upcoming' (display/filter only, not stored) and 'overdue' (computed)
 export const MEETING_STATUSES = [
   { value: 'draft',               label: 'Draft' },
   { value: 'pending_confirmation', label: 'Pending Confirmation (Tentative)' },
@@ -13,6 +14,19 @@ export const MEETING_STATUSES = [
   { value: 'upcoming',            label: 'Upcoming' },
   { value: 'in_progress',         label: 'In Progress' },
   { value: 'overdue',             label: 'Overdue' },
+  { value: 'completed',           label: 'Completed' },
+  { value: 'rescheduled',         label: 'Rescheduled' },
+  { value: 'cancelled',           label: 'Cancelled' },
+  { value: 'no_show',             label: 'No Show' },
+] as const;
+
+// Storable statuses — used in creation/edit dropdowns.
+// 'upcoming' is a view/filter only; 'confirmed' is set via the Confirm action; 'overdue' is computed.
+export const CREATION_STATUSES = [
+  { value: 'draft',               label: 'Draft' },
+  { value: 'pending_confirmation', label: 'Pending Confirmation (Tentative)' },
+  { value: 'confirmed',           label: 'Confirmed' },
+  { value: 'in_progress',         label: 'In Progress' },
   { value: 'completed',           label: 'Completed' },
   { value: 'rescheduled',         label: 'Rescheduled' },
   { value: 'cancelled',           label: 'Cancelled' },
@@ -111,7 +125,7 @@ export const STATUS_TAILWIND: Record<string, {
 
 /** Normalise legacy/variant status strings to canonical keys */
 export function normaliseStatus(status?: string): string {
-  if (!status) return 'upcoming';
+  if (!status) return 'pending_confirmation';
   const s = status.toLowerCase().trim().replace(/[\s-]+/g, '_');
   const legacyMap: Record<string, string> = {
     pending: 'pending_confirmation',
@@ -124,23 +138,23 @@ export function normaliseStatus(status?: string): string {
 /** Returns Tailwind pill classes for a status */
 export function getStatusPillClass(status?: string): string {
   const key = normaliseStatus(status);
-  return STATUS_PILL_CLASSES[key] ?? STATUS_PILL_CLASSES.upcoming;
+  return STATUS_PILL_CLASSES[key] ?? STATUS_PILL_CLASSES.pending_confirmation;
 }
 
 /** Returns hex color config for a status */
 export function getStatusHexColor(status?: string) {
   const key = normaliseStatus(status);
-  return STATUS_HEX[key] ?? STATUS_HEX.upcoming;
+  return STATUS_HEX[key] ?? STATUS_HEX.pending_confirmation;
 }
 
 /** Returns full Tailwind config for a status */
 export function getStatusTailwind(status?: string) {
   const key = normaliseStatus(status);
-  return STATUS_TAILWIND[key] ?? STATUS_TAILWIND.upcoming;
+  return STATUS_TAILWIND[key] ?? STATUS_TAILWIND.pending_confirmation;
 }
 
 /** Human-readable label for a status value */
 export function getStatusLabel(status?: string): string {
   const key = normaliseStatus(status);
-  return STATUS_TAILWIND[key]?.label ?? (status ?? 'Upcoming');
+  return STATUS_TAILWIND[key]?.label ?? (status ?? 'Pending Confirmation');
 }

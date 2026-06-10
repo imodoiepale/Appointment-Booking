@@ -33,7 +33,7 @@ function addMinutesToTime(time: string, minutes: number): string {
 }
 
 function effectiveStatus(meeting: any, now: Date): string {
-  const base = (meeting?.status || 'upcoming').toLowerCase();
+  const base = (meeting?.status || 'pending_confirmation').toLowerCase();
   if (TERMINAL_STATUSES.has(base) || base === 'overdue') return base;
   if (!meeting?.meeting_date || !meeting?.meeting_start_time || !meeting?.meeting_end_time) return base;
   const start = parseLocalDateTime(meeting.meeting_date, meeting.meeting_start_time);
@@ -448,12 +448,20 @@ export function DashboardDialogs(props: any) {
           })()}
 
           {isEditOpen ? (
-            <EditDetailsForm
-              appointment={selectedAppointment}
-              onSave={handleEdit}
-              onCancel={() => setEditOpen(false)}
-              loading={actionLoading === 'edit'}
-            />
+            <>
+              <div className="px-7 py-3 bg-blue-50 border-b border-blue-100 flex items-center gap-2">
+                <Edit2 size={13} className="text-blue-600 flex-shrink-0" />
+                <p className="text-xs text-blue-700 font-medium">
+                  <strong>Edit Details</strong> — Correct any incorrect information. This does <em>not</em> change the meeting status. To move a meeting to a new date/time, use <strong>Reschedule</strong> instead.
+                </p>
+              </div>
+              <EditDetailsForm
+                appointment={selectedAppointment}
+                onSave={handleEdit}
+                onCancel={() => setEditOpen(false)}
+                loading={actionLoading === 'edit'}
+              />
+            </>
           ) : (
             <>
               {/* ── OVERDUE BANNER ── */}
@@ -636,18 +644,22 @@ export function DashboardDialogs(props: any) {
                   <div className="space-y-1.5 pt-2 border-t border-slate-200">
                     <p className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5"><Zap size={10} /> Actions</p>
 
-                    {['upcoming', 'pending', 'rescheduled'].includes(selectedAppointment?.status) && (
+                    {!TERMINAL_STATUSES.has(effectiveStatus(selectedAppointment, now)) &&
+                     !['confirmed'].includes(selectedAppointment?.status) && (
                       <ActionButton onClick={handleConfirm} loading={actionLoading === 'confirm'} icon={<UserCheck size={13} />} label="Confirm Meeting" className="bg-[#0057E7] hover:bg-[#004bc7] text-white border-none shadow-sm" />
                     )}
 
-                    {selectedAppointment?.status !== 'completed' && (
-                      <ActionButton onClick={handleMarkDone} loading={actionLoading === 'done'} icon={<CheckCircle size={13} />} label="Mark as Done" className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200" />
+                    {!TERMINAL_STATUSES.has(effectiveStatus(selectedAppointment, now)) && (
+                      <ActionButton onClick={handleMarkDone} loading={actionLoading === 'done'} icon={<CheckCircle size={13} />} label="Mark as Completed" className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200" />
                     )}
 
-                    <ActionButton onClick={openReschedule} icon={<RefreshCw size={13} />} label="Reschedule" />
-                    <ActionButton onClick={() => setEditOpen(true)} icon={<Edit2 size={13} />} label="Edit Details" />
+                    {!TERMINAL_STATUSES.has(effectiveStatus(selectedAppointment, now)) && (
+                      <ActionButton onClick={openReschedule} icon={<RefreshCw size={13} />} label="Reschedule (Postpone)" className="hover:bg-orange-50 text-orange-700 border-orange-100" />
+                    )}
+                    <ActionButton onClick={() => setEditOpen(true)} icon={<Edit2 size={13} />} label="Edit Details (Fix Errors)" />
 
-                    {selectedAppointment?.status !== 'canceled' && (
+                    {!['cancelled', 'canceled'].includes(selectedAppointment?.status ?? '') &&
+                     !TERMINAL_STATUSES.has(effectiveStatus(selectedAppointment, now)) && (
                       <ActionButton onClick={handleCancel} loading={actionLoading === 'cancel'} icon={<Ban size={13} />} label="Cancel Meeting" className="hover:bg-red-50 text-red-600 border-red-100" />
                     )}
 
@@ -673,14 +685,15 @@ export function DashboardDialogs(props: any) {
       <Dialog open={isRescheduleOpen} onOpenChange={o => { if (!o) { setRescheduleOpen(false); setRescheduleConflict(''); } }}>
         <DialogContent className="max-w-lg bg-white border-slate-200 text-slate-900 shadow-xl rounded-xl">
           <DialogHeader>
-            <DialogTitle className="text-[#0057E7] font-bold flex items-center gap-2">
-              <RefreshCw size={16} /> Reschedule Meeting
+            <DialogTitle className="text-orange-700 font-bold flex items-center gap-2">
+              <RefreshCw size={16} /> Reschedule Meeting — Postpone to New Date/Time
             </DialogTitle>
             {selectedAppointment && (
               <p className="text-xs text-slate-500 font-medium mt-1">
                 {selectedAppointment.client_name} · Currently {formatDate(selectedAppointment.meeting_date, { day: '2-digit', month: 'short', year: 'numeric' })} at {formatTime(selectedAppointment.meeting_start_time)}
               </p>
             )}
+            <p className="text-[11px] text-slate-400 mt-1 italic">This will set the meeting status to "Rescheduled". Use <strong>Edit Details</strong> to fix incorrect information without changing the status.</p>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3 py-2">
             <div className="col-span-2">
