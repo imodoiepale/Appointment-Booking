@@ -6,7 +6,6 @@ import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognitio
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -15,6 +14,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Calendar, Clock, Mic, MicOff, Building, User, Phone, Mail, MapPin, Check, ChevronRight, ChevronLeft, Loader2, Info, X, Video, Plus, Link2, Hash } from 'lucide-react';
 import supabase from '@/utils/supabaseClient';
 import { CREATION_STATUSES } from '@/utils/appointmentStatuses';
+import { SearchableSelect } from '@/components/ui/searchable-select';
+import { SearchableMultiSelect } from '@/components/ui/searchable-multi-select';
 
 // ── SHARED DESIGN SYSTEM STYLES ──────────────────────────────────
 const SchedulerStyles = () => (
@@ -299,6 +300,26 @@ const SchedulerStyles = () => (
   `}</style>
 );
 
+// ── TYPES ────────────────────────────────────────────────────────
+type ClientAttendee = {
+    id: string;
+    name: string;
+    companies: Array<{ id: string; name: string }>;
+    selectedCompanyIds: string[];
+    email: string;
+    mobile: string;
+    whatsapp: string;
+};
+
+type ThirdPartyAttendee = {
+    key: string;
+    name: string;
+    type: string;
+    email: string;
+    mobile: string;
+    organization: string;
+};
+
 // ── CONSTANTS ────────────────────────────────────────────────────
 const STEPS = [
     { id: 0, name: 'Basic Info', Icon: Info },
@@ -309,7 +330,7 @@ const STEPS = [
 
 const FIELDS_TO_VALIDATE: Record<number, string[]> = {
     0: ['meetingDate', 'meetingType', 'meetingVenueArea'],
-    1: ['clientName', 'companyType', 'clientMobile', 'bclAttendees'],
+    1: ['clientAttendees', 'bclAttendees'],
     2: ['meetingStartTime', 'meetingDuration', 'meetingAgenda', 'venueDistance'],
 };
 
@@ -332,9 +353,13 @@ function calcSlotTime(base: string, offset: number): string {
 const INITIAL_FORM = {
     bookingDate: '', bookingDay: '', meetingDate: '', meetingDay: '',
     meetingType: '', meetingVenueArea: '', otherMeetingVenueArea: '',
-    clientName: '', clientCompany: '', otherClientCompany: '',
-    clientMobile: '', clientEmail: '', companyType: '',
+    // legacy derived fields (populated from clientAttendees for DB insert)
+    clientName: '', clientCompany: '', clientMobile: '', clientEmail: '',
+    // new structured attendee fields
+    clientAttendees: [] as ClientAttendee[],
+    thirdPartyAttendees: [] as ThirdPartyAttendee[],
     bclAttendees: [] as string[], bclAttendeeNames: [] as string[],
+    bclAttendeeEmailMap: {} as Record<string, string>,
     bclAttendeeMobile: '+254700298298',
     meetingAgenda: '', otherMeetingAgenda: '', meetingDuration: '',
     venueDistance: '10', meetingStartTime: '', meetingEndTime: '',
@@ -393,15 +418,34 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
     const [invalidFields, setInvalidFields] = useState<string[]>([]);
     const [formStatus, setFormStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
     const [isListening, setIsListening] = useState(false);
-    const [companyOptions, setCompanyOptions] = useState<string[]>([]);
-    const [loadingCompanies, setLoadingCompanies] = useState(true);
-    const [bclAttendees, setBclAttendees] = useState<{ id: string; displayName: string }[]>([]);
+    const [bclAttendees, setBclAttendees] = useState<{ id: string; displayName: string; email?: string }[]>([]);
     const [loadingBclAttendees, setLoadingBclAttendees] = useState(true);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-    const [attendeeOpen, setAttendeeOpen] = useState(false);
     const [showOtherVenue, setShowOtherVenue] = useState(false);
-    const [showOtherCompany, setShowOtherCompany] = useState(false);
     const [showOtherAgenda, setShowOtherAgenda] = useState(false);
+
+    // Registry data for client attendees
+    const [registryIndividuals, setRegistryIndividuals] = useState<any[]>([]);
+    const [registryCompanies, setRegistryCompanies] = useState<any[]>([]);
+    const [loadingRegistry, setLoadingRegistry] = useState(true);
+    // UI state for adding client attendees
+    const [clientSearchMode, setClientSearchMode] = useState<'individual' | 'company'>('individual');
+    const [pendingIndividualId, setPendingIndividualId] = useState('');
+    const [pendingSelectedCompanyIds, setPendingSelectedCompanyIds] = useState<string[]>([]);
+    const [pendingCompanyId, setPendingCompanyId] = useState('');
+    const [pendingIndividualIds, setPendingIndividualIds] = useState<string[]>([]);
+    // Third party attendee form
+    const [tpForm, setTpForm] = useState({ name: '', type: '', email: '', mobile: '', organization: '' });
+    const [tpSaveToDB, setTpSaveToDB] = useState<'ask' | 'yes' | 'no' | null>(null);
+    const [tpExisting, setTpExisting] = useState<any[]>([]);
+    const [loadingTpExisting, setLoadingTpExisting] = useState(false);
+    const [tpSelectMode, setTpSelectMode] = useState<'existing' | 'new'>('new');
+    const [tpSubmitting, setTpSubmitting] = useState(false);
+
+    // Inline contact detail editing state: individualId → form
+    const [editingContactId, setEditingContactId] = useState<string | null>(null);
+    const [contactEditForm, setContactEditForm] = useState({ email: '', mobile: '', alt_mobile: '', whatsapp: '' });
+    const [savingContact, setSavingContact] = useState(false);
 
     const { transcript, listening, resetTranscript, browserSupportsSpeechRecognition } = useSpeechRecognition({ commands: [] });
 
@@ -411,25 +455,37 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
         else { resetTranscript(); SpeechRecognition.startListening({ continuous: true }); setIsListening(true); toast({ title: 'Voice Control Active' }); }
     };
 
-    const fetchCompanies = useCallback(async () => {
-        setLoadingCompanies(true);
-        try {
-            const { data, error } = await supabase.from('acc_portal_company_duplicate').select('company_name').order('company_name');
-            if (error) throw error;
-            setCompanyOptions(data?.map(c => c.company_name).filter(Boolean) ?? []);
-        } catch { toast({ variant: 'destructive', title: 'Could not load companies' }); }
-        finally { setLoadingCompanies(false); }
-    }, [toast]);
-
     const fetchBclAttendees = useCallback(async () => {
         setLoadingBclAttendees(true);
         try {
             const res = await fetch('/api/users/bcl-attendees');
             if (!res.ok) throw new Error();
             setBclAttendees(await res.json());
-        } catch { toast({ variant: 'destructive', title: 'Could not load attendees' }); }
+        } catch { toast({ variant: 'destructive', title: 'Could not load BCL attendees' }); }
         finally { setLoadingBclAttendees(false); }
     }, [toast]);
+
+    const fetchRegistry = useCallback(async () => {
+        setLoadingRegistry(true);
+        try {
+            const [indRes, compRes] = await Promise.all([
+                fetch('/api/registry/individuals'),
+                fetch('/api/registry/companies-with-individuals'),
+            ]);
+            if (indRes.ok) setRegistryIndividuals(await indRes.json());
+            if (compRes.ok) setRegistryCompanies(await compRes.json());
+        } catch { toast({ variant: 'destructive', title: 'Could not load client registry' }); }
+        finally { setLoadingRegistry(false); }
+    }, [toast]);
+
+    const fetchThirdPartyExisting = useCallback(async () => {
+        setLoadingTpExisting(true);
+        try {
+            const res = await fetch('/api/third-party-contacts');
+            if (res.ok) setTpExisting(await res.json());
+        } catch { }
+        finally { setLoadingTpExisting(false); }
+    }, []);
 
     const fetchCurrentUser = useCallback(async () => {
         try { const res = await fetch('/api/users/me'); if (res.ok) { const d = await res.json(); setCurrentUserId(d.id ?? null); } } catch { }
@@ -438,8 +494,8 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
     useEffect(() => {
         const now = new Date();
         setFormData(p => ({ ...p, bookingDate: now.toISOString().split('T')[0], bookingDay: now.toLocaleDateString('en-US', { weekday: 'long' }) }));
-        fetchCompanies(); fetchBclAttendees(); fetchCurrentUser();
-    }, [fetchCompanies, fetchBclAttendees, fetchCurrentUser]);
+        fetchBclAttendees(); fetchRegistry(); fetchCurrentUser(); fetchThirdPartyExisting();
+    }, [fetchBclAttendees, fetchRegistry, fetchCurrentUser, fetchThirdPartyExisting]);
 
     const set = (key: string, value: any) => setFormData(p => ({ ...p, [key]: value }));
 
@@ -481,21 +537,157 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
         }
         if (name === 'meetingVenueArea') setShowOtherVenue(val === 'Other');
         if (name === 'meetingAgenda') { setShowOtherAgenda(val === 'Other'); if (val !== 'Other') set('otherMeetingAgenda', ''); }
-        if (name === 'companyType') { setShowOtherCompany(val === 'new'); setFormData(p => ({ ...p, clientCompany: '', otherClientCompany: '', clientMobile: '', clientEmail: '' })); }
-        if (name === 'clientCompany') {
-            setShowOtherCompany(val === 'Other');
-            if (val !== 'Other') fetchClientDetails(val);
-            else set('otherClientCompany', '');
+    };
+
+    // ── CLIENT ATTENDEE HELPERS ───────────────────────────────────
+    const addClientAttendeeFromIndividual = () => {
+        if (!pendingIndividualId) return;
+        const ind = registryIndividuals.find(i => i.id === pendingIndividualId);
+        if (!ind) return;
+        // Avoid duplicate
+        if ((formData.clientAttendees as ClientAttendee[]).some(a => a.id === ind.id)) {
+            setPendingIndividualId(''); setPendingSelectedCompanyIds([]); return;
+        }
+        const selectedCompanyIds = pendingSelectedCompanyIds.length > 0
+            ? pendingSelectedCompanyIds
+            : ind.companies.length === 1 ? [ind.companies[0].id] : [];
+        const attendee: ClientAttendee = {
+            id: ind.id,
+            name: ind.name,
+            companies: ind.companies,
+            selectedCompanyIds,
+            email: ind.email,
+            mobile: ind.mobile,
+            whatsapp: ind.whatsapp,
+        };
+        const updated = [...(formData.clientAttendees as ClientAttendee[]), attendee];
+        setFormData(p => ({ ...p, clientAttendees: updated, ...deriveClientFields(updated) }));
+        setPendingIndividualId(''); setPendingSelectedCompanyIds([]);
+    };
+
+    const addClientAttendeesFromCompany = () => {
+        if (!pendingCompanyId || pendingIndividualIds.length === 0) return;
+        const comp = registryCompanies.find(c => c.id === pendingCompanyId);
+        if (!comp) return;
+        const current = formData.clientAttendees as ClientAttendee[];
+        const toAdd = pendingIndividualIds
+            .filter(id => !current.some(a => a.id === id))
+            .map(id => {
+                const ind = comp.individuals.find((i: any) => i.id === id);
+                if (!ind) return null;
+                return {
+                    id: ind.id,
+                    name: ind.name,
+                    companies: [{ id: comp.id, name: comp.name }],
+                    selectedCompanyIds: [comp.id],
+                    email: ind.email,
+                    mobile: ind.mobile,
+                    whatsapp: ind.whatsapp,
+                } as ClientAttendee;
+            })
+            .filter(Boolean) as ClientAttendee[];
+        const updated = [...current, ...toAdd];
+        setFormData(p => ({ ...p, clientAttendees: updated, ...deriveClientFields(updated) }));
+        setPendingCompanyId(''); setPendingIndividualIds([]);
+    };
+
+    const removeClientAttendee = (id: string) => {
+        const updated = (formData.clientAttendees as ClientAttendee[]).filter(a => a.id !== id);
+        setFormData(p => ({ ...p, clientAttendees: updated, ...deriveClientFields(updated) }));
+    };
+
+    const toggleClientAttendeeCompany = (attendeeId: string, companyId: string, checked: boolean) => {
+        setFormData(p => {
+            const updated = (p.clientAttendees as ClientAttendee[]).map(a =>
+                a.id !== attendeeId ? a : {
+                    ...a,
+                    selectedCompanyIds: checked
+                        ? [...a.selectedCompanyIds, companyId]
+                        : a.selectedCompanyIds.filter(c => c !== companyId),
+                }
+            );
+            return { ...p, clientAttendees: updated, ...deriveClientFields(updated) };
+        });
+    };
+
+    const deriveClientFields = (attendees: ClientAttendee[]) => {
+        const names = attendees.map(a => a.name).join(', ');
+        const companies = [...new Set(attendees.flatMap(a =>
+            a.companies.filter(c => a.selectedCompanyIds.includes(c.id)).map(c => c.name)
+        ))].join(', ');
+        const first = attendees[0];
+        return { clientName: names, clientCompany: companies, clientMobile: first?.mobile || '', clientEmail: first?.email || '' };
+    };
+
+    // ── CONTACT DETAIL EDIT HELPERS ──────────────────────────────
+    const startEditContact = (attendee: ClientAttendee) => {
+        setEditingContactId(attendee.id);
+        setContactEditForm({ email: attendee.email, mobile: attendee.mobile, alt_mobile: '', whatsapp: attendee.whatsapp });
+    };
+
+    const saveContactDetails = async (attendeeId: string) => {
+        setSavingContact(true);
+        try {
+            const res = await fetch(`/api/registry/individuals/${attendeeId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(contactEditForm),
+            });
+            if (!res.ok) throw new Error(await res.text());
+            // Update local attendee card
+            setFormData(p => {
+                const updated = (p.clientAttendees as ClientAttendee[]).map(a =>
+                    a.id !== attendeeId ? a : { ...a, ...contactEditForm }
+                );
+                return { ...p, clientAttendees: updated, ...deriveClientFields(updated) };
+            });
+            // Also update registry cache so re-selecting shows new data
+            setRegistryIndividuals(prev => prev.map(i =>
+                i.id !== attendeeId ? i : { ...i, ...contactEditForm, hasContactDetails: true }
+            ));
+            setEditingContactId(null);
+            toast({ title: 'Contact details saved.' });
+        } catch (e: any) {
+            toast({ variant: 'destructive', title: 'Save failed', description: e.message });
+        } finally {
+            setSavingContact(false);
         }
     };
 
-    const fetchClientDetails = async (company: string) => {
-        if (!company || company === 'Other') { set('clientMobile', ''); set('clientEmail', ''); return; }
+    // ── THIRD PARTY ADD HANDLER ───────────────────────────────────
+    const handleAddThirdParty = async (saveToDB: boolean) => {
+        if (!tpForm.name.trim()) return;
+        setTpSubmitting(true);
         try {
-            const { data } = await supabase.from('acc_portal_company_duplicate').select('*').eq('company_name', company).single();
-            set('clientMobile', data?.phone_number || data?.phone || data?.mobile || '');
-            set('clientEmail', data?.email || data?.email_address || '');
-        } catch { set('clientMobile', ''); set('clientEmail', ''); }
+            let dbId: string | undefined;
+            if (saveToDB) {
+                const res = await fetch('/api/third-party-contacts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: tpForm.name, email: tpForm.email, mobile: tpForm.mobile, type: tpForm.type, organization: tpForm.organization }),
+                });
+                if (!res.ok) throw new Error((await res.json()).error || 'Save failed');
+                const saved = await res.json();
+                dbId = saved.id;
+                // Add to existing list so it appears in "existing" tab
+                setTpExisting(prev => [...prev, saved]);
+                toast({ title: 'Saved to database.' });
+            }
+            const entry: ThirdPartyAttendee = { key: dbId ?? `${Date.now()}`, ...tpForm };
+            setFormData(p => ({ ...p, thirdPartyAttendees: [...(p.thirdPartyAttendees as ThirdPartyAttendee[]), entry] }));
+            setTpForm({ name: '', type: '', email: '', mobile: '', organization: '' });
+            setTpSaveToDB(null);
+        } catch (e: any) {
+            toast({ variant: 'destructive', title: 'Error', description: e.message });
+        } finally {
+            setTpSubmitting(false);
+        }
+    };
+
+    const addExistingThirdParty = (tp: any) => {
+        if ((formData.thirdPartyAttendees as ThirdPartyAttendee[]).some(a => a.key === tp.id)) return;
+        const entry: ThirdPartyAttendee = { key: tp.id, name: tp.name, type: tp.type, email: tp.email, mobile: tp.mobile, organization: tp.organization || '' };
+        setFormData(p => ({ ...p, thirdPartyAttendees: [...(p.thirdPartyAttendees as ThirdPartyAttendee[]), entry] }));
     };
 
     const toggleAttendee = (id: string, name: string, checked: boolean) => {
@@ -516,14 +708,10 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
             req.push('virtualMeetingMode');
             if (formData.virtualMeetingMode === 'external') req.push('meetingLink');
         }
-        if (step === 1) {
-            if (formData.companyType === 'existing') req.push('clientCompany');
-            if (formData.companyType === 'new') req.push('otherClientCompany');
-        }
         if (step === 2 && formData.meetingAgenda === 'Other') req.push('otherMeetingAgenda');
         const bad = req.filter(f => {
             const v = formData[f as keyof typeof formData];
-            if (f === 'bclAttendees') return !Array.isArray(v) || v.length === 0;
+            if (f === 'bclAttendees' || f === 'clientAttendees') return !Array.isArray(v) || v.length === 0;
             return !v || (typeof v === 'string' && v.trim() === '');
         });
         setInvalidFields(bad);
@@ -538,7 +726,7 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
 
     const handleSubmit = async () => {
         setFormStatus('submitting');
-        const finalCompany = formData.companyType === 'new' ? formData.otherClientCompany : formData.clientCompany;
+        const finalCompany = formData.clientCompany;
         const finalAgenda = formData.meetingAgenda === 'Other' ? formData.otherMeetingAgenda : formData.meetingAgenda;
         try {
             const { data: existing } = await supabase.from('bcl_meetings_meetings')
@@ -562,9 +750,27 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
                 booking_date: formData.bookingDate, booking_day: formData.bookingDay,
                 meeting_date: formData.meetingDate, meeting_day: formData.meetingDay,
                 meeting_type: formData.meetingType, meeting_venue_area: formData.meetingVenueArea,
+                // Legacy flat fields — derived from clientAttendees for backwards compatibility
                 client_name: formData.clientName, client_company: finalCompany,
-                client_mobile: formData.clientMobile, bcl_attendee: formData.bclAttendees,
-                bcl_attendee_mobile: formData.bclAttendeeMobile, created_by: currentUserId,
+                client_mobile: formData.clientMobile, client_email: formData.clientEmail,
+                // Structured attendee data — IDs only; join source tables for names at read time
+                client_attendees: (formData.clientAttendees as ClientAttendee[]).map(a => ({
+                    individual_id: a.id,
+                    company_ids: a.selectedCompanyIds,
+                })),
+                third_party_attendees: (formData.thirdPartyAttendees as ThirdPartyAttendee[]).map(tp => ({
+                    // key is a UUID when saved to DB, a numeric timestamp when local-only
+                    contact_id: /^\d+$/.test(tp.key) ? null : tp.key,
+                    name: tp.name,
+                    type: tp.type || null,
+                    email: tp.email || null,
+                    mobile: tp.mobile || null,
+                    organization: tp.organization || null,
+                })),
+                // BCL attendees — IDs only; join users table (company_id=10) for emails at read time
+                bcl_attendee: formData.bclAttendees,
+                bcl_attendee_mobile: formData.bclAttendeeMobile,
+                created_by: currentUserId,
                 meeting_agenda: finalAgenda, meeting_duration: parseInt(formData.meetingDuration),
                 venue_distance: parseInt(formData.venueDistance),
                 meeting_start_time: formData.meetingStartTime, meeting_end_time: formData.meetingEndTime,
@@ -590,7 +796,10 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
                 const now = new Date();
                 setFormData({ ...INITIAL_FORM, bookingDate: now.toISOString().split('T')[0], bookingDay: now.toLocaleDateString('en-US', { weekday: 'long' }) });
                 setActiveStep(0); setFormStatus('idle'); setInvalidFields([]);
-                setShowOtherVenue(false); setShowOtherCompany(false); setShowOtherAgenda(false);
+                setShowOtherVenue(false); setShowOtherAgenda(false);
+                setPendingIndividualId(''); setPendingSelectedCompanyIds([]); setPendingCompanyId(''); setPendingIndividualIds([]);
+                setTpForm({ name: '', type: '', email: '', mobile: '', organization: '' });
+                setTpSaveToDB(null); setTpSelectMode('new'); setEditingContactId(null);
                 onSuccess?.();
             }, 2000);
         } catch (e: any) {
@@ -659,83 +868,433 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
         </div>
     );
 
-    const renderStep1 = () => (
-        <div className="sch-grid">
-            <Field label="Client Name *" error={inv('clientName')}>
-                <TextInput name="clientName" value={formData.clientName} onChange={handleChange} icon={User} invalid={inv('clientName')} />
-            </Field>
-            <Field label="Company Type *" error={inv('companyType')}>
-                <SchSelect value={formData.companyType} onValueChange={v => handleSelect('companyType', v)}
-                    placeholder="Select type" invalid={inv('companyType')}
-                    items={[{ value: 'existing', label: 'Existing Company' }, { value: 'new', label: 'New Company' }]} />
-            </Field>
-            {formData.companyType === 'existing' && (
-                <Field label="Client Company *" error={inv('clientCompany')}>
-                    <SchSelect value={formData.clientCompany} onValueChange={v => handleSelect('clientCompany', v)}
-                        placeholder="Select company" invalid={inv('clientCompany')} loading={loadingCompanies}
-                        items={companyOptions.map(c => ({ value: c, label: c }))} />
-                </Field>
-            )}
-            {formData.companyType === 'new' && (
-                <Field label="New Company Name *" error={inv('otherClientCompany')}>
-                    <TextInput name="otherClientCompany" value={formData.otherClientCompany} onChange={handleChange} icon={Building} invalid={inv('otherClientCompany')} />
-                </Field>
-            )}
-            <Field label="Client Mobile *" error={inv('clientMobile')}>
-                <TextInput name="clientMobile" value={formData.clientMobile} onChange={handleChange} icon={Phone} type="tel" invalid={inv('clientMobile')} />
-            </Field>
-            <Field label="Client Email">
-                <TextInput name="clientEmail" value={formData.clientEmail} onChange={handleChange} icon={Mail} type="email" />
-            </Field>
+    const renderStep1 = () => {
+        const clientAttendees = formData.clientAttendees as ClientAttendee[];
+        const thirdPartyAttendees = formData.thirdPartyAttendees as ThirdPartyAttendee[];
+        const bclIds = formData.bclAttendees as string[];
+        const bclNames = formData.bclAttendeeNames as string[];
+        const bclEmailMap = formData.bclAttendeeEmailMap as Record<string, string>;
 
-            {/* BCL Attendee multi-select */}
-            <Field label="BCL Attendee(s) *" error={inv('bclAttendees')}>
-                {loadingBclAttendees ? (
-                    <Button className="sch-attendee-btn h-auto" disabled style={{ opacity: 0.6 }}>
-                        <User size={14} className="sch-input-icon" />
-                        <Loader2 size={13} className="animate-spin" /> Loading attendees…
-                    </Button>
-                ) : (
-                    <Popover open={attendeeOpen} onOpenChange={setAttendeeOpen}>
-                        <PopoverTrigger asChild>
-                            <Button className={`sch-attendee-btn h-auto${inv('bclAttendees') ? ' invalid' : ''}`}>
-                                <div style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)' }}><User size={14} color="#b0c4c8" /></div>
-                                {(formData.bclAttendees as string[]).length === 0
-                                    ? <span className="sch-attendee-placeholder">Select attendee(s)</span>
-                                    : (formData.bclAttendeeNames as string[]).map((name, i) => (
-                                        <span key={i} className="sch-attendee-tag">
-                                            {name}
-                                            <span className="sch-attendee-tag-x" onClick={e => { e.stopPropagation(); toggleAttendee((formData.bclAttendees as string[])[i], name, false); }}>
-                                                <X size={10} />
-                                            </span>
-                                        </span>
-                                    ))
-                                }
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="sch-select-content" style={{ width: 260, padding: 10 }} align="start">
-                            <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8ca4a8', padding: '0 4px', marginBottom: 8 }}>Select Attendees</div>
-                            <div style={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                {bclAttendees.map(a => {
-                                    const sel = (formData.bclAttendees as string[]).includes(a.id);
-                                    return (
-                                        <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 6px', borderRadius: 7, cursor: 'pointer', background: sel ? '#f0f4f5' : 'transparent', transition: 'background 0.12s' }}
-                                            onClick={() => toggleAttendee(a.id, a.displayName, !sel)}>
-                                            <Checkbox checked={sel} onCheckedChange={c => toggleAttendee(a.id, a.displayName, !!c)} onClick={e => e.stopPropagation()} />
-                                            <span style={{ fontSize: 13, fontWeight: 500, color: '#1d4ed8' }}>{a.displayName}</span>
+        // Pending individual for add
+        const pendingInd = registryIndividuals.find(i => i.id === pendingIndividualId);
+        const pendingComp = registryCompanies.find(c => c.id === pendingCompanyId);
+
+        const secCard: React.CSSProperties = { background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' };
+        const secBody: React.CSSProperties = { padding: '16px 18px' };
+        const tabTray: React.CSSProperties = { display: 'flex', background: '#f1f5f9', borderRadius: 8, padding: 3, width: 'fit-content', marginBottom: 14 };
+        const tabBtn = (active: boolean, color = '#1d4ed8'): React.CSSProperties => ({
+            padding: '5px 14px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+            fontFamily: 'Inter, sans-serif', border: 'none', transition: 'all 0.15s',
+            background: active ? '#fff' : 'transparent',
+            color: active ? color : '#64868c',
+            boxShadow: active ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
+        });
+
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+                {/* ── SECTION A: CLIENT ATTENDEES ── */}
+                <div style={secCard}>
+                    {/* Header */}
+                    <div style={{ padding: '12px 18px', background: inv('clientAttendees') ? '#fef2f2' : '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 30, height: 30, borderRadius: 8, background: '#1d4ed8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <User size={14} color="#fff" />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 12, fontWeight: 800, color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Client Attendees</div>
+                            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 1 }}>Search the registry to add meeting participants</div>
+                        </div>
+                        {inv('clientAttendees') && (
+                            <span style={{ fontSize: 10, fontWeight: 700, color: '#ef4444', background: '#fee2e2', padding: '3px 8px', borderRadius: 5, flexShrink: 0 }}>Required</span>
+                        )}
+                    </div>
+
+                    <div style={secBody}>
+                        {/* Mode toggle */}
+                        <div style={tabTray}>
+                            {(['individual', 'company'] as const).map(mode => (
+                                <button key={mode} style={tabBtn(clientSearchMode === mode)}
+                                    onClick={() => { setClientSearchMode(mode); setPendingIndividualId(''); setPendingSelectedCompanyIds([]); setPendingCompanyId(''); setPendingIndividualIds([]); }}>
+                                    {mode === 'individual' ? 'By Individual' : 'By Company'}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Individual search */}
+                        {clientSearchMode === 'individual' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <Field label="Search Individual">
+                                            {loadingRegistry
+                                                ? <Button className="sch-select-trigger h-10" disabled style={{ opacity: 0.6 }}><Loader2 size={13} className="animate-spin" /> Loading…</Button>
+                                                : <SearchableSelect
+                                                    value={pendingIndividualId}
+                                                    onValueChange={v => { setPendingIndividualId(v); setPendingSelectedCompanyIds([]); }}
+                                                    options={registryIndividuals.map(i => ({ value: i.id, label: i.name }))}
+                                                    placeholder="Type to search by name…"
+                                                    searchPlaceholder="Type to search…"
+                                                    buttonClassName="sch-select-trigger h-10"
+                                                />
+                                            }
+                                        </Field>
+                                    </div>
+                                    <Button className="sch-btn-next h-10" style={{ paddingLeft: 16, paddingRight: 16, flexShrink: 0 }} onClick={addClientAttendeeFromIndividual} disabled={!pendingIndividualId}>
+                                        <Plus size={13} /> Add
+                                    </Button>
+                                </div>
+                                {pendingInd && (
+                                    <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 9, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 12, color: '#475569', alignItems: 'center' }}>
+                                            <span style={{ fontWeight: 700, color: '#1d4ed8', fontSize: 13 }}>{pendingInd.name}</span>
+                                            {pendingInd.email && <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Mail size={10} />{pendingInd.email}</span>}
+                                            {pendingInd.mobile && <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Phone size={10} />{pendingInd.mobile}</span>}
                                         </div>
-                                    );
-                                })}
+                                        {pendingInd.companies.length > 1 && (
+                                            <div>
+                                                <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Select Companies</div>
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+                                                    {pendingInd.companies.map((c: any) => (
+                                                        <label key={c.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#374151', background: '#fff', border: '1px solid #dbeafe', borderRadius: 6, padding: '4px 10px' }}>
+                                                            <Checkbox checked={pendingSelectedCompanyIds.includes(c.id)} onCheckedChange={ch => setPendingSelectedCompanyIds(prev => ch ? [...prev, c.id] : prev.filter(x => x !== c.id))} />
+                                                            {c.name}
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {pendingInd.companies.length === 1 && (
+                                            <span style={{ fontSize: 12, color: '#475569', display: 'flex', alignItems: 'center', gap: 5 }}><Building size={11} color="#1d4ed8" />{pendingInd.companies[0].name}</span>
+                                        )}
+                                    </div>
+                                )}
                             </div>
-                        </PopoverContent>
-                    </Popover>
-                )}
-            </Field>
-            <Field label="BCL Attendee Mobile">
-                <TextInput name="bclAttendeeMobile" value={formData.bclAttendeeMobile} onChange={handleChange} icon={Phone} readOnly />
-            </Field>
-        </div>
-    );
+                        )}
+
+                        {/* Company search */}
+                        {clientSearchMode === 'company' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                <Field label="Search Company">
+                                    {loadingRegistry
+                                        ? <Button className="sch-select-trigger h-10" disabled style={{ opacity: 0.6 }}><Loader2 size={13} className="animate-spin" /> Loading…</Button>
+                                        : <SearchableSelect
+                                            value={pendingCompanyId}
+                                            onValueChange={v => { setPendingCompanyId(v); setPendingIndividualIds([]); }}
+                                            options={registryCompanies.map(c => ({ value: c.id, label: c.name }))}
+                                            placeholder="Type to search by company name…"
+                                            searchPlaceholder="Type to search…"
+                                            buttonClassName="sch-select-trigger h-10"
+                                        />
+                                    }
+                                </Field>
+                                {pendingComp && (
+                                    <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 9, padding: '12px 14px' }}>
+                                        <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Select Individuals</div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 160, overflowY: 'auto' }}>
+                                            {pendingComp.individuals.length === 0
+                                                ? <span style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>No individuals found for this company.</span>
+                                                : pendingComp.individuals.map((ind: any) => (
+                                                    <label key={ind.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '4px 6px', borderRadius: 6, background: pendingIndividualIds.includes(ind.id) ? '#dbeafe' : 'transparent' }}>
+                                                        <Checkbox checked={pendingIndividualIds.includes(ind.id)} onCheckedChange={ch => setPendingIndividualIds(prev => ch ? [...prev, ind.id] : prev.filter(x => x !== ind.id))} />
+                                                        <span style={{ fontSize: 13, fontWeight: 600, color: '#1d4ed8', flex: 1 }}>{ind.name}</span>
+                                                        {ind.email && <span style={{ fontSize: 11, color: '#94a3b8' }}>{ind.email}</span>}
+                                                    </label>
+                                                ))
+                                            }
+                                        </div>
+                                    </div>
+                                )}
+                                <Button className="sch-btn-next h-auto" style={{ alignSelf: 'flex-start' }} onClick={addClientAttendeesFromCompany} disabled={!pendingCompanyId || pendingIndividualIds.length === 0}>
+                                    <Plus size={13} /> Add Selected {pendingIndividualIds.length > 0 && `(${pendingIndividualIds.length})`}
+                                </Button>
+                            </div>
+                        )}
+
+                        {/* Added attendees */}
+                        {clientAttendees.length > 0 && (
+                            <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                    Added — {clientAttendees.length} attendee{clientAttendees.length !== 1 ? 's' : ''}
+                                </div>
+                                {clientAttendees.map(a => (
+                                    <div key={a.id} style={{ background: editingContactId === a.id ? '#eff6ff' : '#f8fafc', border: `1px solid ${editingContactId === a.id ? '#bfdbfe' : '#e2e8f0'}`, borderRadius: 9, padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 0 }}>
+                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                                            <div style={{ width: 30, height: 30, borderRadius: 8, background: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
+                                                <User size={13} color="#1d4ed8" />
+                                            </div>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontWeight: 700, fontSize: 13, color: '#1e40af', lineHeight: 1.3 }}>{a.name}</div>
+                                                <div style={{ fontSize: 11, color: '#64748b', display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 3, alignItems: 'center' }}>
+                                                    {a.email
+                                                        ? <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Mail size={9} />{a.email}</span>
+                                                        : <span style={{ color: '#f59e0b', fontStyle: 'italic' }}>No email</span>}
+                                                    {a.mobile
+                                                        ? <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Phone size={9} />{a.mobile}</span>
+                                                        : <span style={{ color: '#f59e0b', fontStyle: 'italic' }}>No mobile</span>}
+                                                    {a.whatsapp && <span style={{ color: '#16a34a', fontWeight: 600 }}>WA: {a.whatsapp}</span>}
+                                                </div>
+                                                {a.companies.length > 0 && editingContactId !== a.id && (
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                                                        {a.companies.map(c => (
+                                                            <label key={c.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 11, fontWeight: 600, color: '#374151', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 5, padding: '2px 8px' }}>
+                                                                <Checkbox checked={a.selectedCompanyIds.includes(c.id)} onCheckedChange={ch => toggleClientAttendeeCompany(a.id, c.id, !!ch)} />
+                                                                {c.name}
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div style={{ display: 'flex', gap: 5, alignItems: 'center', flexShrink: 0 }}>
+                                                {editingContactId !== a.id && (
+                                                    <button onClick={() => startEditContact(a)} style={{ fontSize: 10, fontWeight: 700, color: '#1d4ed8', cursor: 'pointer', background: '#dbeafe', border: 'none', borderRadius: 5, padding: '3px 9px', whiteSpace: 'nowrap' }}>
+                                                        {!a.email && !a.mobile ? '+ Add contact' : 'Edit'}
+                                                    </button>
+                                                )}
+                                                <button onClick={() => removeClientAttendee(a.id)} style={{ color: '#94a3b8', cursor: 'pointer', background: 'none', border: 'none', padding: '3px', display: 'flex', alignItems: 'center', borderRadius: 4 }}>
+                                                    <X size={13} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                        {/* Inline contact edit */}
+                                        {editingContactId === a.id && (
+                                            <div style={{ borderTop: '1px solid #bfdbfe', marginTop: 10, paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                                <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#1d4ed8' }}>Edit Contact Details</div>
+                                                <div className="sch-grid">
+                                                    <Field label="Email">
+                                                        <TextInput icon={Mail} type="email" value={contactEditForm.email} onChange={e => setContactEditForm(p => ({ ...p, email: e.target.value }))} placeholder="email@example.com" name={`ce_email_${a.id}`} />
+                                                    </Field>
+                                                    <Field label="Mobile">
+                                                        <TextInput icon={Phone} type="tel" value={contactEditForm.mobile} onChange={e => setContactEditForm(p => ({ ...p, mobile: e.target.value }))} placeholder="+254..." name={`ce_mob_${a.id}`} />
+                                                    </Field>
+                                                    <Field label="Alt Mobile">
+                                                        <TextInput icon={Phone} type="tel" value={contactEditForm.alt_mobile} onChange={e => setContactEditForm(p => ({ ...p, alt_mobile: e.target.value }))} placeholder="+254..." name={`ce_alt_${a.id}`} />
+                                                    </Field>
+                                                    <Field label="WhatsApp">
+                                                        <TextInput icon={Phone} type="tel" value={contactEditForm.whatsapp} onChange={e => setContactEditForm(p => ({ ...p, whatsapp: e.target.value }))} placeholder="+254..." name={`ce_wa_${a.id}`} />
+                                                    </Field>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: 8 }}>
+                                                    <Button className="sch-btn-next h-auto" style={{ fontSize: 11 }} disabled={savingContact} onClick={() => saveContactDetails(a.id)}>
+                                                        {savingContact ? <><Loader2 size={12} className="animate-spin" /> Saving…</> : 'Save to registry'}
+                                                    </Button>
+                                                    <Button className="sch-btn-prev h-auto" style={{ fontSize: 11 }} onClick={() => setEditingContactId(null)}>Cancel</Button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* ── SECTION B: BCL ATTENDEES ── */}
+                <div style={secCard}>
+                    <div style={{ padding: '12px 18px', background: inv('bclAttendees') ? '#fef2f2' : '#f0fdf9', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 30, height: 30, borderRadius: 8, background: '#0d9488', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <Building size={14} color="#fff" />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 12, fontWeight: 800, color: '#0d9488', textTransform: 'uppercase', letterSpacing: '0.06em' }}>BCL Attendees</div>
+                            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 1 }}>Internal team members joining this meeting</div>
+                        </div>
+                        {inv('bclAttendees') && (
+                            <span style={{ fontSize: 10, fontWeight: 700, color: '#ef4444', background: '#fee2e2', padding: '3px 8px', borderRadius: 5, flexShrink: 0 }}>Required</span>
+                        )}
+                    </div>
+                    <div style={secBody}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            <Field label="Select BCL Attendee(s) *" error={inv('bclAttendees')}>
+                                {loadingBclAttendees
+                                    ? <Button className="sch-select-trigger h-10" disabled style={{ opacity: 0.6 }}><Loader2 size={13} className="animate-spin" /> Loading…</Button>
+                                    : <SearchableMultiSelect
+                                        values={bclIds}
+                                        onValuesChange={vals => {
+                                            const names = vals.map(id => bclAttendees.find(a => a.id === id)?.displayName ?? id);
+                                            setFormData(p => ({ ...p, bclAttendees: vals, bclAttendeeNames: names }));
+                                        }}
+                                        options={bclAttendees.map(a => ({ value: a.id, label: a.displayName, sublabel: a.email || '' }))}
+                                        placeholder="Search and select BCL attendee(s)…"
+                                        searchPlaceholder="Search by name…"
+                                        invalid={inv('bclAttendees')}
+                                        buttonClassName={`sch-select-trigger h-auto min-h-10${inv('bclAttendees') ? ' invalid' : ''}`}
+                                    />
+                                }
+                            </Field>
+                            {bclIds.length > 0 && (
+                                <div style={{ background: '#f0fdf9', border: '1px solid #99f6e4', borderRadius: 9, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                    <div style={{ fontSize: 10, fontWeight: 700, color: '#0d9488', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Attendee Emails</div>
+                                    <div className="sch-grid">
+                                        {bclIds.map((id, i) => {
+                                            const attendee = bclAttendees.find(a => a.id === id);
+                                            const autoEmail = attendee?.email || '';
+                                            return (
+                                                <Field key={id} label={bclNames[i]}>
+                                                    <TextInput icon={Mail} type="email"
+                                                        value={bclEmailMap[id] ?? autoEmail}
+                                                        onChange={e => setFormData(p => ({ ...p, bclAttendeeEmailMap: { ...(p.bclAttendeeEmailMap as Record<string, string>), [id]: e.target.value } }))}
+                                                        placeholder={autoEmail || 'attendee@bcl.co.ke'}
+                                                    />
+                                                </Field>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                            <Field label="BCL Office Mobile">
+                                <TextInput name="bclAttendeeMobile" value={formData.bclAttendeeMobile} onChange={handleChange} icon={Phone} readOnly />
+                            </Field>
+                        </div>
+                    </div>
+                </div>
+
+                {/* ── SECTION C: THIRD PARTY ATTENDEES ── */}
+                <div style={secCard}>
+                    <div style={{ padding: '12px 18px', background: '#faf5ff', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 30, height: 30, borderRadius: 8, background: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <Building size={14} color="#fff" />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 12, fontWeight: 800, color: '#7c3aed', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Third Party Attendees</div>
+                            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 1 }}>Banks, vendors, software providers and other external parties</div>
+                        </div>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', background: '#f1f5f9', padding: '3px 8px', borderRadius: 5 }}>Optional</span>
+                    </div>
+                    <div style={secBody}>
+                        {/* Mode toggle */}
+                        <div style={tabTray}>
+                            {(['existing', 'new'] as const).map(mode => (
+                                <button key={mode} style={tabBtn(tpSelectMode === mode, '#7c3aed')}
+                                    onClick={() => { setTpSelectMode(mode); setTpSaveToDB(null); }}>
+                                    {mode === 'existing' ? 'Saved Contacts' : 'Add New'}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Existing contacts */}
+                        {tpSelectMode === 'existing' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {loadingTpExisting
+                                    ? <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#94a3b8', padding: '10px 0' }}><Loader2 size={13} className="animate-spin" /> Loading contacts…</div>
+                                    : tpExisting.length === 0
+                                        ? <div style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic', padding: '10px 0', textAlign: 'center' }}>No saved contacts yet. Use "Add New" to create one.</div>
+                                        : tpExisting.map(tp => {
+                                            const added = thirdPartyAttendees.some(a => a.key === tp.id);
+                                            return (
+                                                <div key={tp.id} style={{ background: added ? '#f0fdf4' : '#f8fafc', border: `1px solid ${added ? '#bbf7d0' : '#e2e8f0'}`, borderRadius: 9, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+                                                            <span style={{ fontWeight: 700, fontSize: 13, color: '#1d4ed8' }}>{tp.name}</span>
+                                                            {tp.type && <span style={{ background: '#ede9fe', borderRadius: 4, padding: '1px 7px', fontSize: 10, fontWeight: 700, color: '#7c3aed' }}>{tp.type}</span>}
+                                                            {tp.organization && <span style={{ fontSize: 12, color: '#64748b' }}>{tp.organization}</span>}
+                                                        </div>
+                                                        {(tp.email || tp.mobile) && (
+                                                            <div style={{ display: 'flex', gap: 10, marginTop: 4, fontSize: 11, color: '#64748b' }}>
+                                                                {tp.email && <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Mail size={9} />{tp.email}</span>}
+                                                                {tp.mobile && <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Phone size={9} />{tp.mobile}</span>}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <button disabled={added} onClick={() => addExistingThirdParty(tp)}
+                                                        style={{ fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: 'none', cursor: added ? 'default' : 'pointer', background: added ? 'transparent' : '#7c3aed', color: added ? '#16a34a' : '#fff', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                                                        {added ? '✓ Added' : '+ Add'}
+                                                    </button>
+                                                </div>
+                                            );
+                                        })
+                                }
+                            </div>
+                        )}
+
+                        {/* New contact form */}
+                        {tpSelectMode === 'new' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                <div className="sch-grid">
+                                    <Field label="Contact Name *">
+                                        <TextInput icon={User} value={tpForm.name} onChange={e => setTpForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Jane Smith" name="tp_name" />
+                                    </Field>
+                                    <Field label="Type">
+                                        <SchSelect value={tpForm.type} onValueChange={v => setTpForm(p => ({ ...p, type: v }))}
+                                            placeholder="Select type"
+                                            items={[
+                                                { value: 'Bank', label: 'Bank' },
+                                                { value: 'Software Provider', label: 'Software Provider' },
+                                                { value: 'Vendor', label: 'Vendor' },
+                                                { value: 'Legal / Regulatory', label: 'Legal / Regulatory' },
+                                                { value: 'Consultant', label: 'Consultant' },
+                                                { value: 'Other', label: 'Other' },
+                                            ]} />
+                                    </Field>
+                                    <Field label="Organisation">
+                                        <TextInput icon={Building} value={tpForm.organization} onChange={e => setTpForm(p => ({ ...p, organization: e.target.value }))} placeholder="e.g. Equity Bank" name="tp_org" />
+                                    </Field>
+                                    <Field label="Email">
+                                        <TextInput icon={Mail} type="email" value={tpForm.email} onChange={e => setTpForm(p => ({ ...p, email: e.target.value }))} placeholder="email@org.com" name="tp_email" />
+                                    </Field>
+                                    <Field label="Mobile">
+                                        <TextInput icon={Phone} type="tel" value={tpForm.mobile} onChange={e => setTpForm(p => ({ ...p, mobile: e.target.value }))} placeholder="+254..." name="tp_mobile" />
+                                    </Field>
+                                </div>
+                                {tpSaveToDB === 'ask' && tpForm.name.trim() && (
+                                    <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 9, padding: '13px 15px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        <div style={{ fontSize: 12, fontWeight: 700, color: '#92400e' }}>Save this contact to the database?</div>
+                                        <div style={{ fontSize: 11, color: '#a16207', lineHeight: 1.6 }}>Saving creates a permanent record in <strong>third_party_contacts</strong> so it can be reused in future meetings.</div>
+                                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                            <Button className="sch-btn-next h-auto" style={{ fontSize: 11 }} disabled={tpSubmitting} onClick={() => handleAddThirdParty(true)}>
+                                                {tpSubmitting ? <><Loader2 size={12} className="animate-spin" /> Saving…</> : 'Yes, save to database'}
+                                            </Button>
+                                            <Button className="sch-btn-prev h-auto" style={{ fontSize: 11 }} disabled={tpSubmitting} onClick={() => handleAddThirdParty(false)}>
+                                                Just for this meeting
+                                            </Button>
+                                            <Button className="sch-btn-prev h-auto" style={{ fontSize: 11 }} onClick={() => setTpSaveToDB(null)}>Cancel</Button>
+                                        </div>
+                                    </div>
+                                )}
+                                {tpSaveToDB !== 'ask' && (
+                                    <div>
+                                        <Button className="sch-btn-next h-auto" style={{ fontSize: 12 }} disabled={!tpForm.name.trim()}
+                                            onClick={() => { if (tpForm.name.trim()) setTpSaveToDB('ask'); }}>
+                                            <Plus size={13} /> Add Third Party
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Added list */}
+                        {thirdPartyAttendees.length > 0 && (
+                            <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 7 }}>
+                                <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                    Added — {thirdPartyAttendees.length} contact{thirdPartyAttendees.length !== 1 ? 's' : ''}
+                                </div>
+                                {thirdPartyAttendees.map(tp => (
+                                    <div key={tp.key} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 9, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+                                                <span style={{ fontWeight: 700, fontSize: 13, color: '#1d4ed8' }}>{tp.name}</span>
+                                                {tp.type && <span style={{ background: '#ede9fe', borderRadius: 4, padding: '1px 7px', fontSize: 10, fontWeight: 700, color: '#7c3aed' }}>{tp.type}</span>}
+                                                {tp.organization && <span style={{ fontSize: 12, color: '#64748b' }}>{tp.organization}</span>}
+                                            </div>
+                                            {(tp.email || tp.mobile) && (
+                                                <div style={{ display: 'flex', gap: 10, marginTop: 4, fontSize: 11, color: '#64748b' }}>
+                                                    {tp.email && <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Mail size={9} />{tp.email}</span>}
+                                                    {tp.mobile && <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Phone size={9} />{tp.mobile}</span>}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <button onClick={() => setFormData(p => ({ ...p, thirdPartyAttendees: (p.thirdPartyAttendees as ThirdPartyAttendee[]).filter(x => x.key !== tp.key) }))}
+                                            style={{ color: '#94a3b8', cursor: 'pointer', background: 'none', border: 'none', padding: '3px', display: 'flex', alignItems: 'center', borderRadius: 4 }}>
+                                            <X size={13} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    };
 
     const renderStep2 = () => (
         <div className="sch-grid">
@@ -785,13 +1344,14 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
     );
 
     const renderStep3 = () => {
-        const finalCompany = formData.companyType === 'new' ? formData.otherClientCompany : formData.clientCompany;
+        const finalCompany = formData.clientCompany;
         const finalAgenda = formData.meetingAgenda === 'Other' ? formData.otherMeetingAgenda : formData.meetingAgenda;
         const statusLabel = CREATION_STATUSES.find(s => s.value === formData.status)?.label ?? formData.status;
+        const clientAttendees = formData.clientAttendees as ClientAttendee[];
+        const thirdPartyAttendees = formData.thirdPartyAttendees as ThirdPartyAttendee[];
         const items = [
             { label: 'Status', value: statusLabel },
-            { label: 'Client', value: formData.clientName },
-            { label: 'Company', value: finalCompany },
+            { label: 'Client Attendee(s)', value: clientAttendees.map(a => `${a.name}${a.companies.filter(c => a.selectedCompanyIds.includes(c.id)).length ? ` (${a.companies.filter(c => a.selectedCompanyIds.includes(c.id)).map(c => c.name).join(', ')})` : ''}`).join('; ') || '—' },
             { label: 'Client Mobile', value: formData.clientMobile },
             { label: 'Client Email', value: formData.clientEmail || '—' },
             { label: 'Meeting Date', value: formData.meetingDate ? new Date(formData.meetingDate).toLocaleDateString('en-GB') : '—' },
@@ -809,6 +1369,7 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
             { label: 'Venue', value: formData.meetingVenueArea === 'Other' ? formData.otherMeetingVenueArea : formData.meetingVenueArea },
             { label: 'Agenda', value: finalAgenda },
             { label: 'BCL Attendee(s)', value: (formData.bclAttendeeNames as string[]).join(', ') || '—' },
+            { label: 'Third Party Attendees', value: thirdPartyAttendees.map(tp => `${tp.name}${tp.type ? ` (${tp.type})` : ''}`).join('; ') || '—' },
             { label: 'Travel Time', value: `${formData.venueDistance} min` },
         ];
         return (

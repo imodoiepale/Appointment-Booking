@@ -24,6 +24,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { ScheduleDialog } from '../schedule/page';
 import { DashboardDialogs } from './components/DashboardDialogs';
+import supabase from '@/utils/supabaseClient';
 
 const ADMIN_ROLES = new Set(['admin', 'super_admin', 'administrator']);
 
@@ -282,6 +283,26 @@ const DashboardContent = () => {
       finally { setLoading(false); }
     };
     init();
+  }, []);
+
+  // Realtime: reflect new / updated meetings instantly without a full refetch
+  useEffect(() => {
+    const channel = supabase
+      .channel('dashboard-realtime')
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'bcl_meetings_meetings' },
+        (payload) => setAppointments(prev => [payload.new as any, ...prev])
+      )
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'bcl_meetings_meetings' },
+        (payload) => {
+          const u = payload.new as any;
+          setAppointments(prev => prev.map((a: any) => a.id_main === u.id_main ? { ...a, ...u } : a));
+          setSelectedAppointment(prev => prev?.id_main === u.id_main ? { ...prev, ...u } : prev);
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const patchMeeting = useCallback(async (id: number, payload: object) => {
