@@ -1171,37 +1171,31 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
                             ))}
                         </div>
 
-                        {/* Existing contacts */}
+                        {/* Existing contacts — multiselect dropdown */}
                         {tpSelectMode === 'existing' && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                 {loadingTpExisting
                                     ? <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#94a3b8', padding: '10px 0' }}><Loader2 size={13} className="animate-spin" /> Loading contacts…</div>
                                     : tpExisting.length === 0
                                         ? <div style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic', padding: '10px 0', textAlign: 'center' }}>No saved contacts yet. Use "Add New" to create one.</div>
-                                        : tpExisting.map(tp => {
-                                            const added = thirdPartyAttendees.some(a => a.key === tp.id);
-                                            return (
-                                                <div key={tp.id} style={{ background: added ? '#f0fdf4' : '#f8fafc', border: `1px solid ${added ? '#bbf7d0' : '#e2e8f0'}`, borderRadius: 9, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
-                                                            <span style={{ fontWeight: 700, fontSize: 13, color: '#1d4ed8' }}>{tp.name}</span>
-                                                            {tp.type && <span style={{ background: '#ede9fe', borderRadius: 4, padding: '1px 7px', fontSize: 10, fontWeight: 700, color: '#7c3aed' }}>{tp.type}</span>}
-                                                            {tp.organization && <span style={{ fontSize: 12, color: '#64748b' }}>{tp.organization}</span>}
-                                                        </div>
-                                                        {(tp.email || tp.mobile) && (
-                                                            <div style={{ display: 'flex', gap: 10, marginTop: 4, fontSize: 11, color: '#64748b' }}>
-                                                                {tp.email && <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Mail size={9} />{tp.email}</span>}
-                                                                {tp.mobile && <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Phone size={9} />{tp.mobile}</span>}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    <button disabled={added} onClick={() => addExistingThirdParty(tp)}
-                                                        style={{ fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 7, border: 'none', cursor: added ? 'default' : 'pointer', background: added ? 'transparent' : '#7c3aed', color: added ? '#16a34a' : '#fff', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                                                        {added ? '✓ Added' : '+ Add'}
-                                                    </button>
-                                                </div>
-                                            );
-                                        })
+                                        : <SearchableMultiSelect
+                                            values={thirdPartyAttendees.map(a => a.key)}
+                                            onValuesChange={vals => {
+                                                const currentKeys = thirdPartyAttendees.map(a => a.key);
+                                                const removed = currentKeys.filter(k => !vals.includes(k));
+                                                const added = vals.filter(v => !currentKeys.includes(v));
+                                                let updated = [...thirdPartyAttendees];
+                                                if (removed.length) updated = updated.filter(a => !removed.includes(a.key));
+                                                for (const id of added) {
+                                                    const tp = tpExisting.find(t => t.id === id);
+                                                    if (tp) updated.push({ key: tp.id, name: tp.name, type: tp.type, email: tp.email, mobile: tp.mobile, organization: tp.organization || '' });
+                                                }
+                                                setFormData(p => ({ ...p, thirdPartyAttendees: updated }));
+                                            }}
+                                            options={tpExisting.map(tp => ({ value: tp.id, label: tp.name, sublabel: tp.organization || tp.email || '' }))}
+                                            placeholder="Search and select saved contacts…"
+                                            searchPlaceholder="Search contacts…"
+                                        />
                                 }
                             </div>
                         )}

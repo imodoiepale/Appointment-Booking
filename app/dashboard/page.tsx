@@ -608,6 +608,15 @@ const DashboardContent = () => {
       case 'pending': return list.filter(a => ['pending', 'pending_confirmation', 'confirmed'].includes(a.status || ''));
       case 'completed': return list.filter(a => a.status === 'completed');
       case 'canceled': return list.filter(a => a.status === 'canceled' || a.status === 'cancelled');
+      case 'mycreated':
+        return list.filter(a => {
+          if (a._kind === 'event' || a.event_name) return false;
+          const isCreator = String(a.created_by) === String(currentUserId);
+          if (!isCreator) return false;
+          const bclIds = parseBclAttendees(a.bcl_attendee);
+          const isAttendee = bclIds.some(id => String(id) === String(currentUserId));
+          return !isAttendee;
+        });
       default: return list.filter(a => !TERMINAL_STATUSES.has((a.status || 'upcoming').toLowerCase()));
     }
   }, [appointments, allEvents, contentType, activeTab, searchQuery]);
@@ -640,6 +649,7 @@ const DashboardContent = () => {
           return da.localeCompare(db);
         });
       case 'completed': case 'canceled': return list.sort((a, b) => byDateTime(a, b, -1));
+      case 'mycreated': return list.sort((a, b) => byDateTime(a, b, -1));
       default: return list.sort((a, b) => byDateTime(a, b, 1));
     }
   }, [filteredList, activeTab, now]);
@@ -701,6 +711,7 @@ const DashboardContent = () => {
               { key: 'pending',  label: 'Pending' },
               { key: 'completed', label: 'Completed' },
               { key: 'canceled', label: 'Cancelled' },
+              { key: 'mycreated', label: 'My Created' },
             ].map(({ key, label }) => (
               <button key={key} className={cn("rounded-md px-4 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:text-slate-900", activeTab === key && "bg-white text-blue-600 shadow-sm")} onClick={() => setActiveTab(key)}>{label}</button>
             ))}
@@ -790,7 +801,14 @@ const DashboardContent = () => {
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="border-r text-xs font-medium text-slate-600">{isMtg ? 'Client Meeting' : 'Corporate Event'}</TableCell>
+                        <TableCell className="border-r text-xs font-medium text-slate-600">
+                          {isMtg ? 'Client Meeting' : 'Corporate Event'}
+                          {activeTab === 'mycreated' && isMtg && (
+                            <span className="ml-1.5 inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-0.5 text-[9px] font-bold text-indigo-700">
+                              <UserCheck size={9} /> Created by you
+                            </span>
+                          )}
+                        </TableCell>
                         <TableCell className="border-r text-sm text-slate-600">
                           {formatDate(row.meeting_date || row.event_date, { day: '2-digit', month: '2-digit', year: 'numeric' })}
                         </TableCell>

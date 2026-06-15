@@ -20,6 +20,7 @@ import {
     PanelLeftClose,
     PanelLeftOpen,
     PartyPopper,
+    PenSquare,
     PlusCircle,
     Search,
     Settings,
@@ -69,6 +70,7 @@ const Sidebar = () => {
         { name: "Pending", href: "/dashboard?status=pending", status: "pending", icon: AlertCircle, colorVar: "--status-pending", count: 5 },
         { name: "Completed", href: "/dashboard?status=completed", status: "completed", icon: CheckCircle, colorVar: "--status-completed" },
         { name: "Canceled", href: "/dashboard?status=canceled", status: "canceled", icon: XCircle, colorVar: "--status-canceled" },
+        { name: "My Created", href: "/dashboard?status=mycreated", status: "mycreated", icon: PenSquare, colorVar: "--status-mycreated" },
     ];
 
     const isNavActive = (href: string) =>
