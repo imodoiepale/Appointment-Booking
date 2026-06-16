@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { SearchableSelect } from "@/components/ui/searchable-select";
+import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { 
   Loader2, Calendar, Clock, MapPin, Video, Users, 
   ChevronRight, FileText, Briefcase, Globe 
@@ -96,22 +96,16 @@ export function EventFormDialog({
     }));
   };
 
-  // Map the list for SearchableSelect
   const attendeeOptions = bclAttendeesList.map(a => ({
     label: a.displayName,
-    value: a.id
+    value: a.id,
   }));
 
   const handleAttendeeChange = (selectedIds: string[]) => {
     const selectedNames = bclAttendeesList
       .filter(a => selectedIds.includes(a.id))
       .map(a => a.displayName);
-
-    setForm(p => ({
-      ...p,
-      bcl_attendee: selectedIds,
-      bcl_attendee_names: selectedNames
-    }));
+    setForm(p => ({ ...p, bcl_attendee: selectedIds, bcl_attendee_names: selectedNames }));
   };
 
   return (
@@ -354,13 +348,11 @@ export function EventFormDialog({
                     Internal Team Members (BCL)
                     {loadingBclAttendees && <Loader2 size={12} className="animate-spin text-blue-500" />}
                   </label>
-                  <SearchableSelect
+                  <SearchableMultiSelect
                     options={attendeeOptions}
-                    value={form.bcl_attendee}
-                    onChange={handleAttendeeChange}
-                    placeholder={loadingBclAttendees ? "Loading team..." : "Search and select team members..."}
-                    multiple={true}
-                    className="w-full"
+                    values={form.bcl_attendee}
+                    onValuesChange={handleAttendeeChange}
+                    placeholder={loadingBclAttendees ? 'Loading team…' : 'Search and select team members…'}
                   />
                 </div>
 

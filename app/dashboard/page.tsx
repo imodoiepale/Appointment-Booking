@@ -1,4 +1,4 @@
-// @ts-nocheck
+﻿// @ts-nocheck
 "use client"
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, Clock, Building, MapPin, CheckCircle, XCircle, Table2, LayoutGrid, Video, Trash2, Loader2, CloudOff, Cloud, ChevronLeft, ChevronRight, Search, MoreHorizontal, Plus, Download, Hash, Globe, CheckCircle2, CalendarClock, Edit2, Ban, UserCheck, AlertCircle, PartyPopper, Users, ClipboardList, Zap, LinkIcon, ArrowRight, RefreshCw, Timer, MoveRight, AlarmClock, PlusCircle, Phone, Mail, User, Briefcase, FileText, Clock3, ChevronDown, ChevronUp, Star, Tag, Info } from 'lucide-react';
+import { Calendar, Clock, Building, MapPin, CheckCircle, XCircle, Table2, LayoutGrid, Video, Trash2, Loader2, CloudOff, Cloud, ChevronLeft, ChevronRight, Search, MoreHorizontal, Plus, Download, Hash, Globe, CheckCircle2, CalendarClock, Edit2, Ban, UserCheck, AlertCircle, PartyPopper, Users, ClipboardList, Zap, LinkIcon, ArrowRight, RefreshCw, Timer, MoveRight, AlarmClock, PlusCircle, Phone, Mail, User, Briefcase, FileText, Clock3, ChevronDown, ChevronUp, ChevronsUpDown, Star, Tag, Info } from 'lucide-react';
 import { getStatusHexColor, getStatusLabel } from '@/utils/appointmentStatuses';
 import { formatTime, formatDate, parseLocalDate } from '../../utils/format';
 import { cn } from '@/lib/utils';
@@ -24,6 +24,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { ScheduleDialog } from '../schedule/page';
 import { DashboardDialogs } from './components/DashboardDialogs';
+import { DataTable } from '@/components/shared/DataTable';
+import type { ColumnDef } from '@/components/shared/DataTable';
 import supabase from '@/utils/supabaseClient';
 
 const ADMIN_ROLES = new Set(['admin', 'super_admin', 'administrator']);
@@ -137,16 +139,16 @@ function calculateCascade(newEndTime: string, conflicts: any[]): Array<{ meeting
 function todayGroup(item: any, now: Date): { rank: number; label: string; emoji: string } {
   const effStatus = effectiveStatus(item, now);
   if (effStatus === 'in_progress' || effStatus === 'overdue')
-    return { rank: 0, label: 'In Progress', emoji: '🔥' };
+    return { rank: 0, label: 'In Progress', emoji: 'ðŸ”¥' };
   const dateStr = item.meeting_date || item.event_date;
   const timeStr = item.meeting_start_time || item.event_start_time;
   const start = parseLocalDateTime(dateStr, timeStr);
   if (start) {
     const minsUntil = (start.getTime() - now.getTime()) / 60000;
     if (minsUntil >= 0 && minsUntil <= 30)
-      return { rank: 1, label: 'Starting Soon', emoji: '⏰' };
+      return { rank: 1, label: 'Starting Soon', emoji: 'â°' };
   }
-  return { rank: 2, label: 'Later Today', emoji: '📅' };
+  return { rank: 2, label: 'Later Today', emoji: 'ðŸ“…' };
 }
 
 const initials = (n: string) => n?.split(' ').map(c => c[0]).join('').slice(0, 2).toUpperCase() ?? '??';
@@ -174,7 +176,7 @@ const AppointmentCard = ({ appointment, onClick, usersById = {} }) => {
     if (['upcoming', 'rescheduled'].includes(appointment.status) && now > mtgDate) return 'pending';
     return appointment.status;
   })();
-  const attendeeName = getAttendeeDetails(appointment, usersById)[0]?.name || '—';
+  const attendeeName = getAttendeeDetails(appointment, usersById)[0]?.name || 'â€”';
   return (
     <div className="group relative bg-white rounded-xl border border-slate-200 p-5 shadow-sm hover:shadow-md transition-all cursor-pointer hover:-translate-y-1" onClick={onClick}>
       <div className="flex justify-between items-start mb-4">
@@ -230,12 +232,15 @@ const DashboardContent = () => {
   const [contentType, setContentType] = useState<'meetings' | 'events' | 'all'>('meetings');
   const [calendarConnectionStatus, setCalendarConnectionStatus] = useState('checking');
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [currentUserName, setCurrentUserName] = useState('');
   const [bclUsersById, setBclUsersById] = useState<Record<string, any>>({});
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [itemsPerPage] = useState(12);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('table');
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const { toast } = useToast();
   const [actionLoading, setActionLoading] = useState('');
   const [syncingRow, setSyncingRow] = useState<number | null>(null);
@@ -273,7 +278,7 @@ const DashboardContent = () => {
           fetch('/api/users/me'), fetch('/api/meetings'), fetch('/api/events'),
           fetch('/api/auth/google/status'), fetch('/api/users/bcl-attendees'),
         ]);
-        if (userRes.ok) { const me = await userRes.json(); setCurrentUserId(me.id); setIsAdmin(ADMIN_ROLES.has((me.role ?? '').toLowerCase())); }
+        if (userRes.ok) { const me = await userRes.json(); setCurrentUserId(me.id); setCurrentUserName([me.first_name, me.last_name].filter(Boolean).join(' ') || me.username || me.id); setIsAdmin(ADMIN_ROLES.has((me.role ?? '').toLowerCase())); }
         if (meetingsRes.ok) { const data = await meetingsRes.json(); setAppointments(Array.isArray(data) ? data : []); }
         if (eventsRes.ok) { const data = await eventsRes.json(); setAllEvents(Array.isArray(data) ? data : []); }
         if (bclUsersRes.ok) { const data = await bclUsersRes.json(); setBclUsersById(buildUserMap(Array.isArray(data) ? data : [])); }
@@ -315,6 +320,15 @@ const DashboardContent = () => {
     setAppointments(prev => prev.map(a => a.id_main === id ? { ...a, ...patch } : a));
     setSelectedAppointment(prev => prev && prev.id_main === id ? { ...prev, ...patch } : prev);
   }, []);
+
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
 
   const syncMeeting = async (meeting: any): Promise<string | null> => {
     const res = await fetch('/api/sync-to-calendar', {
@@ -509,7 +523,7 @@ const DashboardContent = () => {
             const esStart = timeToMins(m.meeting_slot_start_time || m.meeting_start_time);
             const esEnd = timeToMins(m.meeting_slot_end_time || m.meeting_end_time);
             if (nsStart < esEnd && esStart < nsEnd) {
-              setRescheduleConflict(`Conflicts with ${m.client_name} (${m.meeting_start_time}–${m.meeting_end_time})`);
+              setRescheduleConflict(`Conflicts with ${m.client_name} (${m.meeting_start_time}â€“${m.meeting_end_time})`);
               setActionLoading(''); return;
             }
           }
@@ -621,8 +635,59 @@ const DashboardContent = () => {
     }
   }, [appointments, allEvents, contentType, activeTab, searchQuery]);
 
+  // Combined user map for resolving created_by names
+  const allUsersById = useMemo(() => {
+    const map = { ...bclUsersById };
+    if (currentUserId && currentUserName && !map[String(currentUserId)]) {
+      map[String(currentUserId)] = { id: currentUserId, displayName: currentUserName };
+    }
+    return map;
+  }, [bclUsersById, currentUserId, currentUserName]);
+
   const sortedList = useMemo(() => {
     const list = [...filteredList];
+
+    // Helper to extract sort value by column key
+    const getCellValue = (row: any, col: string): string | number => {
+      switch (col) {
+        case 'client_name': return row.client_name || row.event_name || '';
+        case 'category': return row.event_name ? 'Corporate Event' : 'Client Meeting';
+        case 'date': return row.meeting_date || row.event_date || '';
+        case 'start': return row.meeting_start_time || row.event_start_time || '';
+        case 'end': return row.meeting_end_time || row.event_end_time || '';
+        case 'duration': return Number(row.meeting_duration || row.event_duration || 0);
+        case 'attendee': {
+          if (row.event_name) return row.organizer_name || '';
+          return getAttendeeDetails(row, bclUsersById)[0]?.name || '';
+        }
+        case 'status': {
+          const s = row.event_name ? (row.status || 'upcoming') : effectiveStatus(row, now);
+          return getStatusLabel(s);
+        }
+        case 'synced': return row.google_event_id ? 1 : 0;
+        case 'created_by': {
+          const v = row.created_by || '';
+          const u = allUsersById[String(v)];
+          return u?.displayName || u?.username || String(v);
+        }
+        default: return '';
+      }
+    };
+
+    // Manual sort when a column is selected
+    if (sortColumn) {
+      return list.sort((a, b) => {
+        const va = getCellValue(a, sortColumn);
+        const vb = getCellValue(b, sortColumn);
+        const sa = typeof va === 'string' ? va.toLowerCase() : va;
+        const sb = typeof vb === 'string' ? vb.toLowerCase() : vb;
+        if (sa < sb) return sortDirection === 'asc' ? -1 : 1;
+        if (sa > sb) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    // Default sort per tab
     const byDateTime = (a: any, b: any, dir: 1 | -1 = 1) => {
       const da = a.meeting_date || a.event_date || '';
       const db = b.meeting_date || b.event_date || '';
@@ -652,11 +717,208 @@ const DashboardContent = () => {
       case 'mycreated': return list.sort((a, b) => byDateTime(a, b, -1));
       default: return list.sort((a, b) => byDateTime(a, b, 1));
     }
-  }, [filteredList, activeTab, now]);
+  }, [filteredList, activeTab, now, sortColumn, sortDirection, bclUsersById, allUsersById]);
 
   const paginated = sortedList.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage);
   const totalPages = Math.ceil(sortedList.length / itemsPerPage);
   const selectedAttendees = useMemo(() => getAttendeeDetails(selectedAppointment, bclUsersById), [selectedAppointment, bclUsersById]);
+
+  const dashColumns: ColumnDef[] = useMemo(() => [
+    {
+      key: 'index',
+      header: '#',
+      headerClassName: 'w-[44px]',
+      cellClassName: 'font-medium text-slate-500 text-center',
+      render: (_row, index) => index + 1,
+    },
+    {
+      key: 'client_name',
+      header: 'Client Name',
+      sortable: true,
+      render: (row) => (
+        <div className="flex items-center gap-3">
+          <div className={cn("flex h-8 w-8 items-center justify-center rounded-full flex-shrink-0", row.meeting_type === 'virtual' ? "bg-blue-50 text-blue-600" : "bg-orange-50 text-orange-600")}>
+            {row.meeting_type === 'virtual' ? <Video size={16} /> : <MapPin size={16} />}
+          </div>
+          <div>
+            <div className="font-semibold text-sm text-slate-900">{row.client_name || row.event_name}</div>
+            <div className="text-xs text-slate-500">{row.client_company || row.event_type}</div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'category',
+      header: 'Category',
+      sortable: true,
+      cellClassName: 'text-xs font-medium text-slate-600',
+      render: (row) => {
+        const isMtg = row._kind !== 'event' && !row.event_name;
+        return (
+          <>
+            {isMtg ? 'Client Meeting' : 'Corporate Event'}
+            {activeTab === 'mycreated' && isMtg && (
+              <span className="ml-1.5 inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-0.5 text-[9px] font-bold text-indigo-700">
+                <UserCheck size={9} /> Created by you
+              </span>
+            )}
+          </>
+        );
+      },
+    },
+    {
+      key: 'date',
+      header: 'Date',
+      sortable: true,
+      cellClassName: 'text-sm text-slate-600',
+      render: (row) => formatDate(row.meeting_date || row.event_date, { day: '2-digit', month: '2-digit', year: 'numeric' }),
+    },
+    {
+      key: 'start',
+      header: 'Start',
+      sortable: true,
+      render: (row) => (
+        <span className="font-bold text-[#0057E7] text-xs tabular-nums">
+          {formatTime(row.meeting_start_time || row.event_start_time)}
+        </span>
+      ),
+    },
+    {
+      key: 'end',
+      header: 'End',
+      sortable: true,
+      render: (row) => (
+        <span className="font-semibold text-slate-600 text-xs tabular-nums">
+          {formatTime(row.meeting_end_time || row.event_end_time) || <span className="text-slate-300">â€”</span>}
+        </span>
+      ),
+    },
+    {
+      key: 'duration',
+      header: 'Duration',
+      sortable: true,
+      render: (row) => {
+        const durMins = row.meeting_duration || row.event_duration;
+        const durLabel = durMins
+          ? durMins >= 60 ? `${Math.floor(durMins / 60)}h${durMins % 60 ? ` ${durMins % 60}m` : ''}` : `${durMins}m`
+          : 'â€”';
+        return (
+          <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+            <Clock3 size={10} className="text-slate-400" />{durLabel}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'attendee',
+      header: 'BCL Attendee',
+      sortable: true,
+      render: (row) => {
+        const isMtg = row._kind !== 'event' && !row.event_name;
+        const name = isMtg ? (getAttendeeDetails(row, bclUsersById)[0]?.name || 'â€”') : row.organizer_name;
+        return (
+          <div className="flex items-center gap-2">
+            <Avatar className="h-7 w-7 rounded">
+              <AvatarFallback className="bg-slate-100 text-[10px] font-bold text-slate-500 rounded">{initials(name)}</AvatarFallback>
+            </Avatar>
+            <span className="text-xs text-slate-600">{name}</span>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'created_by',
+      header: 'Created By',
+      sortable: true,
+      render: (row) => {
+        const isEv = !!row.event_name;
+        if (isEv && row.organizer_name) {
+          return (
+            <div className="flex items-center gap-2">
+              <Avatar className="h-7 w-7 rounded">
+                <AvatarFallback className="bg-indigo-50 text-[10px] font-bold text-indigo-500 rounded">{initials(row.organizer_name)}</AvatarFallback>
+              </Avatar>
+              <span className="text-xs text-slate-600">{row.organizer_name}</span>
+            </div>
+          );
+        }
+        const cv = row.created_by || '';
+        const cu = allUsersById[String(cv)];
+        const creatorName = cu?.displayName || cu?.username || (cv ? String(cv).slice(0, 8) : 'â€”');
+        return (
+          <div className="flex items-center gap-2">
+            <Avatar className="h-7 w-7 rounded">
+              <AvatarFallback className="bg-indigo-50 text-[10px] font-bold text-indigo-500 rounded">{initials(creatorName)}</AvatarFallback>
+            </Avatar>
+            <span className="text-xs text-slate-600">{creatorName}</span>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: true,
+      render: (row) => {
+        const isMtg = row._kind !== 'event' && !row.event_name;
+        const rowStatus = isMtg ? effectiveStatus(row, now) : (row.status || 'upcoming');
+        const isOverdue = rowStatus === 'overdue';
+        return (
+          <div className="flex items-center gap-1.5">
+            <StatusPill status={rowStatus} />
+            {isOverdue && <AlarmClock size={12} className="text-yellow-600 flex-shrink-0" />}
+          </div>
+        );
+      },
+    },
+    {
+      key: 'synced',
+      header: 'Synced',
+      sortable: true,
+      stopPropagation: true,
+      render: (row) => {
+        const isMtg = row._kind !== 'event' && !row.event_name;
+        const isSyncing = syncingRow === (row.id_main || row.id);
+        return (
+          <div className="flex items-center gap-2">
+            <SyncBadge synced={!!row.google_event_id} />
+            {isMtg && calendarConnectionStatus === 'connected' && (
+              <button
+                className={cn("inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[10px] font-bold transition-colors disabled:opacity-60", row.google_event_id ? "border-red-200 text-red-600 hover:bg-red-50" : "border-blue-200 text-blue-600 hover:bg-blue-50")}
+                onClick={e => handleSyncRow(row, e)}
+                disabled={isSyncing}
+              >
+                {isSyncing ? <Loader2 size={9} className="animate-spin" /> : row.google_event_id ? <CloudOff size={9} /> : <Cloud size={9} />}
+                {isSyncing ? 'â€¦' : row.google_event_id ? 'Unsync' : 'Sync'}
+              </button>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      key: 'action',
+      header: 'Action',
+      stopPropagation: true,
+      headerClassName: 'text-right',
+      render: (row) => {
+        const isMtg = row._kind !== 'event' && !row.event_name;
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full"><MoreHorizontal size={14} /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setSelectedAppointment(row)}>View Details</DropdownMenuItem>
+              {isMtg && <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setSelectedAppointment(row); setTimeout(() => setEditOpen(true), 50); }}>Edit</DropdownMenuItem>}
+              {isMtg && <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setSelectedAppointment(row); setTimeout(openReschedule, 50); }}>Reschedule</DropdownMenuItem>}
+              <DropdownMenuItem className="text-red-600" onClick={(e) => { e.stopPropagation(); setSelectedAppointment(row); setTimeout(handleCancel, 50); }}>Cancel</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
+    },
+  ], [bclUsersById, allUsersById, now, activeTab, syncingRow, calendarConnectionStatus, handleSyncRow, setSelectedAppointment, setEditOpen, openReschedule, handleCancel]);
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-[80vh]">
@@ -683,7 +945,7 @@ const DashboardContent = () => {
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500">
               <span className={cn("h-2 w-2 flex-shrink-0 rounded-full", calendarConnectionStatus === 'connected' ? "bg-green-500 shadow-[0_0_0_3px_rgba(34,197,94,.2)]" : calendarConnectionStatus === 'checking' ? "bg-slate-400" : "bg-red-500 shadow-[0_0_0_3px_rgba(239,68,68,.2)]")} />
-              {calendarConnectionStatus === 'checking' ? 'Checking…' : `Calendar ${calendarConnectionStatus}`}
+              {calendarConnectionStatus === 'checking' ? 'Checkingâ€¦' : `Calendar ${calendarConnectionStatus}`}
             </div>
             {calendarConnectionStatus === 'connected' && (
               <Button variant="outline" size="sm" className="h-8 text-xs text-red-500 border-red-200 hover:bg-red-50" onClick={async () => { try { await fetch('/api/auth/google/disconnect', { method: 'POST' }); setCalendarConnectionStatus('disconnected'); } catch { } }}>Disconnect</Button>
@@ -701,195 +963,39 @@ const DashboardContent = () => {
         </div>
       </div>
 
-      {/* PANEL */}
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
-          <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
-            {[
-              { key: 'upcoming', label: 'All Active' },
-              { key: 'today',    label: 'Today' },
-              { key: 'pending',  label: 'Pending' },
-              { key: 'completed', label: 'Completed' },
-              { key: 'canceled', label: 'Cancelled' },
-              { key: 'mycreated', label: 'My Created' },
-            ].map(({ key, label }) => (
-              <button key={key} className={cn("rounded-md px-4 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:text-slate-900", activeTab === key && "bg-white text-blue-600 shadow-sm")} onClick={() => setActiveTab(key)}>{label}</button>
-            ))}
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="relative w-[300px]">
-              <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <Input className="h-9 rounded-full border-slate-200 bg-white pl-9 text-[13px] focus-visible:ring-blue-100" placeholder="Search clients..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-            </div>
-            <div className="flex bg-slate-100 p-1 rounded-lg">
-              <Button variant="ghost" size="sm" className={cn("h-7 px-2", viewMode === 'table' && "bg-white shadow-sm")} onClick={() => setViewMode('table')}><Table2 size={14} /></Button>
-              <Button variant="ghost" size="sm" className={cn("h-7 px-2", viewMode === 'cards' && "bg-white shadow-sm")} onClick={() => setViewMode('cards')}><LayoutGrid size={14} /></Button>
-            </div>
-          </div>
-        </div>
-
-        {viewMode === 'table' ? (
-          <div className="overflow-x-auto p-4 border">
-            <Table className='border rounded-2xl overflow-auto'>
-              <TableHeader className='bg-slate-50 border'>
-                <TableRow className="hover:bg-transparent border">
-                  <TableHead className="w-[44px] border-r">#</TableHead>
-                  <TableHead className="border-r">
-                    <div className="flex items-center justify-between">
-                      <span>Client Name</span>
-                      <span className="text-[9px] font-normal text-slate-400 italic hidden sm:inline">
-                        {activeTab === 'today' ? 'by urgency' : activeTab === 'pending' ? 'oldest first' : activeTab === 'completed' || activeTab === 'canceled' ? 'newest first' : 'earliest first'}
-                      </span>
-                    </div>
-                  </TableHead>
-                  <TableHead className="border-r">Category</TableHead>
-                  <TableHead className="border-r">Date</TableHead>
-                  <TableHead className="border-r">Start</TableHead>
-                  <TableHead className="border-r">End</TableHead>
-                  <TableHead className="border-r">Duration</TableHead>
-                  <TableHead className="border-r">BCL Attendee</TableHead>
-                  <TableHead className="border-r">Status</TableHead>
-                  <TableHead className="border-r">Synced</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginated.map((row, index) => {
-                  const isMtg = row._kind !== 'event' && !row.event_name;
-                  const name = isMtg ? (getAttendeeDetails(row, bclUsersById)[0]?.name || '—') : row.organizer_name;
-                  const isSyncing = syncingRow === (row.id_main || row.id);
-                  const rowStatus = isMtg ? effectiveStatus(row, now) : (row.status || 'upcoming');
-                  const isOverdue = rowStatus === 'overdue';
-
-                  const group = activeTab === 'today' ? todayGroup(row, now) : null;
-                  const prevGroup = activeTab === 'today' && index > 0 ? todayGroup(paginated[index - 1], now) : null;
-                  const showGroupHeader = group && (index === 0 || group.rank !== prevGroup?.rank);
-
-                  const sectionColors: Record<number, string> = {
-                    0: 'bg-red-50 text-red-700 border-red-100',
-                    1: 'bg-amber-50 text-amber-700 border-amber-100',
-                    2: 'bg-slate-50 text-slate-500 border-slate-100',
-                  };
-
-                  // Duration display
-                  const durMins = row.meeting_duration || row.event_duration;
-                  const durLabel = durMins
-                    ? durMins >= 60
-                      ? `${Math.floor(durMins / 60)}h${durMins % 60 ? ` ${durMins % 60}m` : ''}`
-                      : `${durMins}m`
-                    : '—';
-
-                  return (
-                    <React.Fragment key={row.id_main || row.id}>
-                      {showGroupHeader && (
-                        <TableRow className="hover:bg-transparent pointer-events-none">
-                          <TableCell colSpan={11} className={cn("py-2 px-5 border-y", sectionColors[group.rank])}>
-                            <span className="text-[10px] font-extrabold uppercase tracking-widest">{group.emoji} {group.label}</span>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                      <TableRow className={cn("cursor-pointer", isOverdue && "bg-yellow-50/60 hover:bg-yellow-50")} onClick={() => isMtg ? setSelectedAppointment(row) : null}>
-                        <TableCell className="font-medium text-slate-500 border-r text-center">{index + 1}</TableCell>
-                        <TableCell className="border-r">
-                          <div className="flex items-center gap-3">
-                            <div className={cn("flex h-8 w-8 items-center justify-center rounded-full flex-shrink-0", row.meeting_type === 'virtual' ? "bg-blue-50 text-blue-600" : "bg-orange-50 text-orange-600")}>
-                              {row.meeting_type === 'virtual' ? <Video size={16} /> : <MapPin size={16} />}
-                            </div>
-                            <div>
-                              <div className="font-semibold text-sm text-slate-900">{row.client_name || row.event_name}</div>
-                              <div className="text-xs text-slate-500">{row.client_company || row.event_type}</div>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="border-r text-xs font-medium text-slate-600">
-                          {isMtg ? 'Client Meeting' : 'Corporate Event'}
-                          {activeTab === 'mycreated' && isMtg && (
-                            <span className="ml-1.5 inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-0.5 text-[9px] font-bold text-indigo-700">
-                              <UserCheck size={9} /> Created by you
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell className="border-r text-sm text-slate-600">
-                          {formatDate(row.meeting_date || row.event_date, { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                        </TableCell>
-                        {/* Start time */}
-                        <TableCell className="border-r">
-                          <span className="font-bold text-[#0057E7] text-xs tabular-nums">{formatTime(row.meeting_start_time || row.event_start_time)}</span>
-                        </TableCell>
-                        {/* End time — NEW */}
-                        <TableCell className="border-r">
-                          <span className="font-semibold text-slate-600 text-xs tabular-nums">{formatTime(row.meeting_end_time || row.event_end_time) || <span className="text-slate-300">—</span>}</span>
-                        </TableCell>
-                        {/* Duration — NEW */}
-                        <TableCell className="border-r">
-                          <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
-                            <Clock3 size={10} className="text-slate-400" />{durLabel}
-                          </span>
-                        </TableCell>
-                        <TableCell className="border-r">
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-7 w-7 rounded">
-                              <AvatarFallback className="bg-slate-100 text-[10px] font-bold text-slate-500 rounded">{initials(name)}</AvatarFallback>
-                            </Avatar>
-                            <span className="text-xs text-slate-600">{name}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="border-r">
-                          <div className="flex items-center gap-1.5">
-                            <StatusPill status={rowStatus} />
-                            {isOverdue && <AlarmClock size={12} className="text-yellow-600 flex-shrink-0" />}
-                          </div>
-                        </TableCell>
-                        <TableCell className="border-r" onClick={e => e.stopPropagation()}>
-                          <div className="flex items-center gap-2">
-                            <SyncBadge synced={!!row.google_event_id} />
-                            {isMtg && calendarConnectionStatus === 'connected' && (
-                              <button className={cn("inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[10px] font-bold transition-colors disabled:opacity-60", row.google_event_id ? "border-red-200 text-red-600 hover:bg-red-50" : "border-blue-200 text-blue-600 hover:bg-blue-50")} onClick={e => handleSyncRow(row, e)} disabled={isSyncing}>
-                                {isSyncing ? <Loader2 size={9} className="animate-spin" /> : row.google_event_id ? <CloudOff size={9} /> : <Cloud size={9} />}
-                                {isSyncing ? '…' : row.google_event_id ? 'Unsync' : 'Sync'}
-                              </button>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full"><MoreHorizontal size={14} /></Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => setSelectedAppointment(row)}>View Details</DropdownMenuItem>
-                              {isMtg && <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setSelectedAppointment(row); setTimeout(() => setEditOpen(true), 50); }}>Edit</DropdownMenuItem>}
-                              {isMtg && <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setSelectedAppointment(row); setTimeout(openReschedule, 50); }}>Reschedule</DropdownMenuItem>}
-                              <DropdownMenuItem className="text-red-600" onClick={(e) => { e.stopPropagation(); setSelectedAppointment(row); setTimeout(handleCancel, 50); }}>Cancel</DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    </React.Fragment>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-6 bg-slate-50/50">
-            {paginated.map(row => (
-              <AppointmentCard key={row.id_main} appointment={row} usersById={bclUsersById} onClick={() => setSelectedAppointment(row)} />
-            ))}
-          </div>
-        )}
-
-        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100">
-          <div className="text-xs text-slate-500 font-medium">
-            Showing <span className="text-slate-900 font-bold">{currentPage * itemsPerPage + 1}</span> to <span className="text-slate-900 font-bold">{Math.min((currentPage + 1) * itemsPerPage, sortedList.length)}</span> of {sortedList.length}
-          </div>
-          <div className="flex gap-1">
-            <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 0}><ChevronLeft size={14} /></Button>
-            <Button variant="outline" size="sm" className="h-8 px-3 text-xs font-bold bg-[#0057E7] text-white border-none">{currentPage + 1}</Button>
-            <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => setCurrentPage(p => p + 1)} disabled={currentPage >= totalPages - 1}><ChevronRight size={14} /></Button>
-          </div>
-        </div>
-      </div>
+      <DataTable
+        columns={dashColumns}
+        rows={paginated}
+        rowKey={row => row.id_main || row.id}
+        onRowClick={row => { const isMtg = row._kind !== 'event' && !row.event_name; if (isMtg) setSelectedAppointment(row); }}
+        rowClassName={row => { const isMtg = row._kind !== 'event' && !row.event_name; const rowStatus = isMtg ? effectiveStatus(row, now) : (row.status || 'upcoming'); return rowStatus === 'overdue' ? 'bg-yellow-50/60 hover:bg-yellow-50' : ''; }}
+        tabs={[
+          { key: 'upcoming',  label: 'All Active' },
+          { key: 'today',     label: 'Today' },
+          { key: 'pending',   label: 'Pending' },
+          { key: 'completed', label: 'Completed' },
+          { key: 'canceled',  label: 'Cancelled' },
+          { key: 'mycreated', label: 'My Created' },
+        ]}
+        activeTab={activeTab}
+        onTabChange={tab => { setActiveTab(tab); setCurrentPage(0); }}
+        searchQuery={searchQuery}
+        onSearchChange={q => { setSearchQuery(q); setCurrentPage(0); }}
+        searchPlaceholder="Search clients..."
+        viewMode={viewMode}
+        onViewModeChange={mode => setViewMode(mode)}
+        renderCard={row => <AppointmentCard key={row.id_main} appointment={row} usersById={bclUsersById} onClick={() => setSelectedAppointment(row)} />}
+        sortColumn={sortColumn}
+        sortDirection={sortDirection}
+        onSort={handleSort}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalRows={sortedList.length}
+        itemsPerPage={itemsPerPage}
+        onPageChange={setCurrentPage}
+        getRowGroup={activeTab === 'today' ? (row) => todayGroup(row, now) : undefined}
+        emptyMessage="No meetings or events found"
+      />
 
       <DashboardDialogs
         selectedAppointment={selectedAppointment}

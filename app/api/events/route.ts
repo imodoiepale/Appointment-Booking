@@ -23,6 +23,15 @@ function applyScopeToQuery(query: any, user: { id: string; email: string; role: 
   return query.or(clauses.join(','));
 }
 
+function applyMyCreatedScope(query: any, user: { id: string; email: string; role: string } | null) {
+  if (!user || ADMIN_ROLES.has(user.role.toLowerCase())) return query;
+  const clauses = [
+    `created_by.eq.${user.id}`,
+    ...(user.email ? [`created_by.eq.${escapeOrValue(user.email)}`] : []),
+  ];
+  return query.or(clauses.join(','));
+}
+
 function timeToMinutes(t: string): number | null {
   const [h, m] = t.split(':').map(Number);
   if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
@@ -90,9 +99,13 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const limit = searchParams.get('limit');
     const order = searchParams.get('order') === 'asc' ? 'asc' : 'desc';
+    const mycreated = searchParams.get('mycreated') === 'true';
 
     const caller = await resolveCallerUser(request);
-    let query = applyScopeToQuery(supabase.from('bcl_events').select('*'), caller);
+    const base = supabase.from('bcl_events').select('*');
+    let query = mycreated
+      ? applyMyCreatedScope(base, caller)
+      : applyScopeToQuery(base, caller);
     if (date) query = query.eq('event_date', date);
     if (status) query = query.eq('status', status);
     if (limit) query = query.limit(toInteger(limit, 100));

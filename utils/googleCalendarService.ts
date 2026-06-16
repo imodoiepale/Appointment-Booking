@@ -221,9 +221,7 @@ function buildCalendarEvent(meeting: MeetingEvent) {
     reminders: {
       useDefault: false,
       overrides: [
-        { method: 'email', minutes: 60 },
         { method: 'popup', minutes: 60 },
-        { method: 'email', minutes: 30 },
         { method: 'popup', minutes: 30 },
         // At slot start (departure time) — "time to leave" alert
         { method: 'popup', minutes: 0 },
@@ -566,7 +564,6 @@ function buildGCalEventFromBclEvent(ev: BclEventRecord) {
     reminders: {
       useDefault: false,
       overrides: [
-        { method: 'email', minutes: 24 * 60 },
         { method: 'popup', minutes: 60 },
         { method: 'popup', minutes: 30 },
       ],

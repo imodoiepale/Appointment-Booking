@@ -100,10 +100,19 @@ export async function GET() {
         ind.full_name ||
         [ind.first_name, ind.last_name].filter(Boolean).join(" ");
 
+      const roles = associations
+        .filter((a: any) => a?.company_id && a?.individual_type)
+        .map((a: any) => ({
+          companyId: String(a.company_id),
+          companyName: companyMap.get(String(a.company_id)) ?? "",
+          role: a.individual_type as string,
+        }));
+
       return {
         id: String(ind.id),
         name: fullName,
         companies,
+        roles,
         hasContactDetails: !!(contacts.email || contacts.mobile),
         ...contacts,
       };

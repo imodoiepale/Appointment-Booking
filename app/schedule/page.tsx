@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 import { Calendar, Clock, Mic, MicOff, Building, User, Phone, Mail, MapPin, Check, ChevronRight, ChevronLeft, Loader2, Info, X, Video, Plus, Link2, Hash } from 'lucide-react';
@@ -309,6 +309,7 @@ type ClientAttendee = {
     email: string;
     mobile: string;
     whatsapp: string;
+    isAdHoc?: boolean;
 };
 
 type ThirdPartyAttendee = {
@@ -429,11 +430,13 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
     const [registryCompanies, setRegistryCompanies] = useState<any[]>([]);
     const [loadingRegistry, setLoadingRegistry] = useState(true);
     // UI state for adding client attendees
-    const [clientSearchMode, setClientSearchMode] = useState<'individual' | 'company'>('individual');
+    const [clientSearchMode, setClientSearchMode] = useState<'individual' | 'company' | 'adhoc'>('individual');
     const [pendingIndividualId, setPendingIndividualId] = useState('');
     const [pendingSelectedCompanyIds, setPendingSelectedCompanyIds] = useState<string[]>([]);
     const [pendingCompanyId, setPendingCompanyId] = useState('');
     const [pendingIndividualIds, setPendingIndividualIds] = useState<string[]>([]);
+    const [showOthers, setShowOthers] = useState(false);
+    const [adHocForm, setAdHocForm] = useState({ name: '', email: '', mobile: '', company: '' });
     // Third party attendee form
     const [tpForm, setTpForm] = useState({ name: '', type: '', email: '', mobile: '', organization: '' });
     const [tpSaveToDB, setTpSaveToDB] = useState<'ask' | 'yes' | 'no' | null>(null);
@@ -591,6 +594,25 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
         setPendingCompanyId(''); setPendingIndividualIds([]);
     };
 
+    const addAdHocAttendee = () => {
+        if (!adHocForm.name.trim()) return;
+        const key = `adhoc_${Date.now()}`;
+        const companyName = adHocForm.company.trim();
+        const attendee: ClientAttendee = {
+            id: key,
+            name: adHocForm.name.trim(),
+            companies: companyName ? [{ id: key, name: companyName }] : [],
+            selectedCompanyIds: companyName ? [key] : [],
+            email: adHocForm.email,
+            mobile: adHocForm.mobile,
+            whatsapp: '',
+            isAdHoc: true,
+        };
+        const updated = [...(formData.clientAttendees as ClientAttendee[]), attendee];
+        setFormData(p => ({ ...p, clientAttendees: updated, ...deriveClientFields(updated) }));
+        setAdHocForm({ name: '', email: '', mobile: '', company: '' });
+    };
+
     const removeClientAttendee = (id: string) => {
         const updated = (formData.clientAttendees as ClientAttendee[]).filter(a => a.id !== id);
         setFormData(p => ({ ...p, clientAttendees: updated, ...deriveClientFields(updated) }));
@@ -626,6 +648,17 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
     };
 
     const saveContactDetails = async (attendeeId: string) => {
+        const attendee = (formData.clientAttendees as ClientAttendee[]).find(a => a.id === attendeeId);
+        if (attendee?.isAdHoc) {
+            setFormData(p => {
+                const updated = (p.clientAttendees as ClientAttendee[]).map(a =>
+                    a.id !== attendeeId ? a : { ...a, ...contactEditForm }
+                );
+                return { ...p, clientAttendees: updated, ...deriveClientFields(updated) };
+            });
+            setEditingContactId(null);
+            return;
+        }
         setSavingContact(true);
         try {
             const res = await fetch(`/api/registry/individuals/${attendeeId}`, {
@@ -730,18 +763,23 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
         const finalAgenda = formData.meetingAgenda === 'Other' ? formData.otherMeetingAgenda : formData.meetingAgenda;
         try {
             const { data: existing } = await supabase.from('bcl_meetings_meetings')
-                .select('id_main,meeting_slot_start_time,meeting_slot_end_time,client_name')
+                .select('id_main,meeting_slot_start_time,meeting_slot_end_time,client_name,bcl_attendee')
                 .eq('meeting_date', formData.meetingDate).in('status', ['upcoming', 'rescheduled', 'confirmed', 'in_progress']);
             if (existing?.length) {
                 const [nsh, nsm] = formData.meetingSlotStartTime.split(':').map(Number);
                 const [neh, nem] = formData.meetingSlotEndTime.split(':').map(Number);
                 const ns = nsh * 60 + nsm, ne = neh * 60 + nem;
+                const newBclAttendees = new Set<string>((formData.bclAttendees as string[]).map(String));
                 for (const m of existing) {
                     const [esh, esm] = m.meeting_slot_start_time.split(':').map(Number);
                     const [eeh, eem] = m.meeting_slot_end_time.split(':').map(Number);
-                    if (ns < eeh * 60 + eem && esh * 60 + esm < ne) {
+                    const timesOverlap = ns < eeh * 60 + eem && esh * 60 + esm < ne;
+                    if (!timesOverlap) continue;
+                    const existingAttendees: string[] = Array.isArray(m.bcl_attendee) ? m.bcl_attendee.map(String) : [];
+                    const shared = existingAttendees.filter(id => newBclAttendees.has(id));
+                    if (shared.length > 0) {
                         setFormStatus('error');
-                        toast({ variant: 'destructive', title: 'Conflict Detected', description: `Conflicts with ${m.client_name} (${m.meeting_slot_start_time}–${m.meeting_slot_end_time})` });
+                        toast({ variant: 'destructive', title: 'Attendee Double-Booked', description: `${shared.join(', ')} already has a meeting with ${m.client_name} at ${m.meeting_slot_start_time}–${m.meeting_slot_end_time}` });
                         return;
                     }
                 }
@@ -753,11 +791,21 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
                 // Legacy flat fields — derived from clientAttendees for backwards compatibility
                 client_name: formData.clientName, client_company: finalCompany,
                 client_mobile: formData.clientMobile, client_email: formData.clientEmail,
-                // Structured attendee data — IDs only; join source tables for names at read time
-                client_attendees: (formData.clientAttendees as ClientAttendee[]).map(a => ({
-                    individual_id: a.id,
-                    company_ids: a.selectedCompanyIds,
-                })),
+                // Structured attendee data
+                client_attendees: (formData.clientAttendees as ClientAttendee[]).map(a =>
+                    a.isAdHoc ? {
+                        individual_id: null,
+                        company_ids: [],
+                        adhoc: true,
+                        name: a.name,
+                        email: a.email || null,
+                        mobile: a.mobile || null,
+                        company: a.companies[0]?.name || null,
+                    } : {
+                        individual_id: a.id,
+                        company_ids: a.selectedCompanyIds,
+                    }
+                ),
                 third_party_attendees: (formData.thirdPartyAttendees as ThirdPartyAttendee[]).map(tp => ({
                     // key is a UUID when saved to DB, a numeric timestamp when local-only
                     contact_id: /^\d+$/.test(tp.key) ? null : tp.key,
@@ -798,6 +846,7 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
                 setActiveStep(0); setFormStatus('idle'); setInvalidFields([]);
                 setShowOtherVenue(false); setShowOtherAgenda(false);
                 setPendingIndividualId(''); setPendingSelectedCompanyIds([]); setPendingCompanyId(''); setPendingIndividualIds([]);
+                setShowOthers(false); setAdHocForm({ name: '', email: '', mobile: '', company: '' });
                 setTpForm({ name: '', type: '', email: '', mobile: '', organization: '' });
                 setTpSaveToDB(null); setTpSelectMode('new'); setEditingContactId(null);
                 onSuccess?.();
@@ -890,6 +939,12 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
             boxShadow: active ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
         });
 
+        const roleBadgeStyle = (role: string): React.CSSProperties => ({
+            fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, whiteSpace: 'nowrap' as const,
+            background: role === 'Director' ? '#ede9fe' : role === 'Employee' ? '#ecfdf5' : role === 'Shareholder' ? '#eef2ff' : role === 'Principal' ? '#eff6ff' : '#f1f5f9',
+            color: role === 'Director' ? '#7c3aed' : role === 'Employee' ? '#065f46' : role === 'Shareholder' ? '#3730a3' : role === 'Principal' ? '#1d4ed8' : '#475569',
+        });
+
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
@@ -912,10 +967,10 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
                     <div style={secBody}>
                         {/* Mode toggle */}
                         <div style={tabTray}>
-                            {(['individual', 'company'] as const).map(mode => (
+                            {(['individual', 'company', 'adhoc'] as const).map(mode => (
                                 <button key={mode} style={tabBtn(clientSearchMode === mode)}
-                                    onClick={() => { setClientSearchMode(mode); setPendingIndividualId(''); setPendingSelectedCompanyIds([]); setPendingCompanyId(''); setPendingIndividualIds([]); }}>
-                                    {mode === 'individual' ? 'By Individual' : 'By Company'}
+                                    onClick={() => { setClientSearchMode(mode); setPendingIndividualId(''); setPendingSelectedCompanyIds([]); setPendingCompanyId(''); setPendingIndividualIds([]); setShowOthers(false); }}>
+                                    {mode === 'individual' ? 'By Individual' : mode === 'company' ? 'By Company' : 'Unregistered'}
                                 </button>
                             ))}
                         </div>
@@ -931,7 +986,12 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
                                                 : <SearchableSelect
                                                     value={pendingIndividualId}
                                                     onValueChange={v => { setPendingIndividualId(v); setPendingSelectedCompanyIds([]); }}
-                                                    options={registryIndividuals.map(i => ({ value: i.id, label: i.name }))}
+                                                    options={registryIndividuals.map(i => ({
+                                                        value: i.id,
+                                                        label: i.companies?.length > 0
+                                                            ? `${i.name} — ${i.companies.slice(0, 1).map((c: any) => c.name).join('')}`
+                                                            : i.name,
+                                                    }))}
                                                     placeholder="Type to search by name…"
                                                     searchPlaceholder="Type to search…"
                                                     buttonClassName="sch-select-trigger h-10"
@@ -945,27 +1005,43 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
                                 </div>
                                 {pendingInd && (
                                     <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 9, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 12, color: '#475569', alignItems: 'center' }}>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, fontSize: 12, color: '#475569', alignItems: 'center' }}>
                                             <span style={{ fontWeight: 700, color: '#1d4ed8', fontSize: 13 }}>{pendingInd.name}</span>
                                             {pendingInd.email && <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Mail size={10} />{pendingInd.email}</span>}
                                             {pendingInd.mobile && <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Phone size={10} />{pendingInd.mobile}</span>}
                                         </div>
+                                        {/* Company + role badges */}
                                         {pendingInd.companies.length > 1 && (
                                             <div>
                                                 <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Select Companies</div>
                                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                                                    {pendingInd.companies.map((c: any) => (
-                                                        <label key={c.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#374151', background: '#fff', border: '1px solid #dbeafe', borderRadius: 6, padding: '4px 10px' }}>
-                                                            <Checkbox checked={pendingSelectedCompanyIds.includes(c.id)} onCheckedChange={ch => setPendingSelectedCompanyIds(prev => ch ? [...prev, c.id] : prev.filter(x => x !== c.id))} />
-                                                            {c.name}
-                                                        </label>
-                                                    ))}
+                                                    {pendingInd.companies.map((c: any) => {
+                                                        const companyRoles = (pendingInd.roles ?? []).filter((r: any) => r.companyId === c.id).map((r: any) => r.role);
+                                                        return (
+                                                            <label key={c.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#374151', background: '#fff', border: '1px solid #dbeafe', borderRadius: 6, padding: '4px 10px' }}>
+                                                                <Checkbox checked={pendingSelectedCompanyIds.includes(c.id)} onCheckedChange={ch => setPendingSelectedCompanyIds(prev => ch ? [...prev, c.id] : prev.filter(x => x !== c.id))} />
+                                                                <Building size={10} color="#94a3b8" />
+                                                                {c.name}
+                                                                <span style={{ display: 'flex', gap: 3 }}>
+                                                                    {companyRoles.map((role: string) => <span key={role} style={roleBadgeStyle(role)}>{role}</span>)}
+                                                                </span>
+                                                            </label>
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
                                         )}
-                                        {pendingInd.companies.length === 1 && (
-                                            <span style={{ fontSize: 12, color: '#475569', display: 'flex', alignItems: 'center', gap: 5 }}><Building size={11} color="#1d4ed8" />{pendingInd.companies[0].name}</span>
-                                        )}
+                                        {pendingInd.companies.length === 1 && (() => {
+                                            const c = pendingInd.companies[0];
+                                            const companyRoles = (pendingInd.roles ?? []).filter((r: any) => r.companyId === c.id).map((r: any) => r.role);
+                                            return (
+                                                <span style={{ fontSize: 12, color: '#475569', display: 'flex', alignItems: 'center', gap: 5 }}>
+                                                    <Building size={11} color="#1d4ed8" />
+                                                    <span style={{ fontWeight: 600 }}>{c.name}</span>
+                                                    {companyRoles.map((role: string) => <span key={role} style={roleBadgeStyle(role)}>{role}</span>)}
+                                                </span>
+                                            );
+                                        })()}
                                     </div>
                                 )}
                             </div>
@@ -979,7 +1055,7 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
                                         ? <Button className="sch-select-trigger h-10" disabled style={{ opacity: 0.6 }}><Loader2 size={13} className="animate-spin" /> Loading…</Button>
                                         : <SearchableSelect
                                             value={pendingCompanyId}
-                                            onValueChange={v => { setPendingCompanyId(v); setPendingIndividualIds([]); }}
+                                            onValueChange={v => { setPendingCompanyId(v); setPendingIndividualIds([]); setShowOthers(false); }}
                                             options={registryCompanies.map(c => ({ value: c.id, label: c.name }))}
                                             placeholder="Type to search by company name…"
                                             searchPlaceholder="Type to search…"
@@ -987,25 +1063,77 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
                                         />
                                     }
                                 </Field>
-                                {pendingComp && (
-                                    <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 9, padding: '12px 14px' }}>
-                                        <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Select Individuals</div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 160, overflowY: 'auto' }}>
-                                            {pendingComp.individuals.length === 0
-                                                ? <span style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>No individuals found for this company.</span>
-                                                : pendingComp.individuals.map((ind: any) => (
-                                                    <label key={ind.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '4px 6px', borderRadius: 6, background: pendingIndividualIds.includes(ind.id) ? '#dbeafe' : 'transparent' }}>
-                                                        <Checkbox checked={pendingIndividualIds.includes(ind.id)} onCheckedChange={ch => setPendingIndividualIds(prev => ch ? [...prev, ind.id] : prev.filter(x => x !== ind.id))} />
-                                                        <span style={{ fontSize: 13, fontWeight: 600, color: '#1d4ed8', flex: 1 }}>{ind.name}</span>
-                                                        {ind.email && <span style={{ fontSize: 11, color: '#94a3b8' }}>{ind.email}</span>}
-                                                    </label>
-                                                ))
-                                            }
+                                {pendingComp && (() => {
+                                    const directors = pendingComp.individuals.filter((i: any) => (i.roles ?? []).includes('Director'));
+                                    const others = pendingComp.individuals.filter((i: any) => !(i.roles ?? []).includes('Director'));
+                                    const displayed: any[] = showOthers ? pendingComp.individuals : directors;
+                                    return (
+                                        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 9, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
+                                                <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                                    Select Individuals {!showOthers && directors.length > 0 && <span style={{ color: '#7c3aed', fontWeight: 700 }}>· Directors</span>}
+                                                </div>
+                                                {!showOthers && others.length > 0 && (
+                                                    <button onClick={() => setShowOthers(true)} style={{ fontSize: 10, fontWeight: 700, color: '#1d4ed8', background: '#dbeafe', border: 'none', borderRadius: 4, padding: '3px 9px', cursor: 'pointer' }}>
+                                                        Show Others ({others.length})
+                                                    </button>
+                                                )}
+                                                {showOthers && (
+                                                    <button onClick={() => setShowOthers(false)} style={{ fontSize: 10, fontWeight: 700, color: '#64748b', background: '#f1f5f9', border: 'none', borderRadius: 4, padding: '3px 9px', cursor: 'pointer' }}>
+                                                        Directors Only
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto' }}>
+                                                {pendingComp.individuals.length === 0
+                                                    ? <span style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>No individuals found for this company.</span>
+                                                    : displayed.length === 0
+                                                        ? <span style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>No directors found. Click "Show Others" to view all individuals.</span>
+                                                        : displayed.map((ind: any) => (
+                                                            <label key={ind.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '5px 6px', borderRadius: 6, background: pendingIndividualIds.includes(ind.id) ? '#dbeafe' : 'transparent' }}>
+                                                                <Checkbox checked={pendingIndividualIds.includes(ind.id)} onCheckedChange={ch => setPendingIndividualIds(prev => ch ? [...prev, ind.id] : prev.filter(x => x !== ind.id))} />
+                                                                <span style={{ fontSize: 13, fontWeight: 600, color: '#1d4ed8', flex: 1 }}>{ind.name}</span>
+                                                                <span style={{ display: 'flex', gap: 3 }}>
+                                                                    {(ind.roles ?? []).map((role: string) => (
+                                                                        <span key={role} style={roleBadgeStyle(role)}>{role}</span>
+                                                                    ))}
+                                                                </span>
+                                                                {ind.email && <span style={{ fontSize: 11, color: '#94a3b8', flexShrink: 0 }}>{ind.email}</span>}
+                                                            </label>
+                                                        ))
+                                                }
+                                            </div>
                                         </div>
-                                    </div>
-                                )}
+                                    );
+                                })()}
                                 <Button className="sch-btn-next h-auto" style={{ alignSelf: 'flex-start' }} onClick={addClientAttendeesFromCompany} disabled={!pendingCompanyId || pendingIndividualIds.length === 0}>
                                     <Plus size={13} /> Add Selected {pendingIndividualIds.length > 0 && `(${pendingIndividualIds.length})`}
+                                </Button>
+                            </div>
+                        )}
+
+                        {/* Unregistered / ad hoc attendee */}
+                        {clientSearchMode === 'adhoc' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                <div style={{ fontSize: 11, color: '#64748b', background: '#fafafa', borderRadius: 7, padding: '8px 10px', border: '1px solid #e2e8f0', lineHeight: 1.6 }}>
+                                    Use this for individuals or companies <strong>not in the registry</strong>. Contact details are stored only for this meeting.
+                                </div>
+                                <div className="sch-grid">
+                                    <Field label="Full Name *">
+                                        <TextInput icon={User} value={adHocForm.name} onChange={e => setAdHocForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. John Doe" name="adhoc_name" />
+                                    </Field>
+                                    <Field label="Company (optional)">
+                                        <TextInput icon={Building} value={adHocForm.company} onChange={e => setAdHocForm(p => ({ ...p, company: e.target.value }))} placeholder="e.g. Acme Ltd" name="adhoc_company" />
+                                    </Field>
+                                    <Field label="Email">
+                                        <TextInput icon={Mail} type="email" value={adHocForm.email} onChange={e => setAdHocForm(p => ({ ...p, email: e.target.value }))} placeholder="email@example.com" name="adhoc_email" />
+                                    </Field>
+                                    <Field label="Mobile">
+                                        <TextInput icon={Phone} type="tel" value={adHocForm.mobile} onChange={e => setAdHocForm(p => ({ ...p, mobile: e.target.value }))} placeholder="+254..." name="adhoc_mobile" />
+                                    </Field>
+                                </div>
+                                <Button className="sch-btn-next h-auto" style={{ alignSelf: 'flex-start', fontSize: 12 }} disabled={!adHocForm.name.trim()} onClick={addAdHocAttendee}>
+                                    <Plus size={13} /> Add
                                 </Button>
                             </div>
                         )}
@@ -1023,7 +1151,10 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
                                                 <User size={13} color="#1d4ed8" />
                                             </div>
                                             <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div style={{ fontWeight: 700, fontSize: 13, color: '#1e40af', lineHeight: 1.3 }}>{a.name}</div>
+                                                <div style={{ fontWeight: 700, fontSize: 13, color: '#1e40af', lineHeight: 1.3, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                    {a.name}
+                                                    {a.isAdHoc && <span style={{ fontSize: 9, fontWeight: 700, background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d', borderRadius: 3, padding: '1px 5px' }}>Unregistered</span>}
+                                                </div>
                                                 <div style={{ fontSize: 11, color: '#64748b', display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 3, alignItems: 'center' }}>
                                                     {a.email
                                                         ? <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Mail size={9} />{a.email}</span>
@@ -1075,7 +1206,7 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
                                                 </div>
                                                 <div style={{ display: 'flex', gap: 8 }}>
                                                     <Button className="sch-btn-next h-auto" style={{ fontSize: 11 }} disabled={savingContact} onClick={() => saveContactDetails(a.id)}>
-                                                        {savingContact ? <><Loader2 size={12} className="animate-spin" /> Saving…</> : 'Save to registry'}
+                                                        {savingContact ? <><Loader2 size={12} className="animate-spin" /> Saving…</> : a.isAdHoc ? 'Save' : 'Save to registry'}
                                                     </Button>
                                                     <Button className="sch-btn-prev h-auto" style={{ fontSize: 11 }} onClick={() => setEditingContactId(null)}>Cancel</Button>
                                                 </div>
@@ -1483,6 +1614,7 @@ export function ScheduleDialog({ open, onOpenChange }: { open: boolean; onOpenCh
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent style={{ maxWidth: 960, padding: 0, borderRadius: 14, border: '1px solid #eef2f3', overflow: 'hidden', background: 'transparent', boxShadow: '0 22px 55px rgba(0,48,56,0.15)' }}>
+                <DialogTitle className="sr-only">Schedule New Meeting</DialogTitle>
                 <SchedulerStyles />
                 <div style={{ maxHeight: '90vh', overflowY: 'auto' }}>
                     <SchedulerForm onSuccess={() => onOpenChange(false)} />

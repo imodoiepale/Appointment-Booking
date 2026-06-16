@@ -14,10 +14,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import {
   Calendar, Clock, MapPin, Loader2,
   ChevronLeft, ChevronRight, Search, MoreHorizontal, Plus, Download,
-  Table2, LayoutGrid, Building, Cloud,
+  Table2, LayoutGrid, Building, Cloud, CloudOff,
   ChevronUp, ChevronDown, ChevronsUpDown,
   Hash, RefreshCw, AlertCircle,
 } from 'lucide-react';
+import { DataTable } from '@/components/shared/DataTable';
+import type { ColumnDef } from '@/components/shared/DataTable';
+import { cn } from '@/lib/utils';
 import {
   getEventTypeConfig, EventTypeIcon, EVENT_TYPE_CONFIG,
   sortItems, SortConfig,
@@ -384,11 +387,15 @@ const EventsContent = () => {
       case 'completed': return list.filter(e => e.status === 'completed');
       case 'cancelled': return list.filter(e => e.status === 'cancelled' || e.status === 'canceled');
       case 'confirmed': return list.filter(e => e.status === 'confirmed');
-      // 'upcoming' is a view/filter: future non-terminal events (regardless of stored status)
+      case 'mycreated': return list.filter(e => {
+        const creator = String(e.created_by ?? '');
+        return (currentUserId && creator === String(currentUserId)) ||
+               (currentUserEmail && creator === currentUserEmail);
+      });
       case 'upcoming': return list.filter(e => !TERMINAL.has(e.status ?? '') && (e.event_date ?? '') >= todayStr);
       default: return list.filter(e => !TERMINAL.has(e.status ?? ''));
     }
-  }, [events, activeTab, searchQuery]);
+  }, [events, activeTab, searchQuery, currentUserId, currentUserEmail]);
 
   const sortedFiltered = useMemo(() => sortItems(filtered, sortConfig), [filtered, sortConfig]);
 
@@ -612,6 +619,128 @@ const EventsContent = () => {
   const canEdit = canChange && isOwner;
   const canDelete = !!ev && !!isOwner;
 
+  // ── EVENT COLUMN DEFINITIONS ─────────────────────────────────────────────
+  const evColumns: ColumnDef[] = useMemo(() => [
+    {
+      key: 'select',
+      header: '',
+      headerClassName: 'w-[44px] pl-4',
+      cellClassName: 'pl-4',
+      render: () => (
+        <div style={{ width: 16, height: 16, borderRadius: 4, border: '1.5px solid #d0dfe1', background: '#fff' }} />
+      ),
+    },
+    {
+      key: 'event_name',
+      header: 'Event',
+      sortable: true,
+      render: (ev: BclEvent) => {
+        const col = getEventTypeConfig(ev.event_type);
+        const typeLabel = EVENT_TYPES.find(t => t.value === ev.event_type)?.label ?? ev.event_type;
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div className="ev-type-icon" style={{ background: col.light, color: col.bg, width: 30, height: 30 }}>
+              <EventTypeIcon type={ev.event_type} size={14} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div className="ev-cell-main" style={{ fontSize: '12px' }}>{ev.event_name}</div>
+              <div className="ev-cell-sub" style={{ fontSize: '10px' }}>{typeLabel}</div>
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'event_date',
+      header: 'Date',
+      sortable: true,
+      render: (ev: BclEvent) => (
+        <div className="ev-cell-date">{formatDate(ev.event_date, { day: '2-digit', month: '2-digit', year: 'numeric' })}</div>
+      ),
+    },
+    {
+      key: 'event_start_time',
+      header: 'Start',
+      sortable: true,
+      render: (ev: BclEvent) => (
+        <div className="ev-cell-time" style={{ color: '#1d4ed8' }}>{formatTime(ev.event_start_time)}</div>
+      ),
+    },
+    {
+      key: 'event_end_time',
+      header: 'End',
+      sortable: true,
+      render: (ev: BclEvent) => (
+        <div className="ev-cell-time">{formatTime(ev.event_end_time)}</div>
+      ),
+    },
+    {
+      key: 'event_duration',
+      header: 'Dur.',
+      sortable: true,
+      render: (ev: BclEvent) => (
+        <div style={{ fontSize: '11px', fontWeight: 600, color: '#64868c' }}>
+          {ev.event_duration ? `${ev.event_duration}m` : '—'}
+        </div>
+      ),
+    },
+    {
+      key: 'bcl_attendee',
+      header: 'BCL Attendee',
+      render: (ev: BclEvent) => {
+        const names = resolveAttendeeNames(ev, bclUsersById);
+        return names.length > 0 ? (
+          <div className="flex items-center gap-2">
+            <Avatar className="h-7 w-7 rounded">
+              <AvatarFallback className="bg-slate-100 text-[10px] font-bold text-slate-500 rounded">{safeInitials(names[0])}</AvatarFallback>
+            </Avatar>
+            <span className="text-xs text-slate-600">{names[0]}</span>
+            {names.length > 1 && <span className="text-[10px] font-bold text-slate-400">+{names.length - 1}</span>}
+          </div>
+        ) : <span className="text-xs text-slate-400">—</span>;
+      },
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: true,
+      render: (ev: BclEvent) => <StatusPill status={ev.status ?? 'upcoming'} />,
+    },
+    {
+      key: 'google_event_id',
+      header: 'Synced',
+      sortable: true,
+      headerClassName: 'text-center',
+      render: (ev: BclEvent) => (
+        <div className="flex justify-center">
+          {ev.google_event_id ? (
+            <div title="Synced" style={{ color: '#22c55e', background: '#f0fdf4', padding: '4px', borderRadius: '6px' }}>
+              <Cloud size={14} />
+            </div>
+          ) : (
+            <div title="Not synced" style={{ color: '#94a3b8', padding: '4px' }}>
+              <CloudOff size={14} />
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'actions',
+      header: '',
+      stopPropagation: true,
+      headerClassName: 'w-[60px]',
+      render: (ev: BclEvent) => (
+        <div className="flex justify-end opacity-0 transition-opacity group-hover:opacity-100">
+          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setSelectedEvent(ev)}>
+            <MoreHorizontal size={14} />
+          </Button>
+        </div>
+      ),
+    },
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [bclUsersById]);
+
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
       <div style={{ width: 48, height: 48, borderRadius: 12, background: 'linear-gradient(135deg,#1d4ed8,#00505e)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -621,237 +750,73 @@ const EventsContent = () => {
   );
 
   return (
-    <div className="ev-shell">
+    <div className="min-h-screen bg-slate-50 px-6 py-5 font-sans">
       <EventsStyles />
       <Toaster />
 
       {/* HEADER */}
-      <div className="ev-header">
+      <div className="mb-7 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <div className="ev-title">Events</div>
-          <div className="ev-subtitle">Manage weddings, fundraisers, conferences and more</div>
+          <div className="text-2xl font-bold text-slate-900">Events</div>
+          <div className="mt-1 text-[13px] text-slate-500">Manage weddings, fundraisers, conferences and more</div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div className="cal-status">
-              <div className={`cal-dot ${calStatus === 'connected' ? 'cal-dot-connected' : calStatus === 'checking' ? '' : 'cal-dot-disconnected'}`}
-                style={calStatus === 'checking' ? { background: '#94a3b8' } : undefined} />
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500">
+              <span className={cn("h-2 w-2 flex-shrink-0 rounded-full", calStatus === 'connected' ? "bg-green-500 shadow-[0_0_0_3px_rgba(34,197,94,.2)]" : calStatus === 'checking' ? "bg-slate-400" : "bg-red-500 shadow-[0_0_0_3px_rgba(239,68,68,.2)]")} />
               {calStatus === 'checking' ? 'Checking…' : `Calendar ${calStatus}`}
             </div>
             {calStatus === 'connected' && (
-              <Button
-                className="ev-btn-outline h-auto"
-                style={{ fontSize: 11, padding: '5px 10px', color: '#ef4444', borderColor: '#fca5a5' }}
-                onClick={async () => {
-                  try {
-                    await fetch('/api/auth/google/disconnect', { method: 'POST' });
-                    setCalStatus('disconnected');
-                  } catch { }
-                }}
-              >
+              <Button variant="outline" size="sm" className="h-8 text-xs text-red-500 border-red-200 hover:bg-red-50"
+                onClick={async () => { try { await fetch('/api/auth/google/disconnect', { method: 'POST' }); setCalStatus('disconnected'); } catch { } }}>
                 Disconnect
               </Button>
             )}
             {calStatus === 'disconnected' && (
-              <Button
-                className="ev-btn-outline h-auto"
-                style={{ fontSize: 11, padding: '5px 10px', color: '#1d4ed8', borderColor: '#bfdbfe' }}
-                onClick={() => { window.location.href = '/api/auth/google'; }}
-              >
-                <Cloud size={12} /> Connect Calendar
+              <Button variant="outline" size="sm" className="h-8 text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
+                onClick={() => { window.location.href = '/api/auth/google'; }}>
+                Connect Calendar
               </Button>
             )}
           </div>
-          <Button className="ev-btn-outline h-auto"><Download size={13} /> Export</Button>
-          <Button className="h-9 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-2 px-4 shadow-sm shadow-blue-100" onClick={() => setCreateOpen(true)}><Plus size={14} /> Create New Event</Button>
+          <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5"><Download size={13} /> Export</Button>
+          <Button className="h-9 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-2 px-4 shadow-sm shadow-blue-100" onClick={() => setCreateOpen(true)}>
+            <Plus size={14} /> Create New Event
+          </Button>
         </div>
       </div>
 
-      {/* PANEL */}
-      <div className="ev-panel">
-        {/* TOOLBAR */}
-        <div className="ev-toolbar">
-          <div className="ev-tabs">
-            {(['upcoming', 'confirmed', 'today', 'completed', 'cancelled'] as const).map(tab => (
-              <Button key={tab} className={`ev-tab h-auto ${activeTab === tab ? `active tab-${tab}` : ''}`}
-                onClick={() => { setActiveTab(tab); setCurrentPage(0); }}>
-                {tab}
-              </Button>
-            ))}
-          </div>
-          <div className="ev-toolbar-right">
-            <div className="ev-search-wrap">
-              <Search size={14} className="ev-search-icon" />
-              <Input className="ev-search" placeholder="Search events or organizer…"
-                value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setCurrentPage(0); }} />
-            </div>
-            <div className="ev-view-toggle">
-              <Button className={`ev-view-btn h-auto ${viewMode === 'table' ? 'active' : ''}`} onClick={() => setViewMode('table')}>
-                <Table2 size={12} /> Table
-              </Button>
-              <Button className={`ev-view-btn h-auto ${viewMode === 'cards' ? 'active' : ''}`} onClick={() => setViewMode('cards')}>
-                <LayoutGrid size={12} /> Grid
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* LIST */}
-        {viewMode === 'table' ? (
-          <div className="ev-table-wrap">
-            <table className="ev-table">
-              <thead>
-                <tr>
-                  <th style={{ width: 40, paddingLeft: 18 }}></th>
-                  <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('event_name')}>
-                    <span style={{ display: 'flex', alignItems: 'center' }}>Event <SortIcon colKey="event_name" /></span>
-                  </th>
-                  <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('event_date')}>
-                    <span style={{ display: 'flex', alignItems: 'center' }}>Date <SortIcon colKey="event_date" /></span>
-                  </th>
-                  <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('event_start_time')}>
-                    <span style={{ display: 'flex', alignItems: 'center' }}>Start <SortIcon colKey="event_start_time" /></span>
-                  </th>
-                  <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('event_end_time')}>
-                    <span style={{ display: 'flex', alignItems: 'center' }}>End <SortIcon colKey="event_end_time" /></span>
-                  </th>
-                  <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('event_duration')}>
-                    <span style={{ display: 'flex', alignItems: 'center' }}>Dur. <SortIcon colKey="event_duration" /></span>
-                  </th>
-                  <th style={{ userSelect: 'none' }}>BCL Attendee</th>
-                  <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('status')}>
-                    <span style={{ display: 'flex', alignItems: 'center' }}>Status <SortIcon colKey="status" /></span>
-                  </th>
-                  <th style={{ textAlign: 'center' }}>Synced</th>
-                  <th style={{ width: 60, textAlign: 'right', paddingRight: 16 }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginated.length > 0 ? paginated.map(ev => {
-                  const col = getEventTypeConfig(ev.event_type);
-                  const typeLabel = EVENT_TYPES.find(t => t.value === ev.event_type)?.label ?? ev.event_type;
-                  const attendeeNames = resolveAttendeeNames(ev, bclUsersById);
-
-                  return (
-                    <tr key={ev.id} onClick={() => setSelectedEvent(ev)}>
-                      <td style={{ paddingLeft: 18 }}>
-                        <div style={{ width: 16, height: 16, borderRadius: 4, border: '1.5px solid #d0dfe1', background: '#fff' }} />
-                      </td>
-
-                      {/* EVENT COLUMN */}
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div className="ev-type-icon" style={{ background: col.light, color: col.bg, width: 30, height: 30 }}>
-                            <EventTypeIcon type={ev.event_type} size={14} />
-                          </div>
-                          <div style={{ minWidth: 0 }}>
-                            <div className="ev-cell-main" style={{ fontSize: '12px' }}>{ev.event_name}</div>
-                            <div className="ev-cell-sub" style={{ fontSize: '10px' }}>{typeLabel}</div>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* DATE COLUMN */}
-                      <td><div className="ev-cell-date">{formatDate(ev.event_date, { day: '2-digit', month: '2-digit', year: 'numeric' })}</div></td>
-
-                      {/* START COLUMN */}
-                      <td><div className="ev-cell-time" style={{ color: '#1d4ed8' }}>{formatTime(ev.event_start_time)}</div></td>
-
-                      {/* END COLUMN */}
-                      <td><div className="ev-cell-time">{formatTime(ev.event_end_time)}</div></td>
-
-                      {/* DURATION COLUMN */}
-                      <td>
-                        <div style={{ fontSize: '11px', fontWeight: '600', color: '#64868c' }}>
-                          {ev.event_duration ? `${ev.event_duration}m` : '—'}
-                        </div>
-                      </td>
-
-                      {/* BCL ATTENDEE COLUMN — mirrors DashboardContent's table cell (Avatar + name) */}
-                      <td>
-                        {attendeeNames.length > 0 ? (
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-7 w-7 rounded">
-                              <AvatarFallback className="bg-slate-100 text-[10px] font-bold text-slate-500 rounded">{safeInitials(attendeeNames[0])}</AvatarFallback>
-                            </Avatar>
-                            <span className="text-xs text-slate-600">{attendeeNames[0]}</span>
-                            {attendeeNames.length > 1 && (
-                              <span className="text-[10px] font-bold text-slate-400">+{attendeeNames.length - 1}</span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-xs text-slate-400">—</span>
-                        )}
-                      </td>
-
-                      {/* STATUS COLUMN */}
-                      <td><StatusPill status={ev.status ?? 'upcoming'} /></td>
-
-                      {/* SYNCED COLUMN */}
-                      <td style={{ textAlign: 'center' }}>
-                        <div style={{ display: 'flex', justifyContent: 'center' }}>
-                          {ev.google_event_id ? (
-                            <div title="Synced to Google Calendar" style={{ color: '#22c55e', background: '#f0fdf4', padding: '4px', borderRadius: '6px' }}>
-                              <Cloud size={14} />
-                            </div>
-                          ) : (
-                            <div title="Not synced" style={{ color: '#94a3b8', padding: '4px' }}>
-                              <CloudOff size={14} />
-                            </div>
-                          )}
-                        </div>
-                      </td>
-
-                      <td style={{ textAlign: 'right', paddingRight: 12 }} onClick={e => e.stopPropagation()}>
-                        <div className="ev-row-actions">
-                          <Button className="ev-row-btn" onClick={() => setSelectedEvent(ev)}>
-                            <MoreHorizontal size={14} />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                }) : (
-                  <tr><td colSpan={10}>
-                    <div className="ev-empty">
-                      <div className="ev-empty-icon"><Calendar size={20} color="#8ca4a8" /></div>
-                      <div className="ev-empty-title">No events found</div>
-                    </div>
-                  </td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="ev-cards-grid">
-            {paginated.map(ev => <EventCard key={ev.id} event={ev} onClick={() => setSelectedEvent(ev)} />)}
-            {paginated.length === 0 && (
-              <div style={{ gridColumn: '1/-1' }}>
-                <div className="ev-empty">
-                  <div className="ev-empty-icon"><Calendar size={20} color="#8ca4a8" /></div>
-                  <div className="ev-empty-title">No events found</div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* PAGINATION */}
-        <div className="ev-pagination">
-          <div className="ev-pagination-info">
-            Showing <b>{sortedFiltered.length > 0 ? currentPage * ITEMS_PER_PAGE + 1 : 0}</b> to{' '}
-            <b>{Math.min((currentPage + 1) * ITEMS_PER_PAGE, sortedFiltered.length)}</b> of <b>{sortedFiltered.length}</b>
-          </div>
-          <div className="ev-page-btns">
-            <Button className="ev-page-btn" onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 0}><ChevronLeft size={14} /></Button>
-            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-              const page = totalPages <= 5 ? i : Math.max(0, Math.min(currentPage - 2, totalPages - 5)) + i;
-              return <Button key={page} className={`ev-page-btn ${currentPage === page ? 'active' : ''}`} onClick={() => setCurrentPage(page)}>{page + 1}</Button>;
-            })}
-            <Button className="ev-page-btn" onClick={() => setCurrentPage(p => p + 1)} disabled={currentPage >= totalPages - 1}><ChevronRight size={14} /></Button>
-          </div>
-        </div>
-      </div>
+      <DataTable
+        columns={evColumns}
+        rows={paginated}
+        rowKey={ev => ev.id}
+        onRowClick={ev => setSelectedEvent(ev)}
+        tabs={[
+          { key: 'upcoming', label: 'Upcoming' },
+          { key: 'confirmed', label: 'Confirmed' },
+          { key: 'today', label: 'Today' },
+          { key: 'completed', label: 'Completed' },
+          { key: 'cancelled', label: 'Cancelled' },
+          { key: 'mycreated', label: 'My Created' },
+        ]}
+        activeTab={activeTab}
+        onTabChange={tab => { setActiveTab(tab); setCurrentPage(0); }}
+        searchQuery={searchQuery}
+        onSearchChange={q => { setSearchQuery(q); setCurrentPage(0); }}
+        searchPlaceholder="Search events or organizer…"
+        viewMode={viewMode}
+        onViewModeChange={mode => setViewMode(mode)}
+        renderCard={ev => <EventCard key={ev.id} event={ev} onClick={() => setSelectedEvent(ev)} />}
+        sortColumn={sortConfig?.key ?? null}
+        sortDirection={sortConfig?.dir ?? 'asc'}
+        onSort={toggleSort}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalRows={sortedFiltered.length}
+        itemsPerPage={ITEMS_PER_PAGE}
+        onPageChange={setCurrentPage}
+        emptyMessage="No events found"
+      />
 
       <EventDetailDialog
         event={detailEvent}

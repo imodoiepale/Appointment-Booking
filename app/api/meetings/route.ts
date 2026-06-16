@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
     if (newSlotStart !== null && newSlotEnd !== null) {
       const { data: existingMeetings, error: conflictError } = await supabase
         .from("bcl_meetings_meetings")
-        .select("id_main, meeting_slot_start_time, meeting_slot_end_time, client_name")
+        .select("id_main, meeting_slot_start_time, meeting_slot_end_time, client_name, bcl_attendee")
         .eq("meeting_date", payload.meeting_date)
         .in("status", ACTIVE_STATUSES);
 
@@ -128,15 +128,29 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: conflictError.message }, { status: 500 });
       }
 
+      const newBclAttendees = new Set<string>(
+        Array.isArray(payload.bcl_attendee) ? payload.bcl_attendee.map(String) : []
+      );
+
       const conflict = (existingMeetings ?? []).find((meeting) => {
         const existingStart = timeToMinutes(meeting.meeting_slot_start_time);
         const existingEnd = timeToMinutes(meeting.meeting_slot_end_time);
-        return existingStart !== null && existingEnd !== null && newSlotStart < existingEnd && existingStart < newSlotEnd;
+        const timesOverlap = existingStart !== null && existingEnd !== null && newSlotStart < existingEnd && existingStart < newSlotEnd;
+        if (!timesOverlap) return false;
+        // Only a real conflict when at least one BCL attendee is shared
+        const existingAttendees: string[] = Array.isArray(meeting.bcl_attendee)
+          ? meeting.bcl_attendee.map(String)
+          : [];
+        return existingAttendees.some(id => newBclAttendees.has(id));
       });
 
       if (conflict) {
+        const sharedAttendees: string[] = Array.isArray(conflict.bcl_attendee)
+          ? conflict.bcl_attendee.map(String).filter((id: string) => newBclAttendees.has(id))
+          : [];
+        const who = sharedAttendees.join(", ") || "A BCL attendee";
         return NextResponse.json(
-          { error: `This time slot conflicts with an existing meeting for ${conflict.client_name}.` },
+          { error: `${who} is already booked for a meeting with ${conflict.client_name} at this time slot.` },
           { status: 409 }
         );
       }

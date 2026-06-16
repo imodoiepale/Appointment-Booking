@@ -63,7 +63,7 @@ export async function GET() {
       individualMap.set(String(ind.id), { id: String(ind.id), name: fullName, hasContactDetails: !!(contacts.email || contacts.mobile), ...contacts });
     }
 
-    // Build company → individuals map from employment_data.associations
+    // Build company → individuals map from employment_data.associations (with roles)
     const companyIndividualsMap = new Map<string, Map<string, any>>();
 
     for (const ind of individualsRes.data ?? []) {
@@ -72,8 +72,14 @@ export async function GET() {
         if (!assoc?.company_id) continue;
         const cid = String(assoc.company_id);
         if (!companyIndividualsMap.has(cid)) companyIndividualsMap.set(cid, new Map());
-        const indData = individualMap.get(String(ind.id));
-        if (indData) companyIndividualsMap.get(cid)!.set(indData.id, indData);
+        const indBase = individualMap.get(String(ind.id));
+        if (!indBase) continue;
+        const existing = companyIndividualsMap.get(cid)!.get(indBase.id) ?? { ...indBase, roles: [] };
+        const roles: string[] = existing.roles ?? [];
+        if (assoc.individual_type && !roles.includes(assoc.individual_type)) {
+          roles.push(assoc.individual_type);
+        }
+        companyIndividualsMap.get(cid)!.set(indBase.id, { ...existing, roles });
       }
     }
 
@@ -93,7 +99,10 @@ export async function GET() {
       const indData = individualMap.get(iid);
       if (!indData) continue;
       if (!companyIndividualsMap.has(cid)) companyIndividualsMap.set(cid, new Map());
-      companyIndividualsMap.get(cid)!.set(indData.id, indData);
+      const existing = companyIndividualsMap.get(cid)!.get(indData.id) ?? { ...indData, roles: [] };
+      const roles: string[] = existing.roles ?? [];
+      if (!roles.includes("Employee")) roles.push("Employee");
+      companyIndividualsMap.get(cid)!.set(indData.id, { ...existing, roles });
     }
 
     const companies = (companiesRes.data ?? [])
