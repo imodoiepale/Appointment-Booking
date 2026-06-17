@@ -209,6 +209,23 @@ class FirebaseService {
 // ==========================================
 // HELPER FUNCTIONS
 // ==========================================
+
+/** Check if a specific minutes-before value is in the user's custom reminders array */
+function isReminderEnabled(customReminders: number[] | null, minutesBefore: number): boolean {
+    if (!customReminders || !Array.isArray(customReminders)) return true; // default: enabled
+    return customReminders.includes(minutesBefore);
+}
+
+/** Get the default meeting custom reminders */
+function getMeetingReminders(): number[] {
+    return [60, 30, 0];
+}
+
+/** Get default event custom reminders */
+function getEventReminders(): number[] {
+    return [60, 30];
+}
+
 function getMeetingDateTime(meeting: Meeting, eatNow: Date): Date | null {
     if (!meeting.meeting_date || !meeting.meeting_start_time) {
         console.error(`❌ Missing date/time for meeting ${meeting.id_main}`);
@@ -259,11 +276,17 @@ serve(async (req) => {
     console.log(`📅 EAT Date: ${format(nowEAT, 'yyyy-MM-dd')}`);
     console.log(`🕒 EAT Hour: ${nowEAT.getHours()}, Minute: ${nowEAT.getMinutes()}`);
 
-    // 1. LOAD SETTINGS
+    // 1. LOAD SYSTEM SETTINGS
     const { data: settingRows } = await supabase.from('bcl_meetings_system_settings').select('*');
     const settings: Settings = {};
     settingRows?.forEach(r => settings[r.key] = r.value);
     console.log(`⚙️ Settings loaded: ${Object.keys(settings).length} keys`);
+
+    // 2. LOAD USER NOTIFICATION PREFERENCES
+    const { data: userSettings } = await supabase.from('notification_settings').select('*');
+    const userNotifMap: Record<string, any> = {};
+    userSettings?.forEach((s: any) => { userNotifMap[s.user_id] = s; });
+    console.log(`👤 User notification settings loaded: ${userSettings?.length || 0} users`);
 
     const wa = new WhatsAppService(settings);
     const firebase = new FirebaseService(Deno.env.get('FIREBASE_SERVER_KEY') || '');
@@ -502,6 +525,18 @@ serve(async (req) => {
                     .eq('reminder_type', '1_hour');
 
                 if (!exists?.length) {
+                    // Check per-user meeting notification settings
+                    const ownerSettings = userNotifMap[m.user_id];
+                    if (ownerSettings && !ownerSettings.meeting_enabled) {
+                        console.log(`⏭️ Skipping 1-hour reminder for meeting ${m.id_main} — user has meeting alerts disabled`);
+                        continue;
+                    }
+                    const customReminders = ownerSettings?.meeting_custom_reminders || getMeetingReminders();
+                    if (!isReminderEnabled(customReminders, 60)) {
+                        console.log(`⏭️ Skipping 1-hour reminder for meeting ${m.id_main} — not in user's custom reminders`);
+                        continue;
+                    }
+
                     const phone = m.client_mobile || m.client_phone;
                     const venue = m.meeting_venue_area || m.venue || 'TBD';
 
@@ -549,6 +584,18 @@ serve(async (req) => {
                     .eq('reminder_type', '30_min');
 
                 if (!exists?.length) {
+                    // Check per-user meeting notification settings
+                    const ownerSettings = userNotifMap[m.user_id];
+                    if (ownerSettings && !ownerSettings.meeting_enabled) {
+                        console.log(`⏭️ Skipping 30-min reminder for meeting ${m.id_main} — user has meeting alerts disabled`);
+                        continue;
+                    }
+                    const customReminders = ownerSettings?.meeting_custom_reminders || getMeetingReminders();
+                    if (!isReminderEnabled(customReminders, 30)) {
+                        console.log(`⏭️ Skipping 30-min reminder for meeting ${m.id_main} — not in user's custom reminders`);
+                        continue;
+                    }
+
                     const phone = m.client_mobile || m.client_phone;
                     const venue = m.meeting_venue_area || m.venue || 'TBD';
 
@@ -596,6 +643,18 @@ serve(async (req) => {
                     .eq('reminder_type', '5_min');
 
                 if (!exists?.length) {
+                    // Check per-user meeting notification settings
+                    const ownerSettings = userNotifMap[m.user_id];
+                    if (ownerSettings && !ownerSettings.meeting_enabled) {
+                        console.log(`⏭️ Skipping 5-min reminder for meeting ${m.id_main} — user has meeting alerts disabled`);
+                        continue;
+                    }
+                    const customReminders = ownerSettings?.meeting_custom_reminders || getMeetingReminders();
+                    if (!isReminderEnabled(customReminders, 0)) {
+                        console.log(`⏭️ Skipping 5-min reminder for meeting ${m.id_main} — not in user's custom reminders`);
+                        continue;
+                    }
+
                     const phone = m.client_mobile || m.client_phone;
 
                     if (phone) {
@@ -611,6 +670,106 @@ serve(async (req) => {
                         channel: 'multi'
                     });
                     logs.push(`✅ 5-min: ${m.client_name}`);
+                }
+            }
+        }
+    }
+
+    // ==========================================
+    // BIRTHDAY REMINDERS (9:00 AM EAT)
+    // ==========================================
+    if (nowEAT.getHours() === 9 && nowEAT.getMinutes() < 15 && settings['enable_birthday_reminders'] !== 'false') {
+        console.log('\n🎂 Processing birthday reminders...');
+
+        const todayDateStr = format(nowEAT, 'yyyy-MM-dd');
+        const todayMonthDay = todayDateStr.substring(5); // MM-DD
+
+        // Fetch all birthdays
+        const { data: birthdays } = await supabase.from('bcl_meetings_birthdays')
+            .select('*');
+
+        if (birthdays?.length) {
+            for (const b of birthdays) {
+                if (!b.dob) continue;
+                const bDay = b.dob.substring(5); // MM-DD
+
+                if (bDay === todayMonthDay) {
+                    // It's their birthday today — send day-of greeting
+                    const { data: exists } = await supabase.from('bcl_meetings_reminder_logs')
+                        .select('*')
+                        .eq('reminder_type', 'birthday_day_of')
+                        .eq('meeting_id', b.id || b.name)
+                        .gte('sent_at', startOfDay(nowUTC).toISOString());
+
+                    if (!exists?.length) {
+                        const groupId = await wa.getGroupId(settings['admin_whatsapp_group_code']);
+                        if (groupId) {
+                            const msg = `🎂 *HAPPY BIRTHDAY*\n\n🎉 Today is *${b.name}*'s birthday!\n${b.company ? `🏢 ${b.company}\n` : ''}Wishing them a wonderful day! 🎈`;
+                            await wa.sendText(groupId, msg, true);
+                        }
+                        await firebase.sendMulticastNotification('Happy Birthday!', `${b.name}'s birthday is today`);
+
+                        await supabase.from('bcl_meetings_reminder_logs').insert({
+                            meeting_id: b.id || b.name,
+                            reminder_type: 'birthday_day_of',
+                            channel: 'multi'
+                        });
+                        logs.push(`🎂 Birthday today: ${b.name}`);
+                    }
+                } else {
+                    // Check N-business-days-before
+                    // Calculate birthday this year
+                    const thisYear = nowEAT.getFullYear();
+                    let birthdayThisYear = parseISO(`${thisYear}-${bDay}`);
+
+                    // If birthday already passed this year, use next year
+                    if (birthdayThisYear < startOfDay(nowEAT)) {
+                        birthdayThisYear = parseISO(`${thisYear + 1}-${bDay}`);
+                    }
+
+                    // Check each user's settings for prep days
+                    for (const [userId, uSettings] of Object.entries(userNotifMap)) {
+                        if (!uSettings.birthday_enabled) continue;
+                        const daysBefore = uSettings.birthday_days_before || 2;
+                        if (daysBefore <= 0) continue;
+
+                        // Calculate N business days before the birthday
+                        let targetDate = new Date(birthdayThisYear);
+                        let remaining = daysBefore;
+                        while (remaining > 0) {
+                            targetDate.setDate(targetDate.getDate() - 1);
+                            const dow = targetDate.getDay();
+                            if (dow !== 0 && dow !== 6) remaining--;
+                        }
+
+                        const targetDateStr = format(targetDate, 'yyyy-MM-dd');
+                        if (targetDateStr === todayDateStr) {
+                            const { data: exists } = await supabase.from('bcl_meetings_reminder_logs')
+                                .select('*')
+                                .eq('reminder_type', 'birthday_prep')
+                                .eq('meeting_id', b.id || b.name)
+                                .gte('sent_at', startOfDay(nowUTC).toISOString());
+
+                            if (!exists?.length) {
+                                const groupId = await wa.getGroupId(settings['admin_whatsapp_group_code']);
+                                if (groupId) {
+                                    const needs = [];
+                                    if (b.gets_cake) needs.push('cake');
+                                    if (b.gets_gift) needs.push('gift');
+                                    const needsStr = needs.length ? ` (prepare ${needs.join(' & ')})` : '';
+                                    const msg = `🎂 *BIRTHDAY IN ${daysBefore} BUSINESS DAY${daysBefore > 1 ? 'S' : ''}*\n\n👤 ${b.name}\n${b.company ? `🏢 ${b.company}\n` : ''}📅 ${format(birthdayThisYear, 'EEEE, dd MMMM')}${needsStr}`;
+                                    await wa.sendText(groupId, msg, true);
+                                }
+
+                                await supabase.from('bcl_meetings_reminder_logs').insert({
+                                    meeting_id: b.id || b.name,
+                                    reminder_type: 'birthday_prep',
+                                    channel: 'multi'
+                                });
+                                logs.push(`🎂 Birthday prep (${daysBefore}d): ${b.name}`);
+                            }
+                        }
+                    }
                 }
             }
         }

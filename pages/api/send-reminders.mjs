@@ -30,7 +30,18 @@ async function sendReminders(minutesBeforeMeeting) {
     return;
   }
 
+  // Load per-user notification settings
+  const { data: userSettings } = await supabase.from('notification_settings').select('*');
+  const settingsMap = {};
+  userSettings?.forEach(s => { settingsMap[s.user_id] = s; });
+
   for (const meeting of meetings) {
+    // Check if the meeting owner has meeting alerts enabled and this custom reminder offset
+    const ownerSettings = settingsMap[meeting.user_id];
+    if (ownerSettings && !ownerSettings.meeting_enabled) continue;
+    const customReminders = ownerSettings?.meeting_custom_reminders || [60, 30, 0];
+    if (!customReminders.includes(minutesBeforeMeeting)) continue;
+
     const payload = {
       interests: ['hello'],
       web: {
