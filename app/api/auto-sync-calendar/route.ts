@@ -7,6 +7,17 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
+function extractBclAttendeeIds(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw.map(String);
+  if (typeof raw === 'string' && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed.map(String);
+    } catch { }
+  }
+  return [];
+}
+
 export async function POST(request: NextRequest) {
   try {
     const meetingData = await request.json();
@@ -18,7 +29,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('Auto-syncing meeting to Google Calendar:', meetingData.id_main);
+    const bclAttendeeIds = extractBclAttendeeIds(meetingData.bcl_attendee);
 
     const meetingForSync = {
       id_main: meetingData.id_main,
@@ -42,7 +53,7 @@ export async function POST(request: NextRequest) {
       updated_by: meetingData.updated_by,
     };
 
-    const eventId = await createGoogleCalendarEvent(meetingForSync);
+    const eventId = await createGoogleCalendarEvent(meetingForSync, bclAttendeeIds);
 
     if (eventId) {
       const { data: updatedMeeting } = await supabase
@@ -53,9 +64,9 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        eventId: eventId,
+        eventId,
         hangoutLink: updatedMeeting?.google_meet_link,
-        message: 'Meeting automatically synced to Google Calendar'
+        message: 'Meeting automatically synced to Google Calendar',
       });
     } else {
       return NextResponse.json(
@@ -83,7 +94,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    console.log('Auto-syncing meeting update to Google Calendar:', meetingData.id_main);
+    const bclAttendeeIds = extractBclAttendeeIds(meetingData.bcl_attendee);
 
     const meetingForSync = {
       id_main: meetingData.id_main,
@@ -107,12 +118,12 @@ export async function PUT(request: NextRequest) {
       updated_by: meetingData.updated_by,
     };
 
-    const eventId = await updateGoogleCalendarEvent(meetingForSync);
+    const eventId = await updateGoogleCalendarEvent(meetingForSync, bclAttendeeIds);
 
     return NextResponse.json({
       success: true,
-      eventId: eventId,
-      message: 'Meeting automatically updated in Google Calendar'
+      eventId,
+      message: 'Meeting automatically updated in Google Calendar',
     });
   } catch (error: any) {
     console.error('Error in auto-sync update:', error.message);
@@ -135,13 +146,11 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    console.log('Auto-removing meeting from Google Calendar:', meetingId);
-
     await deleteGoogleCalendarEvent(parseInt(meetingId));
 
     return NextResponse.json({
       success: true,
-      message: 'Meeting automatically removed from Google Calendar'
+      message: 'Meeting automatically removed from Google Calendar',
     });
   } catch (error: any) {
     console.error('Error in auto-sync deletion:', error.message);

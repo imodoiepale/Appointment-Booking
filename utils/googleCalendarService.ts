@@ -38,6 +38,10 @@ interface NotificationData {
   type: '1hour' | '30min' | '10min' | '5min';
 }
 
+// ── Calendar client helpers ───────────────────────────────────────────────────
+
+// Used as a fallback when no BCL attendee has a connected calendar.
+// Requires an active HTTP request context (reads cookies/headers).
 async function getGoogleCalendarClient() {
   const { cookies } = await import('next/headers');
   const { headers } = await import('next/headers');
@@ -45,12 +49,10 @@ async function getGoogleCalendarClient() {
   const headerStore = await headers();
   const mobileUserId = headerStore.get('x-scanner-user-id') || '';
   const mobileUserEmail = headerStore.get('x-scanner-user-email') || '';
-  // Web users: google_user_email cookie is set during OAuth and persists 180 days
   const webUserEmail = cookieStore.get('google_user_email')?.value || '';
   const accessToken = cookieStore.get('google_access_token')?.value;
   let refreshToken = cookieStore.get('google_refresh_token')?.value;
 
-  // Determine the identity to use for DB lookups
   const lookupId = mobileUserId;
   const lookupEmail = mobileUserEmail || webUserEmail;
 
@@ -64,7 +66,6 @@ async function getGoogleCalendarClient() {
     if (lookupId) {
       query = query.eq('user_id', lookupId);
     } else if (lookupEmail) {
-      // Match either user_id or email field (web users store google email in both)
       query = query.or(`user_id.eq.${lookupEmail},email.eq.${lookupEmail}`);
     }
 
@@ -131,6 +132,66 @@ async function getGoogleCalendarClient() {
   return google.calendar({ version: 'v3', auth: oauth2Client });
 }
 
+// Resolves the calendar client for a specific BCL attendee by their user ID.
+// Does NOT need HTTP request context — reads tokens directly from the DB.
+async function getCalendarClientForUserId(userId: string) {
+  const { data } = await supabase
+    .from('email_accounts')
+    .select('refresh_token')
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .limit(1)
+    .single();
+
+  if (!data?.refresh_token) {
+    throw new Error(`No active Google Calendar connection for user ${userId}`);
+  }
+
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  if (!clientId || !clientSecret) {
+    throw new Error('Google OAuth credentials not configured on server.');
+  }
+
+  const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
+  oauth2Client.setCredentials({ refresh_token: data.refresh_token });
+
+  try {
+    const { token } = await oauth2Client.getAccessToken();
+    if (token) {
+      await supabase
+        .from('email_accounts')
+        .update({
+          token: { access_token: token, refresh_token: data.refresh_token },
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId)
+        .eq('status', 'active');
+    }
+  } catch {
+    // Non-fatal: proceed with existing refresh token
+  }
+
+  return google.calendar({ version: 'v3', auth: oauth2Client });
+}
+
+// google_event_id is stored as JSON: { attendeeId: gCalEventId, ... }
+// This handles the legacy plain-string format from before the attendee-per-calendar model.
+function parseAttendeeEventIds(raw: string | null | undefined): Record<string, string> {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+    if (typeof parsed === 'string') return { legacy: parsed };
+  } catch {
+    // Not JSON — old plain string format
+    return { legacy: raw };
+  }
+  return {};
+}
+
+// ── Event builders ────────────────────────────────────────────────────────────
+
 function toHHMM(t: string | undefined): string {
   if (!t) return '--:--';
   const parts = t.split(':');
@@ -148,9 +209,7 @@ function buildEventDescription(meeting: MeetingEvent) {
   const hasSlot = !!(meeting.meeting_slot_start_time && meeting.meeting_slot_end_time);
   const travelMins = hasSlot ? calcTravelMinutes(meeting.meeting_slot_start_time, meeting.meeting_start_time) : 0;
 
-  const lines: string[] = [
-    '── SCHEDULE ──',
-  ];
+  const lines: string[] = ['── SCHEDULE ──'];
 
   if (hasSlot) {
     lines.push(`Slot Time:    ${toHHMM(meeting.meeting_slot_start_time)} → ${toHHMM(meeting.meeting_slot_end_time)}  (includes travel each way)`);
@@ -194,7 +253,6 @@ function buildEventDescription(meeting: MeetingEvent) {
 }
 
 function buildCalendarEvent(meeting: MeetingEvent) {
-  // Use slot times (which include travel) if available, otherwise fall back to meeting times
   const eventStart = toHHMM(meeting.meeting_slot_start_time) !== '--:--'
     ? meeting.meeting_slot_start_time!
     : meeting.meeting_start_time;
@@ -223,7 +281,6 @@ function buildCalendarEvent(meeting: MeetingEvent) {
       overrides: [
         { method: 'popup', minutes: 60 },
         { method: 'popup', minutes: 30 },
-        // At slot start (departure time) — "time to leave" alert
         { method: 'popup', minutes: 0 },
       ],
     },
@@ -238,29 +295,73 @@ function buildCalendarEvent(meeting: MeetingEvent) {
   };
 }
 
-export async function createGoogleCalendarEvent(meeting: MeetingEvent): Promise<string> {
-  try {
-    const calendar = await getGoogleCalendarClient();
-    const response = await calendar.events.insert({
-      calendarId: 'primary',
-      requestBody: buildCalendarEvent(meeting),
-      conferenceDataVersion: 1,
-    });
+// ── Meeting calendar CRUD ─────────────────────────────────────────────────────
 
-    const eventId = response.data?.id || '';
-    const meetLink = response.data?.hangoutLink || null;
+// Syncs a meeting to the Google Calendars of all BCL attendees.
+// google_event_id in the DB is stored as JSON: { attendeeId: gCalEventId }
+export async function createGoogleCalendarEvent(
+  meeting: MeetingEvent,
+  bclAttendeeIds: string[] = [],
+): Promise<string> {
+  try {
+    const eventPayload = buildCalendarEvent(meeting);
+    const attendeeEventIds: Record<string, string> = {};
+    let primaryMeetLink: string | null = null;
+
+    for (const attendeeId of bclAttendeeIds) {
+      try {
+        const calendar = await getCalendarClientForUserId(attendeeId);
+        const response = await calendar.events.insert({
+          calendarId: 'primary',
+          requestBody: eventPayload,
+          conferenceDataVersion: 1,
+        });
+        if (response.data?.id) {
+          attendeeEventIds[attendeeId] = response.data.id;
+          if (!primaryMeetLink && response.data?.hangoutLink) {
+            primaryMeetLink = response.data.hangoutLink;
+          }
+        }
+      } catch (err: any) {
+        console.warn(`Could not sync meeting ${meeting.id_main} to calendar for attendee ${attendeeId}:`, err.message);
+      }
+    }
+
+    // Fallback: if no BCL attendee had a connected calendar, use the requesting user's calendar
+    if (Object.keys(attendeeEventIds).length === 0) {
+      try {
+        const calendar = await getGoogleCalendarClient();
+        const response = await calendar.events.insert({
+          calendarId: 'primary',
+          requestBody: eventPayload,
+          conferenceDataVersion: 1,
+        });
+        if (response.data?.id) {
+          attendeeEventIds['creator'] = response.data.id;
+          primaryMeetLink = response.data?.hangoutLink || null;
+        }
+      } catch (err: any) {
+        console.warn(`No calendar credentials available for meeting ${meeting.id_main} fallback:`, err.message);
+      }
+    }
+
+    if (Object.keys(attendeeEventIds).length === 0) {
+      throw new Error('No Google Calendar credentials available for any BCL attendee.');
+    }
+
+    const googleEventIdJson = JSON.stringify(attendeeEventIds);
 
     await supabase
       .from('bcl_meetings_meetings')
       .update({
-        google_event_id: eventId,
-        google_meet_link: meetLink,
+        google_event_id: googleEventIdJson,
+        google_meet_link: primaryMeetLink,
         ...(meeting.created_by ? { created_by: meeting.created_by } : {}),
         ...(meeting.updated_by ? { updated_by: meeting.updated_by } : {}),
       })
       .eq('id_main', meeting.id_main);
 
-    return eventId;
+    return googleEventIdJson;
   } catch (error: any) {
     console.error('Error creating Google Calendar event:', error.message);
     throw error;
@@ -291,33 +392,13 @@ export async function getUpcomingMeetingsWithNotifications(): Promise<Notificati
       const timeDiff = eventTime.getTime() - now.getTime();
 
       if (timeDiff <= 60 * 60 * 1000 && timeDiff > 59 * 60 * 1000) {
-        notifications.push({
-          title: 'Meeting Reminder - 1 Hour',
-          message: `Meeting with ${event.summary} starts in 1 hour`,
-          meetingTime: eventTime,
-          type: '1hour',
-        });
+        notifications.push({ title: 'Meeting Reminder - 1 Hour', message: `Meeting with ${event.summary} starts in 1 hour`, meetingTime: eventTime, type: '1hour' });
       } else if (timeDiff <= 30 * 60 * 1000 && timeDiff > 29 * 60 * 1000) {
-        notifications.push({
-          title: 'Meeting Reminder - 30 Minutes',
-          message: `Meeting with ${event.summary} starts in 30 minutes`,
-          meetingTime: eventTime,
-          type: '30min',
-        });
+        notifications.push({ title: 'Meeting Reminder - 30 Minutes', message: `Meeting with ${event.summary} starts in 30 minutes`, meetingTime: eventTime, type: '30min' });
       } else if (timeDiff <= 10 * 60 * 1000 && timeDiff > 9 * 60 * 1000) {
-        notifications.push({
-          title: 'Meeting Reminder - 10 Minutes',
-          message: `Meeting with ${event.summary} starts in 10 minutes`,
-          meetingTime: eventTime,
-          type: '10min',
-        });
+        notifications.push({ title: 'Meeting Reminder - 10 Minutes', message: `Meeting with ${event.summary} starts in 10 minutes`, meetingTime: eventTime, type: '10min' });
       } else if (timeDiff <= 5 * 60 * 1000 && timeDiff > 4 * 60 * 1000) {
-        notifications.push({
-          title: 'Meeting Reminder - 5 Minutes',
-          message: `Meeting with ${event.summary} starts in 5 minutes!`,
-          meetingTime: eventTime,
-          type: '5min',
-        });
+        notifications.push({ title: 'Meeting Reminder - 5 Minutes', message: `Meeting with ${event.summary} starts in 5 minutes!`, meetingTime: eventTime, type: '5min' });
       }
     }
 
@@ -328,47 +409,85 @@ export async function getUpcomingMeetingsWithNotifications(): Promise<Notificati
   }
 }
 
-export async function updateGoogleCalendarEvent(meeting: MeetingEvent): Promise<string> {
+export async function updateGoogleCalendarEvent(
+  meeting: MeetingEvent,
+  bclAttendeeIds: string[] = [],
+): Promise<string> {
   try {
-    const calendar = await getGoogleCalendarClient();
-    const { data: meetingData } = await supabase
+    const { data: storedMeeting } = await supabase
       .from('bcl_meetings_meetings')
-      .select('google_event_id')
+      .select('google_event_id, bcl_attendee')
       .eq('id_main', meeting.id_main)
       .single();
 
-    if (!meetingData?.google_event_id) {
-      return createGoogleCalendarEvent(meeting);
+    if (!storedMeeting?.google_event_id) {
+      // No existing sync — create instead
+      const attendees = bclAttendeeIds.length > 0
+        ? bclAttendeeIds
+        : Array.isArray(storedMeeting?.bcl_attendee)
+          ? (storedMeeting.bcl_attendee as any[]).map(String)
+          : [];
+      return createGoogleCalendarEvent(meeting, attendees);
     }
 
-    const currentEventResponse = await calendar.events.get({
-      calendarId: 'primary',
-      eventId: meetingData.google_event_id,
-    });
+    const existingEventIds = parseAttendeeEventIds(storedMeeting.google_event_id);
+    const eventPayload = buildCalendarEvent(meeting);
+    const updatedEventIds: Record<string, string> = { ...existingEventIds };
 
-    const updatedEvent = {
-      ...currentEventResponse.data,
-      ...buildCalendarEvent(meeting),
-    };
+    // Determine the current set of BCL attendees
+    const currentAttendeeIds = bclAttendeeIds.length > 0
+      ? bclAttendeeIds
+      : Array.isArray(storedMeeting?.bcl_attendee)
+        ? (storedMeeting.bcl_attendee as any[]).map(String)
+        : Object.keys(existingEventIds).filter(k => k !== 'creator' && k !== 'legacy');
 
-    const response = await calendar.events.update({
-      calendarId: 'primary',
-      eventId: meetingData.google_event_id,
-      requestBody: updatedEvent,
-      conferenceDataVersion: 1,
-    });
+    // Update existing attendee events
+    for (const [attendeeId, eventId] of Object.entries(existingEventIds)) {
+      try {
+        const calendar = (attendeeId === 'creator' || attendeeId === 'legacy')
+          ? await getGoogleCalendarClient()
+          : await getCalendarClientForUserId(attendeeId);
 
-    const meetLink = response.data?.hangoutLink || null;
+        const existing = await calendar.events.get({ calendarId: 'primary', eventId });
+        const response = await calendar.events.update({
+          calendarId: 'primary',
+          eventId,
+          requestBody: { ...existing.data, ...eventPayload },
+          conferenceDataVersion: 1,
+        });
+        if (response.data?.id) updatedEventIds[attendeeId] = response.data.id;
+      } catch (err: any) {
+        console.warn(`Could not update calendar event for attendee ${attendeeId}:`, err.message);
+      }
+    }
+
+    // Create events for newly added attendees that don't yet have a calendar entry
+    for (const attendeeId of currentAttendeeIds) {
+      if (updatedEventIds[attendeeId]) continue;
+      try {
+        const calendar = await getCalendarClientForUserId(attendeeId);
+        const response = await calendar.events.insert({
+          calendarId: 'primary',
+          requestBody: eventPayload,
+          conferenceDataVersion: 1,
+        });
+        if (response.data?.id) updatedEventIds[attendeeId] = response.data.id;
+      } catch (err: any) {
+        console.warn(`Could not create calendar event for new attendee ${attendeeId}:`, err.message);
+      }
+    }
+
+    const googleEventIdJson = JSON.stringify(updatedEventIds);
 
     await supabase
       .from('bcl_meetings_meetings')
       .update({
-        google_meet_link: meetLink,
+        google_event_id: googleEventIdJson,
         ...(meeting.updated_by ? { updated_by: meeting.updated_by } : {}),
       })
       .eq('id_main', meeting.id_main);
 
-    return meetingData.google_event_id;
+    return googleEventIdJson;
   } catch (error: any) {
     console.error('Error updating Google Calendar event:', error.message);
     throw error;
@@ -377,32 +496,32 @@ export async function updateGoogleCalendarEvent(meeting: MeetingEvent): Promise<
 
 export async function deleteGoogleCalendarEvent(meetingId: number): Promise<void> {
   try {
-    const calendar = await getGoogleCalendarClient();
     const { data: meetingData } = await supabase
       .from('bcl_meetings_meetings')
       .select('google_event_id')
       .eq('id_main', meetingId)
       .single();
 
-    if (!meetingData?.google_event_id) {
-      console.log('No Google Calendar event found for meeting', meetingId);
-      return;
-    }
+    if (!meetingData?.google_event_id) return;
 
-    await calendar.events.delete({
-      calendarId: 'primary',
-      eventId: meetingData.google_event_id,
-    });
+    const eventIds = parseAttendeeEventIds(meetingData.google_event_id);
+
+    for (const [attendeeId, eventId] of Object.entries(eventIds)) {
+      try {
+        const calendar = (attendeeId === 'creator' || attendeeId === 'legacy')
+          ? await getGoogleCalendarClient()
+          : await getCalendarClientForUserId(attendeeId);
+
+        await calendar.events.delete({ calendarId: 'primary', eventId });
+      } catch (err: any) {
+        console.warn(`Could not delete calendar event for attendee ${attendeeId}:`, err.message);
+      }
+    }
 
     await supabase
       .from('bcl_meetings_meetings')
-      .update({
-        google_event_id: null,
-        google_meet_link: null,
-      })
+      .update({ google_event_id: null, google_meet_link: null })
       .eq('id_main', meetingId);
-
-    console.log('Google Calendar event deleted successfully');
   } catch (error: any) {
     console.error('Error deleting Google Calendar event:', error.message);
     throw error;
@@ -424,7 +543,10 @@ export async function syncMeetingsToCalendar(): Promise<void> {
 
     for (const meeting of meetings || []) {
       try {
-        await createGoogleCalendarEvent(meeting);
+        const attendeeIds: string[] = Array.isArray(meeting.bcl_attendee)
+          ? (meeting.bcl_attendee as any[]).map(String)
+          : [];
+        await createGoogleCalendarEvent(meeting, attendeeIds);
         console.log(`Synced meeting ${meeting.id_main} to Google Calendar`);
       } catch (error) {
         console.error(`Failed to sync meeting ${meeting.id_main}:`, error);
@@ -435,9 +557,7 @@ export async function syncMeetingsToCalendar(): Promise<void> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// BCL EVENTS  (weddings, fundraisers, tech events, etc.)
-// ─────────────────────────────────────────────────────────────────────────────
+// ── BCL Events  (weddings, fundraisers, tech events, etc.) ───────────────────
 
 interface BclEventRecord {
   id: number;
@@ -537,7 +657,6 @@ function buildGCalEventFromBclEvent(ev: BclEventRecord) {
     ? `${typeLabel}: ${ev.event_name} (${ev.organizer_name})`
     : `${typeLabel}: ${ev.event_name}`;
 
-  // Use slot times (which include travel) if available, otherwise fall back to event times
   const eventStart = toHHMM(ev.event_slot_start_time) !== '--:--'
     ? ev.event_slot_start_time!
     : ev.event_start_time;

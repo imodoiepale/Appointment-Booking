@@ -419,7 +419,7 @@ const DashboardContent = () => {
       const patch = { meeting_end_time: newEndTime, meeting_duration: newDuration, status: 'in_progress' };
       await patchMeeting(selectedAppointment.id_main, patch);
       updateLocal(selectedAppointment.id_main, patch);
-      if (calendarConnectionStatus === 'connected' && selectedAppointment.google_event_id) {
+      if (selectedAppointment.google_event_id) {
         try { await updateCalendarEvent({ ...selectedAppointment, ...patch }); } catch { }
       }
       notify.success('Meeting extended', `New end time: ${newEndTime}`);
@@ -438,7 +438,7 @@ const DashboardContent = () => {
       const extPatch = { meeting_end_time: pendingExtension.newEndTime, meeting_duration: newDuration, status: 'in_progress' };
       await patchMeeting(selectedAppointment.id_main, extPatch);
       updateLocal(selectedAppointment.id_main, extPatch);
-      if (calendarConnectionStatus === 'connected' && selectedAppointment.google_event_id) {
+      if (selectedAppointment.google_event_id) {
         try { await updateCalendarEvent({ ...selectedAppointment, ...extPatch }); } catch { }
       }
       for (const { meeting, newStart, newEnd } of cascadeProposal) {
@@ -448,7 +448,7 @@ const DashboardContent = () => {
         const movePatch = { meeting_start_time: newStart, meeting_end_time: newEnd, meeting_duration: dur, status: 'rescheduled' };
         await patchMeeting(meeting.id_main, movePatch);
         updateLocal(meeting.id_main, movePatch);
-        if (calendarConnectionStatus === 'connected' && meeting.google_event_id) {
+        if (meeting.google_event_id) {
           try { await updateCalendarEvent({ ...meeting, ...movePatch }); } catch { }
         }
       }
@@ -477,7 +477,6 @@ const DashboardContent = () => {
 
   const handleSyncRow = async (meeting: any, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (calendarConnectionStatus !== 'connected') { notify.error('Calendar not connected'); return; }
     setSyncingRow(meeting.id_main);
     try {
       if (meeting.google_event_id) { await unsyncMeeting(meeting); notify.success('Removed from Google Calendar'); }
@@ -538,7 +537,7 @@ const DashboardContent = () => {
       };
       await patchMeeting(selectedAppointment.id_main, patch);
       updateLocal(selectedAppointment.id_main, patch);
-      if (calendarConnectionStatus === 'connected') {
+      {
         const updatedMeeting = { ...selectedAppointment, ...patch };
         try {
           if (selectedAppointment.google_event_id) await updateCalendarEvent(updatedMeeting);
@@ -546,7 +545,7 @@ const DashboardContent = () => {
         } catch { }
       }
       setRescheduleOpen(false);
-      notify.success('Meeting rescheduled', calendarConnectionStatus === 'connected' ? 'Calendar updated automatically.' : '');
+      notify.success('Meeting rescheduled', 'Calendar updated automatically.');
     } catch (e: any) { notify.error('Reschedule failed', e.message); }
     finally { setActionLoading(''); }
   };
@@ -882,7 +881,7 @@ const DashboardContent = () => {
         return (
           <div className="flex items-center gap-2">
             <SyncBadge synced={!!row.google_event_id} />
-            {isMtg && calendarConnectionStatus === 'connected' && (
+            {isMtg && (
               <button
                 className={cn("inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[10px] font-bold transition-colors disabled:opacity-60", row.google_event_id ? "border-red-200 text-red-600 hover:bg-red-50" : "border-blue-200 text-blue-600 hover:bg-blue-50")}
                 onClick={e => handleSyncRow(row, e)}
