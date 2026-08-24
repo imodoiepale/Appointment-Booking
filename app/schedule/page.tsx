@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 import { Calendar, Clock, Mic, MicOff, Building, User, Phone, Mail, MapPin, Check, ChevronRight, ChevronLeft, Loader2, Info, X, Video, Plus, Link2, Hash } from 'lucide-react';
 import supabase from '@/utils/supabaseClient';
+import { formatDate } from '@/utils/format';
 import { CREATION_STATUSES } from '@/utils/appointmentStatuses';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { SearchableMultiSelect } from '@/components/ui/searchable-multi-select';
@@ -80,9 +81,18 @@ const SchedulerStyles = () => (
       box-shadow: 0 22px 55px rgba(0,48,56,0.1);
     }
 
+    /* ── STICKY HEADER / FOOTER ── */
+    .sch-sticky-top {
+      position: sticky; top: 0; z-index: 30;
+      background: #ffffff;
+    }
+    .sch-sticky-bottom {
+      position: sticky; bottom: 0; z-index: 30;
+    }
+
     /* ── CARD HEADER ── */
     .sch-header {
-      padding: 24px 28px;
+      padding: 20px 28px;
       background: #f7fafa;
       border-bottom: 1px solid #eef2f3;
       display: flex; align-items: flex-start; justify-content: space-between;
@@ -143,7 +153,7 @@ const SchedulerStyles = () => (
     /* ── FORM BODY ── */
     .sch-body { padding: 28px; }
     .sch-section-title {
-      font-size: 15px; font-weight: 800; color: #1d4ed8;
+      font-size: 16px; font-weight: 800; color: #1d4ed8;
       letter-spacing: -0.01em; padding-bottom: 14px;
       border-bottom: 1px solid #eef2f3; margin-bottom: 22px;
     }
@@ -224,7 +234,7 @@ const SchedulerStyles = () => (
       border: 1px solid #dfe8ea; padding: 12px 14px;
       box-shadow: 0 8px 22px rgba(0,48,56,0.04);
     }
-    .sch-confirm-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #8ca4a8; margin-bottom: 4px; }
+    .sch-confirm-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #8ca4a8; margin-bottom: 4px; }
     .sch-confirm-value { font-size: 13px; font-weight: 700; color: #1d4ed8; word-break: break-word; }
 
     /* ── SUCCESS / ERROR BANNERS ── */
@@ -347,8 +357,8 @@ function calcSlotTime(base: string, offset: number): string {
     if (!base || isNaN(offset)) return '';
     const [h, m] = base.split(':').map(Number);
     if (isNaN(h) || isNaN(m)) return '';
-    const d = new Date(); d.setHours(h, m + offset, 0, 0);
-    return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    const total = (((h * 60 + m + offset) % 1440) + 1440) % 1440;
+    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
 const INITIAL_FORM = {
@@ -417,6 +427,7 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
     const [activeStep, setActiveStep] = useState(0);
     const [formData, setFormData] = useState({ ...INITIAL_FORM });
     const [invalidFields, setInvalidFields] = useState<string[]>([]);
+    const [meetingDateText, setMeetingDateText] = useState('');
     const [formStatus, setFormStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
     const [isListening, setIsListening] = useState(false);
     const [bclAttendees, setBclAttendees] = useState<{ id: string; displayName: string; email?: string }[]>([]);
@@ -511,6 +522,45 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
         const d = new Date(val);
         set('meetingDate', val);
         set('meetingDay', isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', { weekday: 'long' }));
+    };
+
+    // Keep the dd/mm/yyyy text field in sync when meetingDate changes elsewhere (e.g. form reset)
+    useEffect(() => {
+        setMeetingDateText(formData.meetingDate ? formatDate(formData.meetingDate) : '');
+    }, [formData.meetingDate]);
+
+    // Masked dd/mm/yyyy entry — types digits, auto-inserts slashes, commits as ISO once complete & valid
+    const handleMeetingDateTextChange = (raw: string) => {
+        const digits = raw.replace(/\D/g, '').slice(0, 8);
+        const display = digits.length > 4
+            ? `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`
+            : digits.length > 2
+                ? `${digits.slice(0, 2)}/${digits.slice(2)}`
+                : digits;
+        setMeetingDateText(display);
+
+        if (digits.length < 8) {
+            if (formData.meetingDate) { set('meetingDate', ''); set('meetingDay', ''); }
+            return;
+        }
+
+        const day = parseInt(digits.slice(0, 2), 10);
+        const month = parseInt(digits.slice(2, 4), 10);
+        const year = parseInt(digits.slice(4, 8), 10);
+        const iso = `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const d = new Date(iso);
+        const isRealDate = !isNaN(d.getTime()) && d.getUTCFullYear() === year && d.getUTCMonth() + 1 === month && d.getUTCDate() === day;
+        const todayIso = new Date().toISOString().split('T')[0];
+
+        if (!isRealDate) {
+            toast({ variant: 'destructive', title: 'Invalid date', description: 'Enter a valid date as dd/mm/yyyy.' });
+            return;
+        }
+        if (iso < todayIso) {
+            toast({ variant: 'destructive', title: 'Invalid date', description: 'Meeting date cannot be in the past.' });
+            return;
+        }
+        handleMeetingDate(iso);
     };
 
     const handleStartTime = (val: string) => {
@@ -861,7 +911,7 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
     const renderStep0 = () => (
         <div className="sch-grid">
             <Field label="Booking Date">
-                <TextInput name="bookingDate" value={formData.bookingDate} onChange={handleChange} readOnly icon={Calendar} />
+                <TextInput name="bookingDate" value={formatDate(formData.bookingDate)} onChange={handleChange} readOnly icon={Calendar} />
             </Field>
             <Field label="Booking Day">
                 <TextInput name="bookingDay" value={formData.bookingDay} onChange={handleChange} readOnly icon={Calendar} />
@@ -869,8 +919,8 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
             <Field label="Meeting Date *" error={inv('meetingDate')}>
                 <div className="sch-input-wrap">
                     <Calendar size={14} className="sch-input-icon" />
-                    <Input type="date" name="meetingDate" min={new Date().toISOString().split('T')[0]}
-                        value={formData.meetingDate} onChange={e => handleMeetingDate(e.target.value)}
+                    <Input type="text" name="meetingDate" inputMode="numeric" placeholder="dd/mm/yyyy" maxLength={10}
+                        value={meetingDateText} onChange={e => handleMeetingDateTextChange(e.target.value)}
                         className={`sch-input has-icon${inv('meetingDate') ? ' invalid' : ''}`} />
                 </div>
             </Field>
@@ -943,6 +993,12 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
             fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, whiteSpace: 'nowrap' as const,
             background: role === 'Director' ? '#ede9fe' : role === 'Employee' ? '#ecfdf5' : role === 'Shareholder' ? '#eef2ff' : role === 'Principal' ? '#eff6ff' : '#f1f5f9',
             color: role === 'Director' ? '#7c3aed' : role === 'Employee' ? '#065f46' : role === 'Shareholder' ? '#3730a3' : role === 'Principal' ? '#1d4ed8' : '#475569',
+        });
+
+        const statusBadgeStyle = (status: string): React.CSSProperties => ({
+            fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, whiteSpace: 'nowrap' as const,
+            background: status === 'active' ? '#dcfce7' : '#f1f5f9',
+            color: status === 'active' ? '#15803d' : '#64748b',
         });
 
         return (
@@ -1097,8 +1153,12 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
                                                                     {(ind.roles ?? []).map((role: string) => (
                                                                         <span key={role} style={roleBadgeStyle(role)}>{role}</span>
                                                                     ))}
+                                                                    {ind.roles?.includes('Employee') && ind.employeeStatus && (
+                                                                        <span style={statusBadgeStyle(ind.employeeStatus)}>
+                                                                            {ind.employeeStatus === 'active' ? 'Active' : 'Inactive'}
+                                                                        </span>
+                                                                    )}
                                                                 </span>
-                                                                {ind.email && <span style={{ fontSize: 11, color: '#94a3b8', flexShrink: 0 }}>{ind.email}</span>}
                                                             </label>
                                                         ))
                                                 }
@@ -1523,51 +1583,54 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
 
     return (
         <div className="bg-white">
-            {/* HEADER */}
-            <div className="flex gap-4 p-4">
-                <div>
-                    <div className="sch-badge"><Calendar size={11} /> Booksmart Scheduler</div>
-                    <h2 className="text-2xl font-bold text-blue-700">Schedule New Meeting</h2>
-                    <div className="sch-subtitle">Capture client, attendee, slot, and agenda details in one guided flow.</div>
-                </div>
-                <div className='flex gap-4 h-full'>
-                    <div className="flex gap-4">
-                        <div className="p-4 rounded-md bg-white border text-xs shadow-md">
-                            <div className="text-blue-700 font-bold text-sm">{formData.meetingDate || 'No date'}</div>
-                            <div className="text-[10px] font-bold text-slate-400 uppercase">Meeting date</div>
-                        </div>
-                        <div className="p-4 rounded-md bg-white border text-xs shadow-md">
-                            <div className="text-blue-700 font-bold text-sm">{formData.meetingStartTime || '--:--'}</div>
-                            <div className="text-[10px] font-bold text-slate-400 uppercase">Start time</div>
-                        </div>
+            {/* STICKY HEADER + STEP INDICATOR */}
+            <div className="sch-sticky-top">
+                {/* HEADER */}
+                <div className="sch-header">
+                    <div>
+                        <div className="sch-badge"><Calendar size={11} /> Booksmart Scheduler</div>
+                        <h2 className="sch-title">Schedule New Meeting</h2>
+                        <div className="sch-subtitle">Capture client, attendee, slot, and agenda details in one guided flow.</div>
                     </div>
-                    <Button className={`p-4 rounded-md bg-white border text-xs shadow-md h-auto ${isListening ? 'sch-voice-on' : 'sch-voice-off'}`} onClick={toggleListening}>
-                        {isListening ? <><MicOff size={13} /> Stop</> : <><Mic size={13} /> Voice</>}
-                    </Button>
-                </div>
-            </div>
-
-            {/* STEP INDICATOR */}
-            <div className="sch-steps">
-                {STEPS.map((step, idx) => {
-                    const state = activeStep === step.id ? 'active' : activeStep > step.id ? 'done' : 'inactive';
-                    return (
-                        <React.Fragment key={step.id}>
-                            <div className="sch-step" onClick={() => { if (activeStep > step.id) { setActiveStep(step.id); setInvalidFields([]); } }}>
-                                <div className={`sch-step-circle ${state}`}>
-                                    {state === 'done'
-                                        ? <Check size={16} className="sch-step-icon-done" />
-                                        : <step.Icon size={16} className={`sch-step-icon-${state}`} />
-                                    }
-                                </div>
-                                <span className={`sch-step-label ${state}`}>{step.name}</span>
+                    <div className='flex gap-4 h-full'>
+                        <div className="flex gap-4">
+                            <div className="p-4 rounded-md bg-white border text-xs shadow-md">
+                                <div className="text-blue-700 font-bold text-sm">{formData.meetingDate || 'No date'}</div>
+                                <div className="text-[10px] font-bold text-slate-400 uppercase">Meeting date</div>
                             </div>
-                            {idx < STEPS.length - 1 && (
-                                <div className={`sch-step-connector ${activeStep > idx ? 'done' : 'inactive'}`} />
-                            )}
-                        </React.Fragment>
-                    );
-                })}
+                            <div className="p-4 rounded-md bg-white border text-xs shadow-md">
+                                <div className="text-blue-700 font-bold text-sm">{formData.meetingStartTime || '--:--'}</div>
+                                <div className="text-[10px] font-bold text-slate-400 uppercase">Start time</div>
+                            </div>
+                        </div>
+                        <Button className={`p-4 rounded-md bg-white border text-xs shadow-md h-auto ${isListening ? 'sch-voice-on' : 'sch-voice-off'}`} onClick={toggleListening}>
+                            {isListening ? <><MicOff size={13} /> Stop</> : <><Mic size={13} /> Voice</>}
+                        </Button>
+                    </div>
+                </div>
+
+                {/* STEP INDICATOR */}
+                <div className="sch-steps">
+                    {STEPS.map((step, idx) => {
+                        const state = activeStep === step.id ? 'active' : activeStep > step.id ? 'done' : 'inactive';
+                        return (
+                            <React.Fragment key={step.id}>
+                                <div className="sch-step" onClick={() => { if (activeStep > step.id) { setActiveStep(step.id); setInvalidFields([]); } }}>
+                                    <div className={`sch-step-circle ${state}`}>
+                                        {state === 'done'
+                                            ? <Check size={16} className="sch-step-icon-done" />
+                                            : <step.Icon size={16} className={`sch-step-icon-${state}`} />
+                                        }
+                                    </div>
+                                    <span className={`sch-step-label ${state}`}>{step.name}</span>
+                                </div>
+                                {idx < STEPS.length - 1 && (
+                                    <div className={`sch-step-connector ${activeStep > idx ? 'done' : 'inactive'}`} />
+                                )}
+                            </React.Fragment>
+                        );
+                    })}
+                </div>
             </div>
 
             {/* BODY */}
@@ -1584,7 +1647,7 @@ export function SchedulerForm({ onSuccess }: { onSuccess?: () => void }) {
             </div>
 
             {/* FOOTER */}
-            <div className="sch-footer">
+            <div className="sch-footer sch-sticky-bottom">
                 <Button className="sch-btn-prev h-auto" onClick={prevStep} disabled={activeStep === 0 || formStatus === 'submitting'}>
                     <ChevronLeft size={15} /> Previous
                 </Button>

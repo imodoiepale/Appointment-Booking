@@ -34,6 +34,15 @@ function parseOAuthState(rawState: string | null) {
   }
 }
 
+function getBaseUrl() {
+  return process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_ENV === "production"
+      ? "https://meetings.booksmartportals.com"
+      : process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : "http://localhost:3000");
+}
+
 async function handleOAuthCode(
   code: string,
   request: NextRequest,
@@ -51,7 +60,7 @@ async function handleOAuthCode(
         client_secret: process.env.GOOGLE_CLIENT_SECRET!,
         code: code,
         grant_type: "authorization_code",
-        redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')}/api/auth/google/callback`
+        redirect_uri: `${getBaseUrl()}/api/auth/google/callback`
       }).toString()
     });
 

@@ -35,50 +35,37 @@ export async function GET() {
         .select("id, company_name"),
       supabase
         .from("registry_employees")
-        .select("individual_id, company_id, employment_status, job_title, position, effective_start_date, effective_end_date"),
+        .select("individual_id, company_id, job_title, position, effective_start_date, effective_end_date"),
     ]);
 
     if (individualsRes.error) throw individualsRes.error;
     if (companiesRes.error) throw companiesRes.error;
-    // employees error is non-fatal — table may not exist in all envs
+    if (employeesRes.error) console.error("[registry/individuals] registry_employees fetch failed:", employeesRes.error.message);
     const employeesData = employeesRes.data ?? [];
 
     const companyMap = new Map(
       (companiesRes.data ?? []).map((c) => [String(c.id), c.company_name ?? ""])
     );
 
-    // Build individual_id → employee records map (same as ClientsPage enrichedIndividuals)
+    // registry_employees is the canonical source for the Employee relationship —
+    // group by individual regardless of employment status (a past end date means
+    // the record isn't current, not that it should be dropped).
     const empByIndividual = new Map<string, any[]>();
-    const today = new Date().toISOString().slice(0, 10);
     for (const emp of employeesData) {
       const key = String(emp.individual_id);
       if (!empByIndividual.has(key)) empByIndividual.set(key, []);
-      // Derive employment_status from dates
-      const start = emp.effective_start_date ?? null;
-      const end = emp.effective_end_date ?? null;
-      const status =
-        !start ? "inactive"
-        : start > today ? "inactive"
-        : end && end < today ? "terminated"
-        : "active";
-      empByIndividual.get(key)!.push({ ...emp, employment_status: status });
+      empByIndividual.get(key)!.push(emp);
     }
 
     const individuals = (individualsRes.data ?? []).map((ind) => {
-      const associations: any[] = ind.employment_data?.associations ?? [];
+      // Legacy "Employee" entries baked into employment_data.associations are stale —
+      // registry_employees is the source of truth for that relationship (mirrors the
+      // registry app's /api/registry-individuals).
+      const associations: any[] = (ind.employment_data?.associations ?? [])
+        .filter((a: any) => String(a?.individual_type ?? "").trim().toLowerCase() !== "employee");
 
-      // Company IDs already covered by employment_data.associations
-      const existingCompanyIds = new Set(
-        associations.filter((a: any) => a?.company_id).map((a: any) => String(a.company_id))
-      );
-
-      // Employee records for this individual
       const empRecords = empByIndividual.get(String(ind.id)) ?? [];
-
-      // Add employee-only companies not already in associations
-      const employeeCompanies = empRecords
-        .filter((emp) => !existingCompanyIds.has(String(emp.company_id)))
-        .map((emp) => ({ company_id: String(emp.company_id), via_employee: true }));
+      const employeeCompanies = empRecords.map((emp) => ({ company_id: String(emp.company_id), via_employee: true }));
 
       // Build final deduped company list
       const allCompanyEntries = [
@@ -100,13 +87,20 @@ export async function GET() {
         ind.full_name ||
         [ind.first_name, ind.last_name].filter(Boolean).join(" ");
 
-      const roles = associations
-        .filter((a: any) => a?.company_id && a?.individual_type)
-        .map((a: any) => ({
-          companyId: String(a.company_id),
-          companyName: companyMap.get(String(a.company_id)) ?? "",
-          role: a.individual_type as string,
-        }));
+      const roles = [
+        ...associations
+          .filter((a: any) => a?.company_id && a?.individual_type)
+          .map((a: any) => ({
+            companyId: String(a.company_id),
+            companyName: companyMap.get(String(a.company_id)) ?? "",
+            role: a.individual_type as string,
+          })),
+        ...empRecords.map((emp) => ({
+          companyId: String(emp.company_id),
+          companyName: companyMap.get(String(emp.company_id)) ?? "",
+          role: "Employee",
+        })),
+      ];
 
       return {
         id: String(ind.id),

@@ -56,8 +56,9 @@ export function calcEndTime(start: string, mins: number): string {
 export function calcSlotTime(base: string, offset: number): string {
   if (!base || isNaN(offset)) return '';
   const [h, m] = base.split(':').map(Number);
-  const d = new Date(); d.setHours(h, m + offset, 0, 0);
-  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  if (isNaN(h) || isNaN(m)) return '';
+  const total = (((h * 60 + m + offset) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
 // ── MAIN COMPONENT ───────────────────────────────────────────────────────────

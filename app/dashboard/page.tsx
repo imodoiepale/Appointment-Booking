@@ -86,8 +86,8 @@ function calcSlot(base: string, offsetMins: number): string {
   if (!base) return '';
   const [h, m] = base.split(':').map(Number);
   if (isNaN(h) || isNaN(m)) return '';
-  const d = new Date(); d.setHours(h, m + offsetMins, 0, 0);
-  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  const total = (((h * 60 + m + offsetMins) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
 function timeToMins(t: string) { const [h, m] = t.split(':').map(Number); return h * 60 + m; }
@@ -932,7 +932,7 @@ const DashboardContent = () => {
       {/* HEADER */}
       <div className="mb-7 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <div className="text-2xl font-bold text-slate-900">Most Recent Opportunities</div>
+          <div className="text-2xl font-bold text-slate-900">Most Recent Meetings or Events</div>
           <div className="mt-1 text-[13px] text-slate-500">Track and manage your client meetings and corporate events</div>
         </div>
         <div className="flex items-center gap-4">

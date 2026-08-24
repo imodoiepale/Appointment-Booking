@@ -46,14 +46,13 @@ export async function GET() {
         .select("id, full_name, first_name, last_name, employment_data, contact_details"),
       supabase
         .from("registry_employees")
-        .select("individual_id, company_id, employment_status, effective_start_date, effective_end_date"),
+        .select("individual_id, company_id, effective_start_date, effective_end_date"),
     ]);
 
     if (companiesRes.error) throw companiesRes.error;
     if (individualsRes.error) throw individualsRes.error;
+    if (employeesRes.error) console.error("[registry/companies-with-individuals] registry_employees fetch failed:", employeesRes.error.message);
     const employeesData = employeesRes.data ?? [];
-
-    const today = new Date().toISOString().slice(0, 10);
 
     // Build individual lookup for quick name/contact access
     const individualMap = new Map<string, any>();
@@ -63,13 +62,16 @@ export async function GET() {
       individualMap.set(String(ind.id), { id: String(ind.id), name: fullName, hasContactDetails: !!(contacts.email || contacts.mobile), ...contacts });
     }
 
-    // Build company → individuals map from employment_data.associations (with roles)
+    // Build company → individuals map from employment_data.associations (with roles).
+    // Employee-type associations are excluded here — registry_employees is the canonical
+    // source for that relationship (mirrors the registry app's /api/registry-individuals).
     const companyIndividualsMap = new Map<string, Map<string, any>>();
 
     for (const ind of individualsRes.data ?? []) {
       const associations: any[] = ind.employment_data?.associations ?? [];
       for (const assoc of associations) {
         if (!assoc?.company_id) continue;
+        if (String(assoc.individual_type ?? "").trim().toLowerCase() === "employee") continue;
         const cid = String(assoc.company_id);
         if (!companyIndividualsMap.has(cid)) companyIndividualsMap.set(cid, new Map());
         const indBase = individualMap.get(String(ind.id));
@@ -83,26 +85,26 @@ export async function GET() {
       }
     }
 
-    // Merge registry_employees — add individuals linked via employees table (same logic as ClientsPage)
+    // Merge registry_employees — the canonical source for the Employee relationship.
+    // Employment status isn't filtered here: a past effective_end_date means the
+    // person is no longer current, not that the record should disappear from the list.
+    // employeeStatus is 'active' if any of the individual's employee rows for this
+    // company is currently within its effective date range, else 'inactive'.
+    const today = new Date();
     for (const emp of employeesData) {
       const cid = String(emp.company_id);
       const iid = String(emp.individual_id);
-      // Derive status
-      const start = emp.effective_start_date ?? null;
-      const end = emp.effective_end_date ?? null;
-      const status =
-        !start ? "inactive"
-        : start > today ? "inactive"
-        : end && end < today ? "terminated"
-        : "active";
-      if (status === "terminated") continue; // skip terminated employees
       const indData = individualMap.get(iid);
       if (!indData) continue;
+      const start = emp.effective_start_date ? new Date(emp.effective_start_date) : null;
+      const end = emp.effective_end_date ? new Date(emp.effective_end_date) : null;
+      const isCurrent = (!start || start <= today) && (!end || end >= today);
       if (!companyIndividualsMap.has(cid)) companyIndividualsMap.set(cid, new Map());
       const existing = companyIndividualsMap.get(cid)!.get(indData.id) ?? { ...indData, roles: [] };
       const roles: string[] = existing.roles ?? [];
       if (!roles.includes("Employee")) roles.push("Employee");
-      companyIndividualsMap.get(cid)!.set(indData.id, { ...existing, roles });
+      const employeeStatus = existing.employeeStatus === "active" || isCurrent ? "active" : "inactive";
+      companyIndividualsMap.get(cid)!.set(indData.id, { ...existing, roles, employeeStatus });
     }
 
     const companies = (companiesRes.data ?? [])
