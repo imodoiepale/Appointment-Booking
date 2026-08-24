@@ -316,12 +316,12 @@ serve(async (req) => {
         if (booking.client_mobile) {
             console.log('\n📱 Sending to client...');
             
-            let clientMsg = `👋 Hello *${booking.client_name}*,\n\n`;
-            clientMsg += `Your appointment with *BCL* has been successfully scheduled! ✅\n\n`;
-            clientMsg += `📅 *Date:* ${meetingDateFormatted}\n`;
-            clientMsg += `🕒 *Time:* ${booking.meeting_start_time}\n`;
-            clientMsg += `📍 *Venue:* ${booking.meeting_venue_area}\n`;
-            clientMsg += `📋 *Agenda:* ${booking.meeting_agenda}\n\n`;
+            let clientMsg = `Hello *${booking.client_name}*,\n\n`;
+            clientMsg += `Your appointment with *BCL* has been successfully scheduled.\n\n`;
+            clientMsg += `*Date:* ${meetingDateFormatted}\n`;
+            clientMsg += `*Time:* ${booking.meeting_start_time}\n`;
+            clientMsg += `*Venue:* ${booking.meeting_venue_area}\n`;
+            clientMsg += `*Agenda:* ${booking.meeting_agenda}\n\n`;
             clientMsg += `We look forward to seeing you. If you need to reschedule, please let us know in advance.\n\n`;
             clientMsg += `Best regards,\n*Booksmart Consultancy Limited*`;
 

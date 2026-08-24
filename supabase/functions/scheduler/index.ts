@@ -481,7 +481,7 @@ serve(async (req) => {
 
                 // Client message
                 if (phone) {
-                    const cMsg = `📅 Hello *${m.client_name}*,\n\nReminder: You have an appointment *tomorrow* (${tomorrowDay}) at *${m.meeting_start_time || 'TBD'}*\n\n📍 Venue: ${venue}\n📋 Purpose: ${m.meeting_agenda || 'Meeting'}\n\nLooking forward to meeting you!\n\nBest regards,\n*BCL*`;
+                    const cMsg = `Hello *${m.client_name}*,\n\nReminder: You have an appointment *tomorrow* (${tomorrowDay}) at *${m.meeting_start_time || 'TBD'}*\n\nVenue: ${venue}\nPurpose: ${m.meeting_agenda || 'Meeting'}\n\nLooking forward to meeting you!\n\nBest regards,\n*BCL*`;
                     await wa.sendText(phone, cMsg);
                 }
 
@@ -541,7 +541,7 @@ serve(async (req) => {
                     const venue = m.meeting_venue_area || m.venue || 'TBD';
 
                     if (phone) {
-                        const cMsg = `⏰ Hello *${m.client_name}*,\n\nYour appointment is in *1 HOUR* at *${m.meeting_start_time || 'TBD'}*\n\n📍 Venue: ${venue}\n📋 Purpose: ${m.meeting_agenda || 'Meeting'}\n\nSee you soon!`;
+                        const cMsg = `Hello *${m.client_name}*,\n\nYour appointment is in *1 HOUR* at *${m.meeting_start_time || 'TBD'}*\n\nVenue: ${venue}\nPurpose: ${m.meeting_agenda || 'Meeting'}\n\nSee you soon!`;
                         await wa.sendText(phone, cMsg);
                     }
 
@@ -600,7 +600,7 @@ serve(async (req) => {
                     const venue = m.meeting_venue_area || m.venue || 'TBD';
 
                     if (phone) {
-                        const cMsg = `⏰ Hi *${m.client_name}*,\n\nYour appointment is in *30 MINUTES* at *${m.meeting_start_time || 'TBD'}*\n\n📍 Venue: ${venue}\n📋 Purpose: ${m.meeting_agenda || 'Meeting'}\n\nPlease start preparing!`;
+                        const cMsg = `Hi *${m.client_name}*,\n\nYour appointment is in *30 MINUTES* at *${m.meeting_start_time || 'TBD'}*\n\nVenue: ${venue}\nPurpose: ${m.meeting_agenda || 'Meeting'}\n\nPlease start preparing!`;
                         await wa.sendText(phone, cMsg);
                     }
 
@@ -658,7 +658,7 @@ serve(async (req) => {
                     const phone = m.client_mobile || m.client_phone;
 
                     if (phone) {
-                        const cMsg = `🚀 *STARTING NOW*\n\nHi ${m.client_name}, your appointment is starting!\n\n📋 ${m.meeting_agenda || 'Meeting'}`;
+                        const cMsg = `*STARTING NOW*\n\nHi ${m.client_name}, your appointment is starting!\n\n${m.meeting_agenda || 'Meeting'}`;
                         await wa.sendText(phone, cMsg);
                     }
 
