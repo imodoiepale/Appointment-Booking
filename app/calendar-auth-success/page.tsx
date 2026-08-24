@@ -12,7 +12,7 @@ export default function CalendarAuthSuccess() {
   useEffect(() => {
     // Auto-redirect after 3 seconds
     const timer = setTimeout(() => {
-      router.push('/');
+      router.push('/home');
     }, 3000);
 
     return () => clearTimeout(timer);
@@ -36,7 +36,7 @@ export default function CalendarAuthSuccess() {
             <span>Redirecting to dashboard...</span>
           </div>
           <Button
-            onClick={() => router.push('/')}
+            onClick={() => router.push('/home')}
             className="w-full"
           >
             Go to Dashboard Now
