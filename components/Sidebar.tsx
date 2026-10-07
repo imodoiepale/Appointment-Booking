@@ -24,12 +24,15 @@ import {
     PlusCircle,
     Search,
     Settings,
+    ShieldCheck,
     Sun,
     Video,
     XCircle,
 } from "lucide-react";
 
 import { useSidebar } from "@/contexts/SidebarContext";
+import { useAccess } from "@/contexts/AccessContext";
+import { USER_ACCESS_PATH } from "@/lib/auth/permissions";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -51,6 +54,8 @@ const Sidebar = () => {
     const { isMobileOpen, setIsMobileOpen } = useSidebar();
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+    // Only show pages this user can open (scanner_users.meetings_access).
+    const { canOpen, user: accessUser } = useAccess();
 
     useEffect(() => setMounted(true), []);
 
@@ -84,12 +89,14 @@ const Sidebar = () => {
     const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
 
     const normalizedSearch = searchQuery.trim().toLowerCase();
+    const allowedMainNav = mainNav.filter((item) => canOpen(item.href));
+    const allowedStatusViews = statusViews.filter((item) => canOpen(item.href));
     const filteredMainNav = normalizedSearch
-        ? mainNav.filter((item) => item.name.toLowerCase().includes(normalizedSearch))
-        : mainNav;
+        ? allowedMainNav.filter((item) => item.name.toLowerCase().includes(normalizedSearch))
+        : allowedMainNav;
     const filteredStatusViews = normalizedSearch
-        ? statusViews.filter((item) => item.name.toLowerCase().includes(normalizedSearch))
-        : statusViews;
+        ? allowedStatusViews.filter((item) => item.name.toLowerCase().includes(normalizedSearch))
+        : allowedStatusViews;
     const hasSearchResults = filteredMainNav.length > 0 || filteredStatusViews.length > 0;
 
     const NavItem = ({ href, icon: Icon, name, count, statusColorVar }: {
@@ -240,6 +247,7 @@ const Sidebar = () => {
                     </nav>
 
                     {/* Create Meeting Button - Brand Primary */}
+                    {canOpen("/schedule") && (
                     <div className="mt-8 px-2">
                         <Button
                             className={cn(
@@ -252,12 +260,18 @@ const Sidebar = () => {
                             {!isCollapsed && <span>Create Meeting</span>}
                         </Button>
                     </div>
+                    )}
                 </div>
 
                 {/* Footer Section */}
                 <div className={cn("mt-auto bg-black/10 p-4 border-t border-white/5", isCollapsed && "p-2")}>
                     <div className="flex flex-col gap-1">
-                        <NavItemComponent isCollapsed={isCollapsed} href="/settings" icon={Settings} label="Settings" className={utilityButtonClass} />
+                        {canOpen("/settings") && (
+                            <NavItemComponent isCollapsed={isCollapsed} href="/settings" icon={Settings} label="Settings" className={utilityButtonClass} />
+                        )}
+                        {accessUser?.isSuperAdmin && (
+                            <NavItemComponent isCollapsed={isCollapsed} href={USER_ACCESS_PATH} icon={ShieldCheck} label="User Access" className={utilityButtonClass} />
+                        )}
                         <NavItemComponent isCollapsed={isCollapsed} href="/help" icon={HelpCircle} label="Support" className={utilityButtonClass} />
 
                         {mounted && (

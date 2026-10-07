@@ -8,6 +8,7 @@ import Sidebar from "@/components/Sidebar";
 import { NotificationProvider } from "@/components/NotificationSystem";
 import { Toaster } from "@/components/ui/toaster";
 import { SidebarProvider } from "@/contexts/SidebarContext";
+import { AccessProvider } from "@/contexts/AccessContext";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -25,6 +26,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
+    <AccessProvider>
     <SidebarProvider>
       <NotificationProvider>
         {/* selection:bg-primary/20 changed to brand blue selection */}
@@ -48,5 +50,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <Toaster />
       </NotificationProvider>
     </SidebarProvider>
+    </AccessProvider>
   );
 }

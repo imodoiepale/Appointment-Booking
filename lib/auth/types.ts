@@ -1,4 +1,5 @@
-export type UserRole = "admin" | "user";
+/** The scanner_users role (e.g. "SuperAdmin", "company_admin"), or "user" for a Firebase-only account. */
+export type UserRole = string;
 
 export interface AuthUser {
   id: string;
@@ -8,6 +9,11 @@ export interface AuthUser {
   email: string | null;
   displayName: string;
   isActive: boolean;
+  /** scanner_users.id — null for a Firebase-only account with no scanner_users row. */
+  scannerUserId: string | null;
+  isSuperAdmin: boolean;
+  companyIds: number[];
+  hasAllCompanyAccess: boolean;
 }
 
 export interface AppSession {

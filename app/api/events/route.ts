@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase, normaliseBclAttendee, enrichWithAttendeeNames, resolveCallerUser, ADMIN_ROLES } from './_shared';
+import { supabase, normaliseBclAttendee, enrichWithAttendeeNames, resolveCallerUser, isAdminRole, unauthorized } from './_shared';
 
 const ACTIVE_STATUSES = ['upcoming', 'confirmed'];
 
@@ -10,8 +10,8 @@ function toInteger(v: unknown, fallback = 0) {
 
 function escapeOrValue(v: string) { return v.replace(/[(),]/g, ' ').trim(); }
 
-function applyScopeToQuery(query: any, user: { id: string; email: string; role: string } | null) {
-  if (!user || ADMIN_ROLES.has(user.role.toLowerCase())) return query;
+function applyScopeToQuery(query: any, user: { id: string; email: string; role: string }) {
+  if (isAdminRole(user.role)) return query;
   const clauses = [
     `created_by.eq.${user.id}`,
     `bcl_attendee.like.%"${user.id}"%`,
@@ -23,8 +23,8 @@ function applyScopeToQuery(query: any, user: { id: string; email: string; role: 
   return query.or(clauses.join(','));
 }
 
-function applyMyCreatedScope(query: any, user: { id: string; email: string; role: string } | null) {
-  if (!user || ADMIN_ROLES.has(user.role.toLowerCase())) return query;
+function applyMyCreatedScope(query: any, user: { id: string; email: string; role: string }) {
+  if (isAdminRole(user.role)) return query;
   const clauses = [
     `created_by.eq.${user.id}`,
     ...(user.email ? [`created_by.eq.${escapeOrValue(user.email)}`] : []),
@@ -102,6 +102,7 @@ export async function GET(request: NextRequest) {
     const mycreated = searchParams.get('mycreated') === 'true';
 
     const caller = await resolveCallerUser(request);
+    if (!caller) return unauthorized();
     const base = supabase.from('bcl_events').select('*');
     let query = mycreated
       ? applyMyCreatedScope(base, caller)
@@ -127,6 +128,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const [body, caller] = await Promise.all([request.json(), resolveCallerUser(request)]);
+    if (!caller) return unauthorized();
     const payload = toEventPayload(body, caller);
 
     if (!payload.event_name || !payload.event_date || !payload.event_start_time || !payload.event_end_time) {

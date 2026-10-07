@@ -18,7 +18,7 @@ const PUBLIC_PATHS = [
   "/api/birthdays",            // Mobile app birthdays API
   "/api/tasks-report",         // Mobile app tasks report API
   "/api/companies",            // Mobile app company dropdown API
-  "/api/users/bcl-attendees",  // Mobile app attendee dropdown API
+  "/api/users",                // Mobile app users, attendees, and notification-settings APIs
   "/api/meeting-notifications",
   "/api/auto-sync-calendar",
   "/api/sync-to-calendar",
@@ -39,6 +39,9 @@ export default function middleware(req: NextRequest) {
 
   const sessionCookie = req.cookies.get(AUTH_SESSION_COOKIE_NAME)?.value;
   if (!sessionCookie) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const loginUrl = new URL("/login", req.url);
     return NextResponse.redirect(loginUrl);
   }

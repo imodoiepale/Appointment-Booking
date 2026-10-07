@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase, normaliseBclAttendee, enrichWithAttendeeNames, resolveCallerUser, ADMIN_ROLES } from "./_shared";
+import { supabase, normaliseBclAttendee, enrichWithAttendeeNames, resolveCallerUser, isAdminRole, unauthorized } from "./_shared";
 
 const ACTIVE_STATUSES = ["upcoming", "rescheduled"];
 
@@ -12,8 +12,8 @@ function escapeOrValue(value: string) {
   return value.replace(/[(),]/g, " ").trim();
 }
 
-function applyScopeToQuery(query: any, user: { id: string; email: string; role: string } | null) {
-  if (!user || ADMIN_ROLES.has(user.role.toLowerCase())) return query;
+function applyScopeToQuery(query: any, user: { id: string; email: string; role: string }) {
+  if (isAdminRole(user.role)) return query;
   const clauses = [
     `created_by.eq.${user.id}`,
     `bcl_attendee.cs.["${user.id}"]`,
@@ -79,6 +79,7 @@ export async function GET(request: NextRequest) {
     const order = searchParams.get("order") === "asc" ? "asc" : "desc";
 
     const caller = await resolveCallerUser(request);
+    if (!caller) return unauthorized();
     let query = applyScopeToQuery(supabase.from("bcl_meetings_meetings").select("*"), caller);
 
     if (date) query = query.eq("meeting_date", date);
@@ -105,6 +106,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const [body, caller] = await Promise.all([request.json(), resolveCallerUser(request)]);
+    if (!caller) return unauthorized();
     const payload = toMeetingPayload(body, caller);
 
     if (!payload.meeting_date || !payload.meeting_start_time || !payload.meeting_end_time || !payload.client_name) {

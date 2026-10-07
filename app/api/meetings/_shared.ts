@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
-import { type NextRequest } from "next/server";
-import { getAppSessionFromRequest } from "@/lib/auth/session";
+import { NextResponse } from "next/server";
+import { isAdminRole as isAdminRoleCheck } from "@/lib/auth/roles";
 
 export const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -53,38 +53,28 @@ export async function enrichWithAttendeeNames(meetings: any[]): Promise<any[]> {
   });
 }
 
-export const ADMIN_ROLES = new Set(["company_admin", "SuperAdmin", "administrator"]);
+// Caller identity and admin rules live in lib/auth (shared with the pages):
+//   resolveCallerUser — verified mobile token, web session, or (grace period) the old header
+//   isAdminRole       — SuperAdmin, general_admin, company_admin
+export { resolveCaller as resolveCallerUser, type CallerUser } from "@/lib/auth/caller";
+export { isAdminRole } from "@/lib/auth/roles";
 
-export type CallerUser = { id: string; email: string; role: string };
+/** 401 for API routes that need to know who is calling. */
+export function unauthorized() {
+  return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+}
 
 /**
- * Resolve the calling user from mobile scanner headers OR Firebase session cookie.
- * Returns null when the caller cannot be identified.
+ * Whether the caller may see one meeting or event — the same rule as the list scopes: admins see
+ * everything; anyone else sees what they created, last updated, or attend.
  */
-export async function resolveCallerUser(request: NextRequest): Promise<CallerUser | null> {
-  // 1. Mobile app — custom request headers
-  const mobileId = request.headers.get("x-scanner-user-id") ?? "";
-  if (mobileId) {
-    return {
-      id: mobileId,
-      email: request.headers.get("x-scanner-user-email") ?? "",
-      role: request.headers.get("x-scanner-user-role") ?? "user",
-    };
-  }
-
-  // 2. Web app — Firebase session cookie
-  try {
-    const session = await getAppSessionFromRequest(request);
-    if (!session) return null;
-
-    const { data } = await supabase
-      .from("scanner_users")
-      .select("id, email, role")
-      .eq("firebase_uid", session.user.firebaseUid)
-      .single();
-
-    if (data) return { id: String(data.id), email: data.email ?? "", role: data.role ?? "user" };
-  } catch {}
-
-  return null;
+export function canSeeRecord(
+  record: { created_by?: unknown; updated_by?: unknown; bcl_attendee?: unknown } | null,
+  caller: { id: string; email: string; role: string }
+): boolean {
+  if (!record) return false;
+  if (isAdminRoleCheck(caller.role)) return true;
+  const mine = new Set([caller.id, caller.email].filter(Boolean));
+  if (mine.has(String(record.created_by ?? "")) || mine.has(String(record.updated_by ?? ""))) return true;
+  return normaliseBclAttendee(record.bcl_attendee).some((a) => mine.has(a));
 }

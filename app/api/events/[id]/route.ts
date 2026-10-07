@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase, resolveCallerUser, ADMIN_ROLES } from '../_shared';
+import { supabase, resolveCallerUser, isAdminRole, unauthorized, canSeeRecord } from '../_shared';
 
 function toInteger(v: unknown, fallback = 0) {
   const n = typeof v === 'number' ? v : parseInt(String(v ?? ''), 10);
@@ -25,12 +25,16 @@ function toEventPatch(body: Record<string, any>) {
 }
 
 // ── GET /api/events/[id] ─────────────────────────────────────────────────────
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   const id = parseInt(params.id, 10);
   if (!Number.isFinite(id)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
 
+  const caller = await resolveCallerUser(request);
+  if (!caller) return unauthorized();
+
   const { data, error } = await supabase.from('bcl_events').select('*').eq('id', id).single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 404 });
+  // Same visibility as the list: someone else's event reads as not found.
+  if (error || !canSeeRecord(data, caller)) return NextResponse.json({ error: 'Event not found' }, { status: 404 });
   return NextResponse.json(data);
 }
 
@@ -41,10 +45,11 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
   try {
     const [body, caller] = await Promise.all([request.json(), resolveCallerUser(request)]);
+    if (!caller) return unauthorized();
     const patch = toEventPatch(body);
 
     // Authorization: non-admins can only edit events they created or attend
-    if (caller && !ADMIN_ROLES.has((caller.role ?? '').toLowerCase())) {
+    if (!isAdminRole(caller.role)) {
       const { data: existing } = await supabase
         .from('bcl_events').select('created_by, bcl_attendee').eq('id', id).single();
       if (existing) {
@@ -85,6 +90,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
   try {
     const caller = await resolveCallerUser(request);
+    if (!caller) return unauthorized();
 
     // If a Google Calendar event exists, delete it first (best-effort)
     const { data: ev } = await supabase
@@ -94,7 +100,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       .single();
 
     // Authorization: non-admins can only delete events they created
-    if (caller && ev && !ADMIN_ROLES.has((caller.role ?? '').toLowerCase())) {
+    if (ev && !isAdminRole(caller.role)) {
       const isOwner = ev.created_by === caller.id || ev.created_by === caller.email;
       if (!isOwner)
         return NextResponse.json({ error: 'Not authorized to delete this event' }, { status: 403 });

@@ -1,6 +1,7 @@
 import "server-only";
 import { cookies } from "next/headers";
 import type { DecodedIdToken } from "firebase-admin/auth";
+import { createClient } from "@supabase/supabase-js";
 import { getFirebaseAdminAuth } from "@/lib/firebase/admin";
 import { AuthError } from "@/lib/auth/errors";
 import type { AppSession, AuthUser } from "@/lib/auth/types";
@@ -23,15 +24,61 @@ function parseCookieHeader(cookieHeader: string | null, name: string): string | 
   return null;
 }
 
+const SCANNER_USER_COLUMNS = "id, role, is_active, first_name, last_name, username, email, company_id, company_ids";
+
+function parseCompanyIds(companyIds: unknown, companyId: unknown): { ids: number[]; all: boolean } {
+  const values = Array.isArray(companyIds) ? companyIds : companyIds == null ? [] : [companyIds];
+  const all = values.some((v) => typeof v === "string" && v.trim().toLowerCase() === "all");
+  const ids = new Set<number>();
+  for (const v of [...values, companyId]) {
+    const n = Number(v);
+    if (Number.isFinite(n) && n > 0) ids.add(Math.trunc(n));
+  }
+  return { ids: Array.from(ids), all };
+}
+
+/**
+ * Resolves the signed-in person to their scanner_users row (shared with the other BCL apps): by
+ * the scannerUserId claim the login route puts on the token, else by firebase_uid. A Firebase-only
+ * account with no row keeps working as a plain "user" (as before access control existed).
+ */
 async function resolveUserFromVerifiedToken(token: DecodedIdToken): Promise<AuthUser | null> {
+  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  const claimId = typeof token.scannerUserId === "string" ? token.scannerUserId : null;
+  const query = supabase.from("scanner_users").select(SCANNER_USER_COLUMNS).limit(1);
+  const { data } = await (claimId ? query.eq("id", claimId) : query.eq("firebase_uid", token.uid)).maybeSingle();
+  const row = data as Record<string, any> | null;
+
+  if (!row) {
+    return {
+      id: token.uid,
+      firebaseUid: token.uid,
+      role: "user",
+      username: token.email?.split("@")[0] || null,
+      email: token.email || null,
+      displayName: token.name || token.email || "User",
+      isActive: true,
+      scannerUserId: null,
+      isSuperAdmin: false,
+      companyIds: [],
+      hasAllCompanyAccess: false,
+    };
+  }
+
+  const companies = parseCompanyIds(row.company_ids, row.company_id);
+  const role = String(row.role ?? "user");
   return {
     id: token.uid,
     firebaseUid: token.uid,
-    role: "user",
-    username: token.email?.split("@")[0] || null,
-    email: token.email || null,
-    displayName: token.name || token.email || "User",
-    isActive: true,
+    role,
+    username: row.username ?? null,
+    email: row.email ?? token.email ?? null,
+    displayName: [row.first_name, row.last_name].filter(Boolean).join(" ") || row.username || row.email || "User",
+    isActive: row.is_active !== false,
+    scannerUserId: String(row.id),
+    isSuperAdmin: role === "SuperAdmin",
+    companyIds: companies.ids,
+    hasAllCompanyAccess: role === "SuperAdmin" || companies.all,
   };
 }
 

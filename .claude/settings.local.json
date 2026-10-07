@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls \"E:\\\\Bclmeetingsapp\" 2>/dev/null || echo \"NOT FOUND\")",
+      "Read(//e/Bclmeetingsapp/**)",
+      "Bash(rm -f \"E:/GitHub/Appointment-Booking/.git/index.lock\" && echo \"removed\")",
+      "PowerShell(cmd /c \"del /f /q \"\"E:\\\\GitHub\\\\Appointment-Booking\\\\.git\\\\index.lock\"\" 2>nul\"; echo \"exit: $LASTEXITCODE\")",
+      "PowerShell(cd \"E:\\\\GitHub\\\\Appointment-Booking\"; git add app/api/meetings/route.ts \"app/api/meetings/[id]/route.ts\" app/schedule/page.tsx utils/googleCalendarService.ts app/api/registry/individuals/route.ts app/api/registry/companies-with-individuals/route.ts 2>&1; echo \"exit: $LASTEXITCODE\")",
+      "PowerShell(taskkill /F /IM git.exe /T 2>$null)",
+      "PowerShell(cmd /c \"del /f /q \"\"E:\\\\GitHub\\\\Appointment-Booking\\\\.git\\\\index.lock\"\" 2>nul\")",
+      "Bash(xargs grep -l \"Room\\\\|Database\\\\|@Entity\\\\|@Dao\")"
+    ],
+    "additionalDirectories": [
+      "E:\\GitHub\\Appointment-Booking\\.git"
+    ]
+  }
+}

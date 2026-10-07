@@ -42,9 +42,33 @@ function getDaysUntil(dob: string): number | null {
   return Math.round((next.getTime() - today.getTime()) / 86400000);
 }
 
+function extractIndividualContact(ind: any): { email: string; phone: string; altPhone: string; whatsapp: string } {
+  const raw = ind?.contact_details;
+  const obj = Array.isArray(raw) && raw.length > 0
+    ? raw[0]
+    : (raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : null);
+  return {
+    email: obj?.email?.primary || '',
+    phone: obj?.phone?.kenyan?.primary || '',
+    altPhone: obj?.phone?.kenyan?.secondary || '',
+    whatsapp: obj?.phone?.whatsapp || '',
+  };
+}
+
+function computeMissingFields(email: string, phone: string, whatsapp: string): string[] {
+  const missing: string[] = [];
+  if (!email) missing.push('email');
+  if (!phone && !whatsapp) missing.push('phone');
+  return missing;
+}
+
 // GET /api/birthdays
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const limitDaysParam = searchParams.get('days');
+    const limitDays = limitDaysParam ? parseInt(limitDaysParam, 10) : null;
+
     const [
       { data: rawIndividuals, error: indErr },
       { data: specialClients, error: scErr },
@@ -54,16 +78,16 @@ export async function GET(_request: NextRequest) {
     ] = await Promise.all([
       supabase
         .from('registry_individuals')
-        .select('id, full_name, first_name, last_name, date_of_birth, birthday_group_category, employment_data, relationships, contact_details'),
+        .select('id, full_name, first_name, last_name, date_of_birth, birthday_group_category, employment_data, relationships, contact_details, marital_status'),
       supabase
         .from('client_associations')
-        .select('id, name, date_of_birth, birthday_group_category, category, relationship, related_to'),
+        .select('id, name, date_of_birth, birthday_group_category, category, relationship, related_to, phone, email'),
       supabase
         .from('acc_portal_company_duplicate')
         .select('id, company_name'),
       supabase
         .from('birthday_message_logs')
-        .select('registry_individual_id, response_status, sent_at, google_calendar_sync')
+        .select('registry_individual_id, special_client_id, response_status, sent_at, google_calendar_sync')
         .order('sent_at', { ascending: false }),
       supabase.from('registry_employees').select('*'),
     ]);
@@ -107,7 +131,7 @@ export async function GET(_request: NextRequest) {
     processedIndividuals.forEach((ind: any) => {
       const flags = parseBirthday(ind.birthday_group_category);
       const days = getDaysUntil(ind.date_of_birth);
-      if (days === null || days > 30) return;
+      if (days === null || (limitDays !== null && days > limitDays)) return;
 
       const log = (messageLogs || []).find(
         (l: any) => String(l.registry_individual_id) === String(ind.id)
@@ -141,6 +165,7 @@ export async function GET(_request: NextRequest) {
         if (primaryAssoc) compName = companyMap.get(String(primaryAssoc.company_id)) || 'Not Allocated';
       }
 
+      const contact = extractIndividualContact(ind);
       allRows.push({
         id: String(ind.id),
         name: ind.full_name || `${ind.first_name || ''} ${ind.last_name || ''}`.trim(),
@@ -152,16 +177,26 @@ export async function GET(_request: NextRequest) {
         messageSent: !!log?.sent_at,
         calendarSynced: !!log?.google_calendar_sync,
         isDependant: !!ind.isDependant,
+        isSpecialClient: false,
+        email: contact.email,
+        phone: contact.phone,
+        altPhone: contact.altPhone,
+        whatsapp: contact.whatsapp,
+        maritalStatus: ind.marital_status || '',
+        missingFields: computeMissingFields(contact.email, contact.phone, contact.whatsapp),
       });
     });
 
     (specialClients || []).forEach((sc: any) => {
       const flags = parseBirthday(sc.birthday_group_category);
       const days = getDaysUntil(sc.date_of_birth);
-      if (days === null || days > 30) return;
+      if (days === null || (limitDays !== null && days > limitDays)) return;
       const log = (messageLogs || []).find(
-        (l: any) => String(l.registry_individual_id) === String(sc.id)
+        (l: any) => String(l.registry_individual_id) === String(sc.id) || String(l.special_client_id) === String(sc.id)
       );
+      const email = sc.email || '';
+      const phone = sc.phone || '';
+
       allRows.push({
         id: String(sc.id),
         name: sc.name || '',
@@ -174,6 +209,12 @@ export async function GET(_request: NextRequest) {
         calendarSynced: !!log?.google_calendar_sync,
         isSpecialClient: true,
         isDependant: false,
+        email,
+        phone,
+        altPhone: '',
+        whatsapp: '',
+        maritalStatus: '',
+        missingFields: computeMissingFields(email, phone, ''),
       });
     });
 
@@ -181,5 +222,60 @@ export async function GET(_request: NextRequest) {
     return NextResponse.json(allRows);
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Failed to fetch birthdays' }, { status: 500 });
+  }
+}
+
+export async function PATCH(req: Request) {
+  try {
+    const body = await req.json().catch(() => null);
+    const id = body?.id ? String(body.id) : '';
+    if (!id) {
+      return NextResponse.json({ error: 'id is required' }, { status: 400 });
+    }
+    const { isSpecialClient, email, phone, altPhone, whatsapp, maritalStatus } = body;
+
+    if (isSpecialClient) {
+      const updateData: Record<string, any> = {};
+      if (email !== undefined) updateData.email = email;
+      if (phone !== undefined) updateData.phone = phone;
+
+      if (Object.keys(updateData).length === 0) {
+        return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
+      }
+
+      const { error } = await supabase.from('client_associations').update(updateData).eq('id', id);
+      if (error) throw error;
+    } else {
+      const { data: existing, error: fetchErr } = await supabase
+        .from('registry_individuals')
+        .select('contact_details')
+        .eq('id', id)
+        .single();
+      if (fetchErr) throw fetchErr;
+
+      const raw = existing?.contact_details;
+      const contactObj: any = Array.isArray(raw) && raw.length > 0
+        ? JSON.parse(JSON.stringify(raw[0]))
+        : (raw && typeof raw === 'object' && !Array.isArray(raw) ? JSON.parse(JSON.stringify(raw)) : {});
+
+      if (!contactObj.phone) contactObj.phone = {};
+      if (!contactObj.phone.kenyan) contactObj.phone.kenyan = {};
+      if (!contactObj.email) contactObj.email = {};
+
+      if (email !== undefined) contactObj.email.primary = email;
+      if (phone !== undefined) contactObj.phone.kenyan.primary = phone;
+      if (altPhone !== undefined) contactObj.phone.kenyan.secondary = altPhone;
+      if (whatsapp !== undefined) contactObj.phone.whatsapp = whatsapp;
+
+      const updateData: Record<string, any> = { contact_details: [contactObj] };
+      if (maritalStatus !== undefined) updateData.marital_status = maritalStatus;
+
+      const { error } = await supabase.from('registry_individuals').update(updateData).eq('id', id);
+      if (error) throw error;
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message || 'Failed to update contact details' }, { status: 500 });
   }
 }

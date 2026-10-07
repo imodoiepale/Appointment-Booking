@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase, enrichWithAttendeeNames, resolveCallerUser, ADMIN_ROLES } from "../_shared";
+import { supabase, enrichWithAttendeeNames, resolveCallerUser, isAdminRole, unauthorized, canSeeRecord } from "../_shared";
 
 const ACTIVE_STATUSES = ["upcoming", "rescheduled"];
 
@@ -25,6 +25,7 @@ export async function PATCH(
   }
 
   const [body, caller] = await Promise.all([request.json(), resolveCallerUser(request)]);
+    if (!caller) return unauthorized();
 
   const updatePayload: Record<string, unknown> = sanitizeMeetingUpdatePayload(body);
 
@@ -40,7 +41,7 @@ export async function PATCH(
   }
 
   // Authorization: non-admins can only update meetings they created or attend
-  if (caller && !ADMIN_ROLES.has((caller.role ?? "").toLowerCase())) {
+  if (!isAdminRole(caller.role)) {
     const { data: existing } = await supabase
       .from("bcl_meetings_meetings")
       .select("created_by, bcl_attendee")
@@ -152,14 +153,18 @@ export async function GET(
     return NextResponse.json({ error: "Invalid meeting ID" }, { status: 400 });
   }
 
+  const caller = await resolveCallerUser(request);
+  if (!caller) return unauthorized();
+
   const { data, error } = await supabase
     .from("bcl_meetings_meetings")
     .select("*")
     .eq("id_main", id)
     .single();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 404 });
+  // Same visibility as the list: someone else's meeting reads as not found.
+  if (error || !canSeeRecord(data, caller)) {
+    return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
   }
 
   const [enriched] = await enrichWithAttendeeNames([data]);
@@ -178,7 +183,8 @@ export async function DELETE(
 
   // Authorization: non-admins can only delete meetings they created
   const caller = await resolveCallerUser(request);
-  if (caller && !ADMIN_ROLES.has((caller.role ?? "").toLowerCase())) {
+    if (!caller) return unauthorized();
+  if (!isAdminRole(caller.role)) {
     const { data: existing } = await supabase
       .from("bcl_meetings_meetings")
       .select("created_by")

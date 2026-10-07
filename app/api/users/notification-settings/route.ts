@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
   try {
     const caller = await resolveCallerUser(request);
     if (!caller) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+      return NextResponse.json({ user_id: "", ...DEFAULT_SETTINGS });
     }
 
     let { data, error } = await supabase

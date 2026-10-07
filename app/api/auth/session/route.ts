@@ -7,6 +7,15 @@ import {
   resolveSessionFromIdToken,
 } from "@/lib/auth/session";
 import { toAuthErrorResponse } from "@/lib/auth/errors";
+import { getPermissionsForUser } from "@/lib/auth/access";
+import { PERMISSION_KEYS } from "@/lib/auth/permissions";
+import type { AuthUser } from "@/lib/auth/types";
+
+/** The pages this user can open (read from scanner_users.meetings_access). */
+async function permissionsFor(user: AuthUser) {
+  if (!user.scannerUserId) return [...PERMISSION_KEYS]; // Firebase-only account: unchanged behaviour
+  return getPermissionsForUser({ id: user.scannerUserId, role: user.role });
+}
 
 function isAuthConfigurationError(error: unknown) {
   return error instanceof Error && error.message.includes("Missing required environment variable");
@@ -16,7 +25,7 @@ export async function GET(req: NextRequest) {
   try {
     const session = await getAppSessionFromRequest(req);
     if (!session) return NextResponse.json({ authenticated: false, user: null });
-    return NextResponse.json({ authenticated: true, user: session.user });
+    return NextResponse.json({ authenticated: true, user: session.user, permissions: await permissionsFor(session.user) });
   } catch (error) {
     if (isAuthConfigurationError(error)) return NextResponse.json({ authenticated: false, user: null });
     const authResponse = toAuthErrorResponse(error);
@@ -38,7 +47,12 @@ export async function POST(req: NextRequest) {
       createFirebaseSessionCookie(idToken),
     ]);
 
-    const response = NextResponse.json({ success: true, authenticated: true, user: session.user });
+    const response = NextResponse.json({
+      success: true,
+      authenticated: true,
+      user: session.user,
+      permissions: await permissionsFor(session.user),
+    });
     response.cookies.set(AUTH_SESSION_COOKIE_NAME, sessionCookie, getSessionCookieOptions());
     return response;
   } catch (error) {
