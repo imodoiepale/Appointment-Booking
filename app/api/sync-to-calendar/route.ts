@@ -1,3 +1,4 @@
+import { resolveCaller } from "@/lib/auth/caller";
 import { NextRequest, NextResponse } from 'next/server';
 import { createGoogleCalendarEvent } from '@/utils/googleCalendarService';
 
@@ -13,6 +14,8 @@ function extractBclAttendeeIds(raw: unknown): string[] {
 }
 
 export async function POST(request: NextRequest) {
+  // Only signed-in web users and the mobile app (verified) may touch calendars.
+  if (!(await resolveCaller(request))) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   try {
     const appointment = await request.json();
 

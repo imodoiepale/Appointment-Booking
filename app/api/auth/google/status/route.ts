@@ -1,3 +1,4 @@
+import { legacyMobileHeadersAllowed, mobileUserIdFromHeaders } from "@/lib/auth/caller";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -5,8 +6,13 @@ export async function GET(request: NextRequest) {
   const accessToken = request.cookies.get("google_access_token")?.value;
   const refreshToken = request.cookies.get("google_refresh_token")?.value;
   const cookieEmail = request.cookies.get("google_user_email")?.value || null;
-  const mobileUserId = request.headers.get("x-scanner-user-id") || request.nextUrl.searchParams.get("mobile_user_id") || "";
-  const mobileUserEmail = request.headers.get("x-scanner-user-email") || request.nextUrl.searchParams.get("login_hint") || "";
+  // Mobile: the verified token's user; old unverified headers/params only during the grace period.
+  const legacy = legacyMobileHeadersAllowed();
+  const mobileUserId =
+    mobileUserIdFromHeaders(request.headers) || (legacy ? request.nextUrl.searchParams.get("mobile_user_id") || "" : "");
+  const mobileUserEmail = legacy
+    ? request.headers.get("x-scanner-user-email") || request.nextUrl.searchParams.get("login_hint") || ""
+    : "";
   // Web users: google_user_email cookie persists 180 days from OAuth
   const webUserEmail = cookieEmail || "";
 

@@ -1,3 +1,5 @@
+import { legacyMobileHeadersAllowed } from "@/lib/auth/caller";
+import { verifyMobileToken } from "@/lib/auth/mobile-token";
 import { NextRequest, NextResponse } from "next/server";
 
 export const GET = async (request: NextRequest) => {
@@ -11,7 +13,14 @@ export const GET = async (request: NextRequest) => {
   const redirectUri = `${baseUrl}/api/auth/google/callback`;
   const scope = "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/userinfo.email";
   const loginHint = request.nextUrl.searchParams.get("login_hint") || request.headers.get("x-scanner-user-email") || "";
-  const mobileUserId = request.nextUrl.searchParams.get("mobile_user_id") || request.headers.get("x-scanner-user-id") || "";
+  // Which app user to link the Google account to: the signed mobile_token (the app opens this URL
+  // in a browser, so it can't send headers); the old plain mobile_user_id only in the grace period.
+  const mobileToken = request.nextUrl.searchParams.get("mobile_token");
+  const mobileUserId =
+    (mobileToken ? verifyMobileToken(mobileToken) : null) ||
+    (legacyMobileHeadersAllowed()
+      ? request.nextUrl.searchParams.get("mobile_user_id") || request.headers.get("x-scanner-user-id") || ""
+      : "");
   const source = request.nextUrl.searchParams.get("source") || "web";
   const prompt = request.nextUrl.searchParams.get("prompt") || (loginHint ? "select_account consent" : "consent");
 

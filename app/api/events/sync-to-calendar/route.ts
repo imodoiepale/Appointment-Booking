@@ -1,7 +1,10 @@
+import { resolveCaller } from "@/lib/auth/caller";
 import { NextRequest, NextResponse } from 'next/server';
 import { createGoogleCalendarEntryForEvent, updateGoogleCalendarEntryForEvent } from '@/utils/googleCalendarService';
 
 export async function POST(request: NextRequest) {
+  // Only signed-in web users and the mobile app (verified) may touch calendars.
+  if (!(await resolveCaller(request))) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   try {
     const event = await request.json();
 

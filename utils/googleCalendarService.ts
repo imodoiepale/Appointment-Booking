@@ -1,3 +1,4 @@
+import { legacyMobileHeadersAllowed, mobileUserIdFromHeaders } from "@/lib/auth/caller";
 import { google } from 'googleapis';
 import { createClient } from '@supabase/supabase-js';
 
@@ -47,8 +48,9 @@ async function getGoogleCalendarClient() {
   const { headers } = await import('next/headers');
   const cookieStore = await cookies();
   const headerStore = await headers();
-  const mobileUserId = headerStore.get('x-scanner-user-id') || '';
-  const mobileUserEmail = headerStore.get('x-scanner-user-email') || '';
+  // Mobile: the verified token's user (old unverified headers only during the grace period).
+  const mobileUserId = mobileUserIdFromHeaders(headerStore) || '';
+  const mobileUserEmail = legacyMobileHeadersAllowed() ? headerStore.get('x-scanner-user-email') || '' : '';
   const webUserEmail = cookieStore.get('google_user_email')?.value || '';
   const accessToken = cookieStore.get('google_access_token')?.value;
   let refreshToken = cookieStore.get('google_refresh_token')?.value;

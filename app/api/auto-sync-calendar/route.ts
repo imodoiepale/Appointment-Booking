@@ -1,3 +1,4 @@
+import { resolveCaller } from "@/lib/auth/caller";
 import { NextRequest, NextResponse } from 'next/server';
 import { createGoogleCalendarEvent, updateGoogleCalendarEvent, deleteGoogleCalendarEvent } from '@/utils/googleCalendarService';
 import { createClient } from '@supabase/supabase-js';
@@ -19,6 +20,8 @@ function extractBclAttendeeIds(raw: unknown): string[] {
 }
 
 export async function POST(request: NextRequest) {
+  // Only signed-in web users and the mobile app (verified) may touch calendars.
+  if (!(await resolveCaller(request))) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   try {
     const meetingData = await request.json();
 
@@ -84,6 +87,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  // Only signed-in web users and the mobile app (verified) may touch calendars.
+  if (!(await resolveCaller(request))) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   try {
     const meetingData = await request.json();
 
@@ -135,6 +140,8 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  // Only signed-in web users and the mobile app (verified) may touch calendars.
+  if (!(await resolveCaller(request))) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   try {
     const { searchParams } = new URL(request.url);
     const meetingId = searchParams.get('id');
