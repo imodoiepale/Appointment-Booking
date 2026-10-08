@@ -54,6 +54,12 @@ const STATUS_MAP: Record<string, StatusColorSet> = {
     event: 'bg-green-100 text-green-800 border-l-[3px] border-green-500 dark:bg-green-500/10 dark:text-green-300 dark:border-green-500/50',
     accent: 'border-l-green-500',
   },
+  ended: {
+    pill: 'bg-slate-200 text-slate-700 border-slate-300 dark:bg-slate-500/15 dark:text-slate-300 dark:border-slate-500/30',
+    dot: 'bg-slate-500',
+    event: 'bg-slate-100 text-slate-700 border-l-[3px] border-slate-400 dark:bg-slate-500/10 dark:text-slate-300 dark:border-slate-500/50',
+    accent: 'border-l-slate-500',
+  },
   rescheduled: {
     pill: 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-500/10 dark:text-orange-400 dark:border-orange-500/20',
     dot: 'bg-orange-500',

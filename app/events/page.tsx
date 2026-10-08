@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { isAdminRole } from "@/lib/auth/roles";
 import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -357,8 +358,7 @@ const EventsContent = () => {
           const me = await meRes.json();
           setCurrentUserId(me.id ? String(me.id) : null);
           setCurrentUserEmail(me.email ?? null);
-          const ADMIN_ROLES = new Set(['admin', 'super_admin', 'administrator']);
-          setIsAdmin(ADMIN_ROLES.has((me.role ?? '').toLowerCase()));
+          setIsAdmin(isAdminRole(me.role));
         }
       } catch (e) { console.error(e); }
       finally { setLoading(false); setLoadingBclAttendees(false); }
@@ -382,7 +382,7 @@ const EventsContent = () => {
         String(e.id).includes(q)
       );
     }
-    const TERMINAL = new Set(['cancelled', 'completed', 'no_show']);
+    const TERMINAL = new Set(['cancelled', 'canceled', 'completed', 'no_show', 'ended']);
     switch (activeTab) {
       case 'today': return list.filter(e => e.event_date === todayStr);
       case 'completed': return list.filter(e => e.status === 'completed');

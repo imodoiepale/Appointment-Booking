@@ -963,6 +963,14 @@ const STATUS_CONFIG: Record<string, {
     dot: 'bg-green-500',
     icon: CheckCircle,
   },
+  ended: {
+    label: 'Ended (auto)',
+    bg: 'bg-slate-200',
+    text: 'text-slate-700',
+    border: 'border-slate-300',
+    dot: 'bg-slate-500',
+    icon: Clock,
+  },
   rescheduled: {
     label: 'Rescheduled',
     bg: 'bg-orange-100',

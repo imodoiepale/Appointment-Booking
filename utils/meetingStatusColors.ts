@@ -47,6 +47,17 @@ const CORE_STATUS_COLORS: Record<string, StatusColorConfig> = {
     borderLight: 'rgba(16, 185, 129, 0.2)',
     borderDark: 'rgba(52, 211, 153, 0.3)',
   },
+  ended: {
+    light: '#64748B',
+    dark: '#94A3B8',
+    gradient: 'linear-gradient(135deg, #64748B, #475569)',
+    bgLight: 'rgba(100, 116, 139, 0.12)',
+    bgDark: 'rgba(148, 163, 184, 0.15)',
+    textLight: '#334155',
+    textDark: '#CBD5E1',
+    borderLight: 'rgba(100, 116, 139, 0.25)',
+    borderDark: 'rgba(148, 163, 184, 0.3)',
+  },
   rescheduled: {
     light: '#F59E0B',
     dark: '#FBBF24',

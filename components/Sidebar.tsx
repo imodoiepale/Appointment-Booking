@@ -28,6 +28,8 @@ import {
     Sun,
     Video,
     XCircle,
+    ChevronDown,
+    LogOut,
 } from "lucide-react";
 
 import { useSidebar } from "@/contexts/SidebarContext";
@@ -44,6 +46,14 @@ import {
     TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useRouter } from 'next/navigation';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const Sidebar = () => {
     const pathname = usePathname();
@@ -54,6 +64,7 @@ const Sidebar = () => {
     const { isMobileOpen, setIsMobileOpen } = useSidebar();
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+    const [isSigningOut, setIsSigningOut] = useState(false);
     // Only show pages this user can open (scanner_users.meetings_access).
     const { canOpen, user: accessUser } = useAccess();
 
@@ -87,6 +98,20 @@ const Sidebar = () => {
         pathname === "/dashboard" && searchParams.get("status") === status;
 
     const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
+
+    // Mirrors Header.tsx — clear the session cookie and land on the login page.
+    const handleSignOut = async () => {
+        setIsSigningOut(true);
+        try {
+            await fetch("/api/auth/logout", { method: "POST" });
+            window.location.href = "/login";
+        } catch {
+            setIsSigningOut(false);
+        }
+    };
+
+    const userInitials = (accessUser?.displayName?.[0] || accessUser?.email?.[0] || "U").toUpperCase();
+    const userRole = accessUser?.role?.replace(/_/g, " ");
 
     const normalizedSearch = searchQuery.trim().toLowerCase();
     const allowedMainNav = mainNav.filter((item) => canOpen(item.href));
@@ -157,9 +182,11 @@ const Sidebar = () => {
     return (
         <TooltipProvider delayDuration={100}>
             <aside
+                onClick={() => { if (isCollapsed) setIsCollapsed(false); }}
                 className={cn(
                     "fixed inset-y-0 left-0 z-40 flex h-screen flex-col bg-[hsl(var(--sidebar-background))] text-white transition-all duration-300 ease-in-out lg:sticky lg:top-0",
                     isCollapsed ? "w-[80px]" : "w-[260px]",
+                    isCollapsed && "cursor-pointer",
                     isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
                 )}
             >
@@ -196,7 +223,7 @@ const Sidebar = () => {
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => setIsCollapsed(!isCollapsed)}
+                                onClick={(e) => { e.stopPropagation(); setIsCollapsed(!isCollapsed); }}
                                 className="h-8 w-8 shrink-0 text-white/50 hover:bg-white/10 hover:text-white"
                             >
                                 {isCollapsed ? (
@@ -281,6 +308,62 @@ const Sidebar = () => {
                             </button>
                         )}
                     </div>
+
+                    {/* User Section — registry-style account menu */}
+                    {accessUser && (
+                        <div className="mt-3 border-t border-white/5 pt-3">
+                            {!isCollapsed && (
+                                <span className="mb-1.5 block px-2 text-[10px] font-bold uppercase tracking-widest text-white/40">
+                                    User
+                                </span>
+                            )}
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <button
+                                        disabled={isSigningOut}
+                                        className={cn(
+                                            "flex w-full items-center gap-2.5 rounded-lg p-2 text-left transition-colors outline-none hover:bg-white/5 focus-visible:bg-white/5",
+                                            isCollapsed && "justify-center"
+                                        )}
+                                    >
+                                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[hsl(var(--sidebar-primary))] text-xs font-bold text-white shadow-sm">
+                                            {userInitials}
+                                        </div>
+                                        {!isCollapsed && (
+                                            <div className="flex min-w-0 flex-1 flex-col items-start">
+                                                <span className="w-full truncate text-xs font-semibold text-white">
+                                                    {accessUser.displayName || accessUser.username || accessUser.email || "User"}
+                                                </span>
+                                                {userRole && (
+                                                    <span className="w-full truncate text-[10px] font-medium uppercase text-white/50">
+                                                        {userRole}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+                                        {!isCollapsed && <ChevronDown className="h-3 w-3 shrink-0 text-white/50" />}
+                                    </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent side="top" align={isCollapsed ? "center" : "start"} sideOffset={10} className="w-56 p-1">
+                                    <DropdownMenuLabel className="px-2 py-1.5 text-xs font-bold opacity-60">
+                                        My Account
+                                    </DropdownMenuLabel>
+                                    {canOpen("/settings") && (
+                                        <DropdownMenuItem onClick={() => router.push("/settings")} className="cursor-pointer gap-2 py-2 text-xs">
+                                            <Settings className="h-3.5 w-3.5" /> Settings
+                                        </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                        onClick={handleSignOut}
+                                        className="cursor-pointer gap-2 py-2 text-xs font-medium text-red-600 focus:bg-red-50 focus:text-red-600"
+                                    >
+                                        <LogOut className="h-3.5 w-3.5" /> Sign Out
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
+                    )}
                 </div>
             </aside>
 

@@ -2,6 +2,7 @@
 "use client"
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { isAdminRole } from "@/lib/auth/roles";
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -15,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar, Clock, Building, MapPin, CheckCircle, XCircle, Table2, LayoutGrid, Video, Trash2, Loader2, CloudOff, Cloud, ChevronLeft, ChevronRight, Search, MoreHorizontal, Plus, Download, Hash, Globe, CheckCircle2, CalendarClock, Edit2, Ban, UserCheck, AlertCircle, PartyPopper, Users, ClipboardList, Zap, LinkIcon, ArrowRight, RefreshCw, Timer, MoveRight, AlarmClock, PlusCircle, Phone, Mail, User, Briefcase, FileText, Clock3, ChevronDown, ChevronUp, ChevronsUpDown, Star, Tag, Info } from 'lucide-react';
-import { getStatusHexColor, getStatusLabel } from '@/utils/appointmentStatuses';
+import { getStatusHexColor, getStatusLabel, effectiveStatus, TERMINAL_STATUSES } from '@/utils/appointmentStatuses';
 import { formatTime, formatDate, parseLocalDate } from '../../utils/format';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -27,8 +28,6 @@ import { DashboardDialogs } from './components/DashboardDialogs';
 import { DataTable } from '@/components/shared/DataTable';
 import type { ColumnDef } from '@/components/shared/DataTable';
 import supabase from '@/utils/supabaseClient';
-
-const ADMIN_ROLES = new Set(['admin', 'super_admin', 'administrator']);
 
 function parseBclAttendees(value: any): string[] {
   if (Array.isArray(value)) return value.map(String);
@@ -92,19 +91,6 @@ function calcSlot(base: string, offsetMins: number): string {
 
 function timeToMins(t: string) { const [h, m] = t.split(':').map(Number); return h * 60 + m; }
 
-const TERMINAL_STATUSES = new Set(['cancelled', 'canceled', 'completed', 'no_show']);
-
-function effectiveStatus(meeting: any, now: Date): string {
-  const base = (meeting?.status || 'pending_confirmation').toLowerCase();
-  if (TERMINAL_STATUSES.has(base) || base === 'overdue') return base;
-  if (!meeting?.meeting_date || !meeting?.meeting_start_time || !meeting?.meeting_end_time) return base;
-  const start = parseLocalDateTime(meeting.meeting_date, meeting.meeting_start_time);
-  const end = parseLocalDateTime(meeting.meeting_date, meeting.meeting_end_time);
-  if (!start || !end) return base;
-  if (now >= end) return 'overdue';
-  if (now >= start) return 'in_progress';
-  return base;
-}
 
 function detectExtensionConflicts(meeting: any, newEndTime: string, allMeetings: any[]): any[] {
   const newEndMins = timeToMins(newEndTime);
@@ -139,16 +125,16 @@ function calculateCascade(newEndTime: string, conflicts: any[]): Array<{ meeting
 function todayGroup(item: any, now: Date): { rank: number; label: string; emoji: string } {
   const effStatus = effectiveStatus(item, now);
   if (effStatus === 'in_progress' || effStatus === 'overdue')
-    return { rank: 0, label: 'In Progress', emoji: 'ðŸ”¥' };
+    return { rank: 0, label: 'In Progress', emoji: '🔥' };
   const dateStr = item.meeting_date || item.event_date;
   const timeStr = item.meeting_start_time || item.event_start_time;
   const start = parseLocalDateTime(dateStr, timeStr);
   if (start) {
     const minsUntil = (start.getTime() - now.getTime()) / 60000;
     if (minsUntil >= 0 && minsUntil <= 30)
-      return { rank: 1, label: 'Starting Soon', emoji: 'â°' };
+      return { rank: 1, label: 'Starting Soon', emoji: '⏰' };
   }
-  return { rank: 2, label: 'Later Today', emoji: 'ðŸ“…' };
+  return { rank: 2, label: 'Later Today', emoji: '📅' };
 }
 
 const initials = (n: string) => n?.split(' ').map(c => c[0]).join('').slice(0, 2).toUpperCase() ?? '??';
@@ -169,14 +155,8 @@ function SyncBadge({ synced }: { synced: boolean }) {
 }
 
 const AppointmentCard = ({ appointment, onClick, usersById = {} }) => {
-  const displayStatus = (() => {
-    const now = new Date();
-    const mtgDate = parseLocalDateTime(appointment.meeting_date, appointment.meeting_start_time);
-    if (!mtgDate) return appointment.status;
-    if (['upcoming', 'rescheduled'].includes(appointment.status) && now > mtgDate) return 'pending';
-    return appointment.status;
-  })();
-  const attendeeName = getAttendeeDetails(appointment, usersById)[0]?.name || 'â€”';
+  const displayStatus = effectiveStatus(appointment, new Date());
+  const attendeeName = getAttendeeDetails(appointment, usersById)[0]?.name || '—';
   return (
     <div className="group relative bg-white rounded-xl border border-slate-200 p-5 shadow-sm hover:shadow-md transition-all cursor-pointer hover:-translate-y-1" onClick={onClick}>
       <div className="flex justify-between items-start mb-4">
@@ -278,7 +258,7 @@ const DashboardContent = () => {
           fetch('/api/users/me'), fetch('/api/meetings'), fetch('/api/events'),
           fetch('/api/auth/google/status'), fetch('/api/users/bcl-attendees'),
         ]);
-        if (userRes.ok) { const me = await userRes.json(); setCurrentUserId(me.id); setCurrentUserName([me.first_name, me.last_name].filter(Boolean).join(' ') || me.username || me.id); setIsAdmin(ADMIN_ROLES.has((me.role ?? '').toLowerCase())); }
+        if (userRes.ok) { const me = await userRes.json(); setCurrentUserId(me.id); setCurrentUserName([me.first_name, me.last_name].filter(Boolean).join(' ') || me.username || me.id); setIsAdmin(isAdminRole(me.role)); }
         if (meetingsRes.ok) { const data = await meetingsRes.json(); setAppointments(Array.isArray(data) ? data : []); }
         if (eventsRes.ok) { const data = await eventsRes.json(); setAllEvents(Array.isArray(data) ? data : []); }
         if (bclUsersRes.ok) { const data = await bclUsersRes.json(); setBclUsersById(buildUserMap(Array.isArray(data) ? data : [])); }
@@ -290,25 +270,45 @@ const DashboardContent = () => {
     init();
   }, []);
 
-  // Realtime: reflect new / updated meetings instantly without a full refetch
+  // Re-reads meetings (and, for the manual refresh, events). The API applies this user's visibility.
+  const reloadMeetings = useCallback(async () => {
+    const res = await fetch('/api/meetings');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!Array.isArray(data)) return;
+    setAppointments(data);
+    setSelectedAppointment(prev => (prev ? data.find((m: any) => m.id_main === prev.id_main) ?? prev : prev));
+  }, []);
+
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const [, eventsRes] = await Promise.all([reloadMeetings(), fetch('/api/events')]);
+      if (eventsRes.ok) { const data = await eventsRes.json(); if (Array.isArray(data)) setAllEvents(data); }
+      setNow(new Date());
+    } catch (err: any) { notify.error('Refresh failed', err.message); }
+    finally { setRefreshing(false); }
+  }, [reloadMeetings]);
+
+  // Realtime: a change to any meeting is only a signal to re-read /api/meetings, which applies
+  // this user's visibility (their own and attended meetings, or all for admins). The raw row
+  // from the change feed is never shown — it isn't filtered to what this user may see.
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const reload = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => { reloadMeetings().catch(err => console.error(err)); }, 400);
+    };
     const channel = supabase
       .channel('dashboard-realtime')
-      .on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'bcl_meetings_meetings' },
-        (payload) => setAppointments(prev => [payload.new as any, ...prev])
-      )
-      .on('postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'bcl_meetings_meetings' },
-        (payload) => {
-          const u = payload.new as any;
-          setAppointments(prev => prev.map((a: any) => a.id_main === u.id_main ? { ...a, ...u } : a));
-          setSelectedAppointment(prev => prev?.id_main === u.id_main ? { ...prev, ...u } : prev);
-        }
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bcl_meetings_meetings' }, reload)
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, []);
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+  }, [reloadMeetings]);
 
   const patchMeeting = useCallback(async (id: number, payload: object) => {
     const res = await fetch(`/api/meetings/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -381,6 +381,14 @@ const DashboardContent = () => {
     if (!selectedAppointment) return;
     setActionLoading('done');
     try { await patchMeeting(selectedAppointment.id_main, { status: 'completed' }); updateLocal(selectedAppointment.id_main, { status: 'completed' }); notify.success('Marked as done'); setSelectedAppointment(null); }
+    catch (e: any) { notify.error('Failed', e.message); }
+    finally { setActionLoading(''); }
+  };
+
+  const handleNoShow = async () => {
+    if (!selectedAppointment) return;
+    setActionLoading('no_show');
+    try { await patchMeeting(selectedAppointment.id_main, { status: 'no_show' }); updateLocal(selectedAppointment.id_main, { status: 'no_show' }); notify.success('Marked as no show'); setSelectedAppointment(null); }
     catch (e: any) { notify.error('Failed', e.message); }
     finally { setActionLoading(''); }
   };
@@ -522,7 +530,7 @@ const DashboardContent = () => {
             const esStart = timeToMins(m.meeting_slot_start_time || m.meeting_start_time);
             const esEnd = timeToMins(m.meeting_slot_end_time || m.meeting_end_time);
             if (nsStart < esEnd && esStart < nsEnd) {
-              setRescheduleConflict(`Conflicts with ${m.client_name} (${m.meeting_start_time}â€“${m.meeting_end_time})`);
+              setRescheduleConflict(`Conflicts with ${m.client_name} (${m.meeting_start_time}–${m.meeting_end_time})`);
               setActionLoading(''); return;
             }
           }
@@ -617,9 +625,11 @@ const DashboardContent = () => {
     }
     const todayStr = getTodayLocalDateString();
     switch (activeTab) {
+      case 'all': return list;
       case 'today': return list.filter(a => (a.meeting_date || a.event_date) === todayStr);
-      case 'pending': return list.filter(a => ['pending', 'pending_confirmation', 'confirmed'].includes(a.status || ''));
+      case 'pending': return list.filter(a => ['pending', 'pending_confirmation', 'confirmed'].includes(a.status || '') && !TERMINAL_STATUSES.has(effectiveStatus(a, now)));
       case 'completed': return list.filter(a => a.status === 'completed');
+      case 'ended': return list.filter(a => effectiveStatus(a, now) === 'ended');
       case 'canceled': return list.filter(a => a.status === 'canceled' || a.status === 'cancelled');
       case 'mycreated':
         return list.filter(a => {
@@ -630,9 +640,9 @@ const DashboardContent = () => {
           const isAttendee = bclIds.some(id => String(id) === String(currentUserId));
           return !isAttendee;
         });
-      default: return list.filter(a => !TERMINAL_STATUSES.has((a.status || 'upcoming').toLowerCase()));
+      default: return list.filter(a => !TERMINAL_STATUSES.has(effectiveStatus(a, now)));
     }
-  }, [appointments, allEvents, contentType, activeTab, searchQuery]);
+  }, [appointments, allEvents, contentType, activeTab, searchQuery, now]);
 
   // Combined user map for resolving created_by names
   const allUsersById = useMemo(() => {
@@ -660,7 +670,7 @@ const DashboardContent = () => {
           return getAttendeeDetails(row, bclUsersById)[0]?.name || '';
         }
         case 'status': {
-          const s = row.event_name ? (row.status || 'upcoming') : effectiveStatus(row, now);
+          const s = effectiveStatus(row, now);
           return getStatusLabel(s);
         }
         case 'synced': return row.google_event_id ? 1 : 0;
@@ -686,40 +696,34 @@ const DashboardContent = () => {
       });
     }
 
-    // Default sort per tab
-    const byDateTime = (a: any, b: any, dir: 1 | -1 = 1) => {
+    // Default sort: latest date and time first on every tab. Times are compared numerically so
+    // "10:00" counts as later than "9:00"; rows without a time go last within their day.
+    const startMins = (row: any) => {
+      const t = row.meeting_start_time || row.event_start_time || '';
+      return t ? timeToMins(t) : -1;
+    };
+    const latestFirst = (a: any, b: any) => {
       const da = a.meeting_date || a.event_date || '';
       const db = b.meeting_date || b.event_date || '';
-      if (da !== db) return da.localeCompare(db) * dir;
-      const ta = a.meeting_start_time || a.event_start_time || '';
-      const tb = b.meeting_start_time || b.event_start_time || '';
-      return ta.localeCompare(tb) * dir;
+      if (da !== db) return db.localeCompare(da);
+      return startMins(b) - startMins(a);
     };
-    switch (activeTab) {
-      case 'today':
-        return list.sort((a, b) => {
-          const ra = todayGroup(a, now).rank;
-          const rb = todayGroup(b, now).rank;
-          if (ra !== rb) return ra - rb;
-          const ta = a.meeting_start_time || a.event_start_time || '';
-          const tb = b.meeting_start_time || b.event_start_time || '';
-          return ta.localeCompare(tb);
-        });
-      case 'upcoming': return list.sort((a, b) => byDateTime(a, b, 1));
-      case 'pending':
-        return list.sort((a, b) => {
-          const da = a.booking_date || a.meeting_date || a.event_date || '';
-          const db = b.booking_date || b.meeting_date || b.event_date || '';
-          return da.localeCompare(db);
-        });
-      case 'completed': case 'canceled': return list.sort((a, b) => byDateTime(a, b, -1));
-      case 'mycreated': return list.sort((a, b) => byDateTime(a, b, -1));
-      default: return list.sort((a, b) => byDateTime(a, b, 1));
+    if (activeTab === 'today') {
+      // Keep the In Progress / Starting Soon / Later Today sections; latest first within each.
+      return list.sort((a, b) => (todayGroup(a, now).rank - todayGroup(b, now).rank) || latestFirst(a, b));
     }
+    return list.sort(latestFirst);
   }, [filteredList, activeTab, now, sortColumn, sortDirection, bclUsersById, allUsersById]);
 
   const paginated = sortedList.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage);
   const totalPages = Math.ceil(sortedList.length / itemsPerPage);
+  // Unknown ids are shortened; legacy rows may hold a plain name (e.g. "Super Admin") instead.
+  const creatorNameOf = useCallback((row: any): string => {
+    const cv = String(row?.created_by || '');
+    const cu = allUsersById[cv];
+    return cu?.displayName || cu?.username || (/^[0-9a-f-]{36}$/i.test(cv) ? cv.slice(0, 8) : cv);
+  }, [allUsersById]);
+  const selectedCreatorName = selectedAppointment ? creatorNameOf(selectedAppointment) : '';
   const selectedAttendees = useMemo(() => getAttendeeDetails(selectedAppointment, bclUsersById), [selectedAppointment, bclUsersById]);
 
   const dashColumns: ColumnDef[] = useMemo(() => [
@@ -728,7 +732,8 @@ const DashboardContent = () => {
       header: '#',
       headerClassName: 'w-[44px]',
       cellClassName: 'font-medium text-slate-500 text-center',
-      render: (_row, index) => index + 1,
+      // Numbering continues across pages (the table passes the index within the page).
+      render: (_row, index) => currentPage * itemsPerPage + index + 1,
     },
     {
       key: 'client_name',
@@ -788,7 +793,7 @@ const DashboardContent = () => {
       sortable: true,
       render: (row) => (
         <span className="font-semibold text-slate-600 text-xs tabular-nums">
-          {formatTime(row.meeting_end_time || row.event_end_time) || <span className="text-slate-300">â€”</span>}
+          {formatTime(row.meeting_end_time || row.event_end_time) || <span className="text-slate-300">—</span>}
         </span>
       ),
     },
@@ -800,7 +805,7 @@ const DashboardContent = () => {
         const durMins = row.meeting_duration || row.event_duration;
         const durLabel = durMins
           ? durMins >= 60 ? `${Math.floor(durMins / 60)}h${durMins % 60 ? ` ${durMins % 60}m` : ''}` : `${durMins}m`
-          : 'â€”';
+          : '—';
         return (
           <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
             <Clock3 size={10} className="text-slate-400" />{durLabel}
@@ -814,7 +819,8 @@ const DashboardContent = () => {
       sortable: true,
       render: (row) => {
         const isMtg = row._kind !== 'event' && !row.event_name;
-        const name = isMtg ? (getAttendeeDetails(row, bclUsersById)[0]?.name || 'â€”') : row.organizer_name;
+        const name = isMtg ? getAttendeeDetails(row, bclUsersById)[0]?.name : row.organizer_name;
+        if (!name) return <span className="text-xs text-slate-300">—</span>;
         return (
           <div className="flex items-center gap-2">
             <Avatar className="h-7 w-7 rounded">
@@ -841,9 +847,8 @@ const DashboardContent = () => {
             </div>
           );
         }
-        const cv = row.created_by || '';
-        const cu = allUsersById[String(cv)];
-        const creatorName = cu?.displayName || cu?.username || (cv ? String(cv).slice(0, 8) : 'â€”');
+        const creatorName = creatorNameOf(row);
+        if (!creatorName) return <span className="text-xs text-slate-300">—</span>;
         return (
           <div className="flex items-center gap-2">
             <Avatar className="h-7 w-7 rounded">
@@ -859,8 +864,7 @@ const DashboardContent = () => {
       header: 'Status',
       sortable: true,
       render: (row) => {
-        const isMtg = row._kind !== 'event' && !row.event_name;
-        const rowStatus = isMtg ? effectiveStatus(row, now) : (row.status || 'upcoming');
+        const rowStatus = effectiveStatus(row, now);
         const isOverdue = rowStatus === 'overdue';
         return (
           <div className="flex items-center gap-1.5">
@@ -888,7 +892,7 @@ const DashboardContent = () => {
                 disabled={isSyncing}
               >
                 {isSyncing ? <Loader2 size={9} className="animate-spin" /> : row.google_event_id ? <CloudOff size={9} /> : <Cloud size={9} />}
-                {isSyncing ? 'â€¦' : row.google_event_id ? 'Unsync' : 'Sync'}
+                {isSyncing ? '…' : row.google_event_id ? 'Unsync' : 'Sync'}
               </button>
             )}
           </div>
@@ -917,7 +921,7 @@ const DashboardContent = () => {
         );
       },
     },
-  ], [bclUsersById, allUsersById, now, activeTab, syncingRow, calendarConnectionStatus, handleSyncRow, setSelectedAppointment, setEditOpen, openReschedule, handleCancel]);
+  ], [bclUsersById, creatorNameOf, now, activeTab, syncingRow, calendarConnectionStatus, handleSyncRow, setSelectedAppointment, setEditOpen, openReschedule, handleCancel, currentPage, itemsPerPage]);
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-[80vh]">
@@ -926,11 +930,12 @@ const DashboardContent = () => {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 px-6 py-5 font-sans">
+    // Fills the app's scrolling <main>, so the table below gets a bounded height and scrolls its own rows.
+    <div className="flex h-full flex-col bg-slate-50 px-6 py-5 font-sans">
       <Toaster />
 
       {/* HEADER */}
-      <div className="mb-7 flex flex-wrap items-center justify-between gap-4">
+      <div className="mb-7 flex flex-none flex-wrap items-center justify-between gap-4">
         <div>
           <div className="text-2xl font-bold text-slate-900">Most Recent Meetings or Events</div>
           <div className="mt-1 text-[13px] text-slate-500">Track and manage your client meetings and corporate events</div>
@@ -944,7 +949,7 @@ const DashboardContent = () => {
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500">
               <span className={cn("h-2 w-2 flex-shrink-0 rounded-full", calendarConnectionStatus === 'connected' ? "bg-green-500 shadow-[0_0_0_3px_rgba(34,197,94,.2)]" : calendarConnectionStatus === 'checking' ? "bg-slate-400" : "bg-red-500 shadow-[0_0_0_3px_rgba(239,68,68,.2)]")} />
-              {calendarConnectionStatus === 'checking' ? 'Checkingâ€¦' : `Calendar ${calendarConnectionStatus}`}
+              {calendarConnectionStatus === 'checking' ? 'Checking…' : `Calendar ${calendarConnectionStatus}`}
             </div>
             {calendarConnectionStatus === 'connected' && (
               <Button variant="outline" size="sm" className="h-8 text-xs text-red-500 border-red-200 hover:bg-red-50" onClick={async () => { try { await fetch('/api/auth/google/disconnect', { method: 'POST' }); setCalendarConnectionStatus('disconnected'); } catch { } }}>Disconnect</Button>
@@ -953,8 +958,10 @@ const DashboardContent = () => {
               <Button variant="outline" size="sm" className="h-8 text-xs text-blue-600 border-blue-200 hover:bg-blue-50" onClick={() => { window.location.href = '/api/auth/google'; }}>Connect Calendar</Button>
             )}
           </div>
-          <div>
-            <Button className="h-9 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-2 px-4 shadow-sm shadow-blue-100" onClick={() => setScheduleOpen(true)}>
+          {/* Meetings must reach Google Calendar, so creating one needs a connected calendar.
+              The title sits on the wrapper because a disabled button gets no hover events. */}
+          <div title={calendarConnectionStatus === 'connected' ? undefined : calendarConnectionStatus === 'checking' ? 'Checking calendar connection…' : 'Connect your Google Calendar to create meetings'}>
+            <Button className="h-9 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-2 px-4 shadow-sm shadow-blue-100" disabled={calendarConnectionStatus !== 'connected'} onClick={() => setScheduleOpen(true)}>
               <PlusCircle size={15} /><span>Create New Meeting</span>
             </Button>
             <ScheduleDialog open={scheduleOpen} onOpenChange={setScheduleOpen} />
@@ -963,19 +970,27 @@ const DashboardContent = () => {
       </div>
 
       <DataTable
+        className="min-h-[360px] flex-1"
         columns={dashColumns}
         rows={paginated}
         rowKey={row => row.id_main || row.id}
         onRowClick={row => { const isMtg = row._kind !== 'event' && !row.event_name; if (isMtg) setSelectedAppointment(row); }}
-        rowClassName={row => { const isMtg = row._kind !== 'event' && !row.event_name; const rowStatus = isMtg ? effectiveStatus(row, now) : (row.status || 'upcoming'); return rowStatus === 'overdue' ? 'bg-yellow-50/60 hover:bg-yellow-50' : ''; }}
+        rowClassName={row => effectiveStatus(row, now) === 'overdue' ? 'bg-yellow-50/60 hover:bg-yellow-50' : ''}
         tabs={[
           { key: 'upcoming',  label: 'All Active' },
           { key: 'today',     label: 'Today' },
           { key: 'pending',   label: 'Pending' },
           { key: 'completed', label: 'Completed' },
+          { key: 'ended',     label: 'Ended' },
           { key: 'canceled',  label: 'Cancelled' },
           { key: 'mycreated', label: 'My Created' },
+          { key: 'all',       label: 'All' },
         ]}
+        toolbarActions={
+          <Button variant="outline" size="sm" className="h-9 gap-1.5 border-slate-200 text-xs font-semibold text-slate-600" disabled={refreshing} onClick={handleRefresh} title="Reload meetings and events">
+            <RefreshCw size={14} className={cn(refreshing && 'animate-spin')} /> Refresh
+          </Button>
+        }
         activeTab={activeTab}
         onTabChange={tab => { setActiveTab(tab); setCurrentPage(0); }}
         searchQuery={searchQuery}
@@ -1011,6 +1026,8 @@ const DashboardContent = () => {
         openReschedule={openReschedule}
         handleConfirm={handleConfirm}
         handleMarkDone={handleMarkDone}
+        handleNoShow={handleNoShow}
+        creatorName={selectedCreatorName}
         handleCancel={handleCancel}
         calendarConnectionStatus={calendarConnectionStatus}
         handleUnsync={handleUnsync}

@@ -14,17 +14,9 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Calendar, Clock, Building, MapPin, CheckCircle, Video, Trash2, Loader2, CloudOff, Cloud, Hash, Edit2, Ban, UserCheck, AlertCircle, Users, ClipboardList, Zap, LinkIcon, ArrowRight, RefreshCw, Timer, MoveRight, AlarmClock, PlusCircle, Phone, Mail, User, Briefcase, FileText, Clock3, CalendarClock, Star, Tag } from 'lucide-react';
-import { getStatusHexColor, getStatusLabel } from '@/utils/appointmentStatuses';
+import { getStatusHexColor, getStatusLabel, effectiveStatus, autoEndAt, TERMINAL_STATUSES } from '@/utils/appointmentStatuses';
 import { formatTime, formatDate, parseLocalDate } from '../../../utils/format';
 import { cn } from '@/lib/utils';
-
-const TERMINAL_STATUSES = new Set(['cancelled', 'canceled', 'completed', 'no_show']);
-
-function parseLocalDateTime(dateStr?: string, timeStr?: string) {
-  const date = parseLocalDate(dateStr); if (!date) return null;
-  const [hours = 0, minutes = 0] = (timeStr || '00:00').split(':').map(Number);
-  date.setHours(hours || 0, minutes || 0, 0, 0); return date;
-}
 
 function addMinutesToTime(time: string, minutes: number): string {
   const [h, m] = time.split(':').map(Number);
@@ -32,17 +24,7 @@ function addMinutesToTime(time: string, minutes: number): string {
   return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
-function effectiveStatus(meeting: any, now: Date): string {
-  const base = (meeting?.status || 'pending_confirmation').toLowerCase();
-  if (TERMINAL_STATUSES.has(base) || base === 'overdue') return base;
-  if (!meeting?.meeting_date || !meeting?.meeting_start_time || !meeting?.meeting_end_time) return base;
-  const start = parseLocalDateTime(meeting.meeting_date, meeting.meeting_start_time);
-  const end = parseLocalDateTime(meeting.meeting_date, meeting.meeting_end_time);
-  if (!start || !end) return base;
-  if (now >= end) return 'overdue';
-  if (now >= start) return 'in_progress';
-  return base;
-}
+const toHHMM = (d?: Date | null) => d ? `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` : '';
 
 const initials = (n: string) => n?.split(' ').map(c => c[0]).join('').slice(0, 2).toUpperCase() ?? '??';
 
@@ -75,35 +57,41 @@ function DateTile({ dateStr, dim = false }: { dateStr?: string; dim?: boolean })
 // ── EDIT DETAILS FORM (rendered inline inside the detail dialog) ──
 const EDIT_TABS = ['Client', 'Schedule', 'Details'] as const;
 
+// Every field is a string from the first render, so the inputs are controlled throughout.
+function toFormData(appointment: any) {
+  const a = appointment || {};
+  const dur = String(a.meeting_duration || 60);
+  const start = a.meeting_start_time || '';
+  return {
+    client_name: a.client_name || '',
+    client_company: a.client_company || '',
+    client_mobile: a.client_mobile || '',
+    client_email: a.client_email || '',
+    meeting_date: a.meeting_date || '',
+    meeting_start_time: start,
+    meeting_duration: dur,
+    meeting_end_time: start ? addMinutesToTime(start, parseInt(dur) || 60) : '',
+    meeting_type: a.meeting_type || 'inPerson',
+    meeting_venue_area: a.meeting_venue_area || '',
+    meeting_agenda: a.meeting_agenda || '',
+    meeting_notes: a.meeting_notes || '',
+    badge_status: a.badge_status || '',
+    venue_distance: String(a.venue_distance ?? 10),
+    virtual_meeting_mode: a.virtual_meeting_mode || '',
+    meeting_link: a.meeting_link || '',
+    meeting_id: a.meeting_id || '',
+  };
+}
+
 const EditDetailsForm = ({ appointment, onSave, onCancel, loading }: {
   appointment: any; onSave: (data: any) => void; onCancel: () => void; loading: boolean;
 }) => {
   const [activeTab, setActiveTab] = useState<typeof EDIT_TABS[number]>('Client');
-  const [data, setData] = useState<any>({});
+  const [data, setData] = useState<any>(() => toFormData(appointment));
 
   useEffect(() => {
     if (appointment) {
-      const dur = String(appointment.meeting_duration || 60);
-      const start = appointment.meeting_start_time || '';
-      setData({
-        client_name: appointment.client_name || '',
-        client_company: appointment.client_company || '',
-        client_mobile: appointment.client_mobile || '',
-        client_email: appointment.client_email || '',
-        meeting_date: appointment.meeting_date || '',
-        meeting_start_time: start,
-        meeting_duration: dur,
-        meeting_end_time: start ? addMinutesToTime(start, parseInt(dur) || 60) : '',
-        meeting_type: appointment.meeting_type || 'inPerson',
-        meeting_venue_area: appointment.meeting_venue_area || '',
-        meeting_agenda: appointment.meeting_agenda || '',
-        meeting_notes: appointment.meeting_notes || '',
-        badge_status: appointment.badge_status || '',
-        venue_distance: String(appointment.venue_distance ?? 10),
-        virtual_meeting_mode: appointment.virtual_meeting_mode || '',
-        meeting_link: appointment.meeting_link || '',
-        meeting_id: appointment.meeting_id || '',
-      });
+      setData(toFormData(appointment));
       setActiveTab('Client');
     }
   }, [appointment]);
@@ -287,7 +275,7 @@ const EditDetailsForm = ({ appointment, onSave, onCancel, loading }: {
           Cancel
         </Button>
         <Button className="h-10 flex-[2] bg-blue-600 text-[13px] font-bold text-white hover:bg-blue-700" disabled={loading} onClick={() => onSave(data)}>
-          {loading ? <><Loader2 size={14} className="animate-spin" /> Savingâ€¦</> : <><CheckCircle size={14} /> Save Changes</>}
+          {loading ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : <><CheckCircle size={14} /> Save Changes</>}
         </Button>
       </div>
     </div>
@@ -313,7 +301,7 @@ const EditField = ({ label, icon, children }: { label: string; icon?: React.Reac
 const DetailBox = ({ label, value, icon }: { label: string; value?: string; icon?: React.ReactNode }) => (
   <div className="rounded-xl border border-slate-200 bg-white px-3.5 py-3 shadow-sm">
     <p className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-normal text-slate-400">{icon}{label}</p>
-    <p className="mt-1 truncate text-xs font-semibold text-slate-700">{value || 'â€”'}</p>
+    <p className="mt-1 truncate text-xs font-semibold text-slate-700">{value || '—'}</p>
   </div>
 );
 
@@ -340,6 +328,8 @@ export function DashboardDialogs(props: any) {
     openReschedule,
     handleConfirm,
     handleMarkDone,
+    handleNoShow,
+    creatorName,
     handleCancel,
     calendarConnectionStatus,
     handleUnsync,
@@ -464,13 +454,15 @@ export function DashboardDialogs(props: any) {
             </>
           ) : (
             <>
-              {/* ── OVERDUE BANNER ── */}
+              {/* ── OVERDUE BANNER (grace window after the end time) ── */}
               {effectiveStatus(selectedAppointment, now) === 'overdue' && (
                 <div className="mx-6 mt-4 p-4 rounded-xl bg-yellow-50 border border-yellow-300 flex items-start gap-3">
                   <AlarmClock size={18} className="text-yellow-600 flex-shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-yellow-900">Scheduled to end at {formatTime(selectedAppointment?.meeting_end_time)}</p>
-                    <p className="text-xs text-yellow-700 mt-0.5 mb-3">How would you like to proceed?</p>
+                    <p className="text-sm font-bold text-yellow-900">Ran past its end time of {formatTime(selectedAppointment?.meeting_end_time)}</p>
+                    <p className="text-xs text-yellow-700 mt-0.5 mb-3">
+                      End or extend it now. Otherwise it will be marked <strong>Ended</strong> automatically at {formatTime(toHHMM(autoEndAt(selectedAppointment)))}.
+                    </p>
                     <div className="flex flex-wrap gap-2">
                       <Button size="sm" variant="outline" className="h-8 text-xs bg-green-50 border-green-300 text-green-800 hover:bg-green-100 font-semibold" disabled={!!actionLoading} onClick={handleEndMeeting}>
                         {actionLoading === 'end' ? <Loader2 size={12} className="animate-spin mr-1" /> : <CheckCircle size={12} className="mr-1" />} End Meeting
@@ -478,6 +470,30 @@ export function DashboardDialogs(props: any) {
                       <Button size="sm" variant="outline" className="h-8 text-xs font-semibold" disabled={!!actionLoading} onClick={() => handleExtend(15)}><Timer size={12} className="mr-1" />+15 min</Button>
                       <Button size="sm" variant="outline" className="h-8 text-xs font-semibold" disabled={!!actionLoading} onClick={() => handleExtend(30)}><Timer size={12} className="mr-1" />+30 min</Button>
                       <Button size="sm" variant="outline" className="h-8 text-xs font-semibold" disabled={!!actionLoading} onClick={() => setExtendOpen(true)}><Clock size={12} className="mr-1" />Custom</Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── ENDED BANNER (nobody closed it, so it was ended automatically) ── */}
+              {effectiveStatus(selectedAppointment, now) === 'ended' && (
+                <div className="mx-6 mt-4 p-4 rounded-xl bg-slate-50 border border-slate-300 flex items-start gap-3">
+                  <Clock size={18} className="text-slate-500 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-slate-800">Ended automatically</p>
+                    <p className="text-xs text-slate-600 mt-0.5 mb-3">
+                      Nobody closed this meeting after its end time ({formatTime(selectedAppointment?.meeting_end_time)}). Record what happened:
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" variant="outline" className="h-8 text-xs bg-green-50 border-green-300 text-green-800 hover:bg-green-100 font-semibold" disabled={!!actionLoading} onClick={handleMarkDone}>
+                        {actionLoading === 'done' ? <Loader2 size={12} className="animate-spin mr-1" /> : <CheckCircle size={12} className="mr-1" />} It happened
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-8 text-xs bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 font-semibold" disabled={!!actionLoading} onClick={handleNoShow}>
+                        {actionLoading === 'no_show' ? <Loader2 size={12} className="animate-spin mr-1" /> : <Ban size={12} className="mr-1" />} No show
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-8 text-xs font-semibold text-orange-700 border-orange-200 hover:bg-orange-50" disabled={!!actionLoading} onClick={openReschedule}>
+                        <RefreshCw size={12} className="mr-1" /> Reschedule
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -569,8 +585,8 @@ export function DashboardDialogs(props: any) {
                         <DetailBox label="Booking Date" value={formatDate(selectedAppointment?.booking_date, { day: '2-digit', month: 'short', year: 'numeric' })} />
                         <DetailBox label="Meeting Day" value={selectedAppointment?.meeting_day || formatDate(selectedAppointment?.meeting_date, { weekday: 'long' })} />
                         <DetailBox label="Badge Status" value={selectedAppointment?.badge_status} />
-                        <DetailBox label="Distance" value={selectedAppointment?.venue_distance != null ? `${selectedAppointment.venue_distance} km` : undefined} />
-                        <DetailBox label="Created By" value={selectedAppointment?.created_by} />
+                        <DetailBox label="Travel Time" value={selectedAppointment?.venue_distance != null ? `${selectedAppointment.venue_distance} min` : undefined} />
+                        <DetailBox label="Created By" value={creatorName} />
                         <DetailBox label="Booking Day" value={selectedAppointment?.booking_day} />
                       </div>
                     </section>
@@ -649,11 +665,12 @@ export function DashboardDialogs(props: any) {
                       <ActionButton onClick={handleConfirm} loading={actionLoading === 'confirm'} icon={<UserCheck size={13} />} label="Confirm Meeting" className="bg-[#0057E7] hover:bg-[#004bc7] text-white border-none shadow-sm" />
                     )}
 
-                    {!TERMINAL_STATUSES.has(effectiveStatus(selectedAppointment, now)) && (
+                    {/* An auto-ended meeting is still open to recording what happened, or to rescheduling. */}
+                    {(!TERMINAL_STATUSES.has(effectiveStatus(selectedAppointment, now)) || effectiveStatus(selectedAppointment, now) === 'ended') && (
                       <ActionButton onClick={handleMarkDone} loading={actionLoading === 'done'} icon={<CheckCircle size={13} />} label="Mark as Completed" className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200" />
                     )}
 
-                    {!TERMINAL_STATUSES.has(effectiveStatus(selectedAppointment, now)) && (
+                    {(!TERMINAL_STATUSES.has(effectiveStatus(selectedAppointment, now)) || effectiveStatus(selectedAppointment, now) === 'ended') && (
                       <ActionButton onClick={openReschedule} icon={<RefreshCw size={13} />} label="Reschedule (Postpone)" className="hover:bg-orange-50 text-orange-700 border-orange-100" />
                     )}
                     <ActionButton onClick={() => setEditOpen(true)} icon={<Edit2 size={13} />} label="Edit Details (Fix Errors)" />

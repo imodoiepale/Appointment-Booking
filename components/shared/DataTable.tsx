@@ -4,7 +4,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   ChevronUp, ChevronDown, ChevronsUpDown,
   Search, Table2, LayoutGrid,
@@ -67,6 +67,10 @@ interface DataTableProps {
   getRowGroup?: (row: any, index: number, allRows: any[]) => RowGroup | null;
 
   emptyMessage?: string;
+
+  /** Classes for the outer card. Give it a bounded height (e.g. flex-1 in a full-height column) and
+   *  the toolbar and pagination stay put while only the rows scroll. */
+  className?: string;
 }
 
 // ── COMPONENT ─────────────────────────────────────────────────────────────────
@@ -97,6 +101,7 @@ export function DataTable({
   onPageChange,
   getRowGroup,
   emptyMessage = 'No records found',
+  className,
 }: DataTableProps) {
 
   const SortIcon = ({ colKey }: { colKey: string }) => {
@@ -116,10 +121,10 @@ export function DataTable({
   const end = Math.min((currentPage + 1) * itemsPerPage, totalRows);
 
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div className={cn('flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm', className)}>
 
       {/* ── TOOLBAR ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-3">
+      <div className="flex flex-none flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-3">
         {tabs && tabs.length > 0 && (
           <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
             {tabs.map(({ key, label }) => (
@@ -175,7 +180,7 @@ export function DataTable({
 
       {/* ── CARDS VIEW ── */}
       {viewMode === 'cards' ? (
-        <div className="grid grid-cols-1 gap-6 bg-slate-50/50 p-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid min-h-0 flex-1 grid-cols-1 content-start gap-6 overflow-auto bg-slate-50/50 p-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {rows.length > 0
             ? rows.map(row => renderCard?.(row))
             : (
@@ -186,10 +191,12 @@ export function DataTable({
           }
         </div>
       ) : (
-        /* ── TABLE VIEW ── */
-        <div className="overflow-x-auto border p-4">
-          <Table className="overflow-auto rounded-2xl border">
-            <TableHeader className="border bg-slate-50">
+        /* ── TABLE VIEW ── the only scrolling part; the header row sticks to its top.
+           A plain <table>, because the ui Table wraps itself in a scroll container that would
+           capture the sticky header. */
+        <div className="min-h-0 flex-1 overflow-auto border px-4 pb-4">
+          <table className="w-full caption-bottom rounded-2xl border text-sm">
+            <TableHeader className="sticky top-0 z-10 border bg-slate-50 shadow-[0_1px_0_0_theme(colors.slate.200)]">
               <TableRow className="border hover:bg-transparent">
                 {columns.map(col => (
                   <TableHead
@@ -257,12 +264,12 @@ export function DataTable({
                 </TableRow>
               )}
             </TableBody>
-          </Table>
+          </table>
         </div>
       )}
 
       {/* ── PAGINATION ── */}
-      <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
+      <div className="flex flex-none items-center justify-between border-t border-slate-100 px-6 py-4">
         <div className="text-xs font-medium text-slate-500">
           Showing{' '}
           <span className="font-bold text-slate-900">{start}</span>

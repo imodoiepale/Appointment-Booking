@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase, normaliseBclAttendee, enrichWithAttendeeNames, resolveCallerUser, isAdminRole, unauthorized } from "./_shared";
+import { supabase, normaliseBclAttendee, enrichWithAttendeeNames, resolveCallerUser, isAdminRole, unauthorized, autoEndPast } from "./_shared";
 
 const ACTIVE_STATUSES = ["upcoming", "rescheduled"];
 
@@ -80,6 +80,7 @@ export async function GET(request: NextRequest) {
 
     const caller = await resolveCallerUser(request);
     if (!caller) return unauthorized();
+    await autoEndPast("bcl_meetings_meetings");
     let query = applyScopeToQuery(supabase.from("bcl_meetings_meetings").select("*"), caller);
 
     if (date) query = query.eq("meeting_date", date);

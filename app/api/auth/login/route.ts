@@ -3,6 +3,7 @@ import { getFirebaseAdminAuth } from "@/lib/firebase/admin";
 import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
 import { timingSafeEqual } from "node:crypto";
+import { issueMobileToken } from "@/lib/auth/mobile-token";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -73,9 +74,14 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // The Android app gets a signed token to send as "Authorization: Bearer …" on API calls.
+    const mobileToken = client === "mobile" ? issueMobileToken(String(user.id)) : null;
+
     return Response.json({
       success: true,
       customToken,
+      token: mobileToken?.token ?? null,
+      tokenExpiresAt: mobileToken?.expiresAt ?? null,
       user: {
         id: user.id,
         email: user.email,
