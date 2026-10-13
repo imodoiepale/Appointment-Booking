@@ -43,6 +43,13 @@ function toMeetingPayload(body: Record<string, any>, callerUser?: { id: string; 
     client_name: body.client_name ?? body.clientName,
     client_company: body.client_company ?? body.clientCompany ?? "",
     client_mobile: body.client_mobile ?? body.clientMobile ?? "",
+    client_email: body.client_email ?? body.clientEmail ?? "",
+    // Structured attendees, same shapes the web scheduler inserts (app/schedule/page.tsx):
+    //   client_attendees:      [{ individual_id, company_ids } | { adhoc: true, name, email, mobile, company }]
+    //   third_party_attendees: [{ contact_id, name, type, email, mobile, organization }]
+    // Without these the mobile app's attendees were silently dropped on create.
+    client_attendees: Array.isArray(body.client_attendees) ? body.client_attendees : [],
+    third_party_attendees: Array.isArray(body.third_party_attendees) ? body.third_party_attendees : [],
     bcl_attendee: normaliseBclAttendee(body.bcl_attendee ?? body.bclAttendee),
     bcl_attendee_mobile: body.bcl_attendee_mobile ?? body.bclAttendeeMobile ?? "",
     meeting_agenda: body.meeting_agenda ?? body.meetingAgenda ?? body.description ?? "",

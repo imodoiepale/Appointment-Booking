@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { resolveCallerUser, unauthorized } from "@/app/api/meetings/_shared";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -34,7 +35,9 @@ function extractCompanyContacts(contact_details: any) {
   };
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // Public in middleware (the mobile app has no session cookie), so the caller is checked here.
+  if (!(await resolveCallerUser(req))) return unauthorized();
   try {
     const [companiesRes, individualsRes, employeesRes] = await Promise.all([
       supabase

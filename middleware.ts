@@ -24,6 +24,8 @@ const PUBLIC_PATHS = [
   "/api/auto-sync-calendar",
   "/api/sync-to-calendar",
   "/api/cron",                 // Cron routes authenticate via CRON_SECRET header, not session cookie
+  "/api/registry",             // Meeting participant search (mobile app too); routes check the caller themselves
+  "/api/third-party-contacts", // Third-party attendee contacts (mobile app too); route checks the caller itself
   "/calendar-auth-success",    // OAuth callback redirect target
 ];
 

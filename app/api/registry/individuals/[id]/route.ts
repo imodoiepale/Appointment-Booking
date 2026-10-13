@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { resolveCallerUser, unauthorized } from "@/app/api/meetings/_shared";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,6 +11,8 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  // Public in middleware (the mobile app has no session cookie), so the caller is checked here.
+  if (!(await resolveCallerUser(req))) return unauthorized();
   try {
     const { id } = params;
     const body = await req.json();
