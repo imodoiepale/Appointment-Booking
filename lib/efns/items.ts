@@ -121,11 +121,14 @@ export function paymentRowToItem(supabase: SupabaseClient, row: any): EfnsItem {
 }
 
 /** Both tables, merged and newest first, capped at [limit] — the GET route's response body. */
-export async function fetchEfnsItems(supabase: SupabaseClient, limit: number): Promise<EfnsItem[]> {
-  const [notifications, payments] = await Promise.all([
-    supabase.from(NOTIFICATIONS_TABLE).select("*").order("created_at", { ascending: false }).limit(limit),
-    supabase.from(PAYMENTS_TABLE).select("*").order("created_at", { ascending: false }).limit(limit),
-  ]);
+/** Newest first. [since] (an ISO time): only rows written after it — the app's push-triggered check. */
+export async function fetchEfnsItems(supabase: SupabaseClient, limit: number, since?: string | null): Promise<EfnsItem[]> {
+  const recent = (table: string) => {
+    let q = supabase.from(table).select("*").order("created_at", { ascending: false }).limit(limit);
+    if (since) q = q.gt("created_at", since);
+    return q;
+  };
+  const [notifications, payments] = await Promise.all([recent(NOTIFICATIONS_TABLE), recent(PAYMENTS_TABLE)]);
   if (notifications.error || payments.error) {
     throw new Error((notifications.error ?? payments.error)!.message);
   }

@@ -9,11 +9,18 @@
 --
 -- TO APPLY (project zyszsqgdlrpnunkegipk, shared by EFNS-AUTOMATIONS / Appointment-Booking /
 -- accounting-task-manager):
---   1. Replace 49a422456da845ad862e23c33a48b941496a2a5da65d4fe59eb2759f4c1c8094 below with a long random string:
---        openssl rand -hex 32
---   2. Set the same value as EFNS_PUSH_SECRET on the meetings deployment (Vercel → Settings →
---      Environment Variables) and redeploy. The endpoint answers 503 until you do.
+--   1. Make a long random string (openssl rand -hex 32) and set it as EFNS_PUSH_SECRET on the
+--      meetings deployment (Vercel → Settings → Environment Variables), then redeploy. The endpoint
+--      answers 503 until you do.
+--   2. Store the SAME value in Supabase Vault — in the SQL editor, never in this file:
+--        select vault.create_secret('<the secret>', 'efns_push_secret');
+--      (to rotate later: select vault.update_secret(
+--         (select id from vault.secrets where name = 'efns_push_secret'), '<new secret>');)
 --   3. Run this file in the SQL editor. Everything is idempotent, so re-running is safe.
+--
+-- The secret is read from Vault at trigger time, so it never sits in the repo or in the function's
+-- source (pg_proc). Without the Vault entry the trigger sends no header and the endpoint answers 401
+-- — inserts are never blocked either way.
 --
 -- Alternative to steps 1+3: a Dashboard "Database Webhook" on the two tables pointing at
 -- https://meetings.booksmartportals.com/api/push/efns with header x-bcl-push-secret — same effect
@@ -65,12 +72,18 @@ set search_path = ''
 as $$
 declare
   request_id bigint;
+  push_secret text;
 begin
+  select decrypted_secret into push_secret
+    from vault.decrypted_secrets
+   where name = 'efns_push_secret'
+   limit 1;
+
   select net.http_post(
     url := 'https://meetings.booksmartportals.com/api/push/efns',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'x-bcl-push-secret', '04c8b6b078bc4807a7d7b34289392cce3ff95b82459a44f99fb0d6e6885cf6d9'
+      'x-bcl-push-secret', coalesce(push_secret, '')
     ),
     body := jsonb_build_object('table', tg_table_name, 'record_id', to_jsonb(new.id)),
     timeout_milliseconds := 5000

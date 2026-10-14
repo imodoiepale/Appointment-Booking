@@ -3,7 +3,10 @@ import { supabase, resolveCallerUser, unauthorized } from "../meetings/_shared";
 import { fetchEfnsItems } from "@/lib/efns/items";
 
 /**
- * GET /api/immigration-notifications[?limit=500]
+ * GET /api/immigration-notifications[?limit=500][&since=<ISO time>]
+ *
+ * since: only rows written after that moment. The app's push-triggered check sends the newest
+ * created_at it has seen, so a ping downloads a row or two instead of the whole recent list.
  *
  * The EFNS immigration notifications and payment invoices for the BCL mobile app: the two tables the
  * EFNS automation writes (immigration_notifications, immigration_payments) and posts to its WhatsApp
@@ -24,7 +27,9 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(Math.max(Number.isFinite(requested) ? requested : 500, 1), MAX_LIMIT);
 
   try {
-    return NextResponse.json({ items: await fetchEfnsItems(supabase, limit) });
+    const sinceRaw = request.nextUrl.searchParams.get("since");
+    const since = sinceRaw && !Number.isNaN(Date.parse(sinceRaw)) ? new Date(sinceRaw).toISOString() : null;
+    return NextResponse.json({ items: await fetchEfnsItems(supabase, limit, since) });
   } catch (error: any) {
     return NextResponse.json({ error: error?.message ?? "Failed to load EFNS notifications" }, { status: 500 });
   }
