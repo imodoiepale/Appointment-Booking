@@ -1,6 +1,7 @@
 import "server-only";
 import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
+import { getMessaging } from "firebase-admin/messaging";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -57,4 +58,20 @@ function getFirebaseAdminApp() {
 
 export function getFirebaseAdminAuth() {
   return getAuth(getFirebaseAdminApp());
+}
+
+/** True when the three service-account vars are present — i.e. sending push is possible at all. */
+export function isFirebaseMessagingConfigured(): boolean {
+  return ["FIREBASE_PROJECT_ID", "FIREBASE_CLIENT_EMAIL", "FIREBASE_PRIVATE_KEY"].every(
+    (name) => Boolean(process.env[name]),
+  );
+}
+
+/**
+ * Sending side of FCM (HTTP v1, behind the scenes). Kept beside the Auth helper because it reads the
+ * same service account — the credentials must belong to the Firebase project the device tokens were
+ * minted in, or every send comes back "registration token not valid".
+ */
+export function getFirebaseAdminMessaging() {
+  return getMessaging(getFirebaseAdminApp());
 }

@@ -18,6 +18,7 @@ const PUBLIC_PATHS = [
   "/api/birthdays",            // Mobile app birthdays API
   "/api/tasks-report",         // Mobile app tasks report API
   "/api/immigration-notifications", // Mobile app EFNS notifications (checks the caller itself)
+  "/api/push",                 // EFNS insert trigger + mobile token registration (routes check themselves)
   "/api/companies",            // Mobile app company dropdown API
   "/api/users",                // Mobile app users, attendees, and notification-settings APIs
   "/api/meeting-notifications",
