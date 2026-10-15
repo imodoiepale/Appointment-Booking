@@ -62,6 +62,36 @@ const BASIC_FIELDS: Array<[string, string, string]> = [
   ["Address", "full_postal_address", "Postal address"],
 ];
 
+// The registry's "Company Logo" document type (acc_portal_kyc) — the logo the web company page shows.
+const COMPANY_LOGO_DOC_ID = "f7a75607-bff9-4995-8bde-0256e86da435";
+const KYC_BUCKET = "kyc-documents";
+
+// Client categories, as the registry's lib/categoryUtils categoryMeta.
+const CLIENT_CATEGORIES: Array<{ label: string; value: string }> = [
+  { label: "ACC", value: "acc" },
+  { label: "IMM", value: "imm" },
+  { label: "Audit", value: "audit" },
+  { label: "Sheria", value: "sheria" },
+];
+
+/** yyyy-mm-dd, dd/mm/yyyy or dd.mm.yyyy (the registry stores both). */
+function parseDate(s: string): Date | null {
+  if (!s || s === "N/A") return null;
+  const dmy = s.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+  const d = dmy ? new Date(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1])) : new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+/** The registry's calculateStatus: Active within [from, to], else Inactive; N/A without a start. */
+function clientStatus(from: string, to: string): "Active" | "Inactive" | "N/A" {
+  const f = parseDate(from);
+  if (!f) return "N/A";
+  const t = parseDate(to);
+  const now = new Date();
+  if (t) return now >= f && now <= t ? "Active" : "Inactive";
+  return now >= f ? "Active" : "Inactive";
+}
+
 function text(v: unknown): string {
   if (v === null || v === undefined) return "";
   const s = String(v).trim();
@@ -95,6 +125,35 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const details = BASIC_FIELDS
       .map(([section, column, label]) => ({ section, label, value: text((company as any)[column]) }))
       .filter((f) => f.value);
+    // KRA PIN is an identifier, not a secret — shown with the basics (the iTax password stays in credentials).
+    const kraPin = text((company as any).kra_pin);
+    if (kraPin) details.unshift({ section: "General", label: "KRA PIN", value: kraPin });
+
+    // Client categories BCL serves this company under, with the registry's Active/Inactive rule.
+    const categories = CLIENT_CATEGORIES.map(({ label, value }) => {
+      const from = text((company as any)[`${value}_client_effective_from`]);
+      const to = text((company as any)[`${value}_client_effective_to`]);
+      return { label, status: clientStatus(from, to), from, to };
+    }).filter((c) => c.status !== "N/A");
+
+    // The logo, as the web company page loads it: the active "Company Logo" upload, signed for an hour.
+    let logoUrl: string | null = null;
+    try {
+      const { data: logoRows } = await supabase
+        .from("acc_portal_kyc_uploads")
+        .select("file_path")
+        .eq("company_id", id)
+        .eq("document_id", COMPANY_LOGO_DOC_ID)
+        .eq("status", "active")
+        .limit(1);
+      const path = logoRows?.[0]?.file_path;
+      if (path) {
+        const { data: signed } = await supabase.storage.from(KYC_BUCKET).createSignedUrl(path, 3600);
+        logoUrl = signed?.signedUrl ?? null;
+      }
+    } catch (e) {
+      console.warn(`[registry/companies] logo for ${id}:`, e); // the profile still loads without it
+    }
 
     const strongIdentity = /^Bearer\s+/i.test(req.headers.get("authorization") ?? "") || caller.source === "web";
     const canSeeCredentials = isAdminRole(caller.role) && strongIdentity;
@@ -118,6 +177,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       {
         id: String(company.id),
         name: text(company.company_name),
+        logoUrl,
+        categories,
         details,
         credentials,
         credentialsHidden: !canSeeCredentials,
