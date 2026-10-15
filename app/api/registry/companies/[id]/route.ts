@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { resolveCallerUser, unauthorized } from "@/app/api/meetings/_shared";
-import { isAdminRole } from "@/lib/auth/roles";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,11 +11,11 @@ const supabase = createClient(
  * GET /api/registry/companies/:id
  *
  * A company's profile for the mobile app: basic details (the registry company page's General /
- * Contact / Account manager / Address sections) and, for admins only, its Platform Credentials
+ * Contact / Account manager / Address sections) and, for BCL staff, its Platform Credentials
  * (iTax, NSSF, SHIF, eCitizen…). Directors come from /api/registry/companies-with-individuals.
  *
  * Credentials are government-portal passwords, so they are returned only when:
- *   - the caller is an admin (isAdminRole), and
+ *   - the caller is BCL staff (any role except client / customer — no longer admins only), and
  *   - their identity is proven by a signed mobile token or a web session — never by the old
  *     unsigned x-scanner-user-id header (a guessable user id must not unlock passwords).
  * Every credentials read is logged.
@@ -156,7 +155,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     const strongIdentity = /^Bearer\s+/i.test(req.headers.get("authorization") ?? "") || caller.source === "web";
-    const canSeeCredentials = isAdminRole(caller.role) && strongIdentity;
+    const role = String(caller.role ?? "").trim().toLowerCase();
+    const canSeeCredentials = role !== "client" && role !== "customer" && strongIdentity;
 
     let credentials: Array<{ platform: string; fields: Array<{ label: string; value: string; secret: boolean }> }> | null = null;
     if (canSeeCredentials) {
