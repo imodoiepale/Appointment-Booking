@@ -228,13 +228,57 @@ function fullPostalAddress(d: Record<string, unknown>) {
   return [`P.O. Box ${box}`, text(d.postal_code), text(d.postal_town)].filter(Boolean).join(", ");
 }
 
+// Each dropdown category's master field (tm_job_fields.id), as the registry form fields declare it
+// (dataSource: { category, masterFieldId }).
+const MASTER_FIELD_BY_CATEGORY: Record<string, number> = {
+  nationality: 10, country_of_birth: 74, gender: 9, country_of_residence: 74, country_of_operation: 76,
+  city: 31, town: 14, county: 59, sub_county: 13, postal_town: 65, maritalStatus: 94,
+  company_type: 44, company_classification: 130, industry: 134,
+};
+
+const optionValues = (raw: unknown): string[] => {
+  const list = Array.isArray(raw) ? raw : typeof raw === "string" ? (() => { try { return JSON.parse(raw); } catch { return []; } })() : [];
+  return (Array.isArray(list) ? list : [])
+    .filter((o: any) => !(o && typeof o === "object" && o.is_visible === false))
+    .map((o: any) => (o && typeof o === "object" ? text(o.label ?? o.value) : text(o)))
+    .filter(Boolean);
+};
+
+/**
+ * Options per dropdown category, resolved like the registry (schemaDropdownOptions / basic-info):
+ * the dropdown_settings row for the category (matched ignoring case), else the field's master field
+ * in tm_job_fields — its static options, or for a dependent field (sub county…) every option under
+ * any parent.
+ */
 async function dropdownOptions(sections: SectionDef[]): Promise<Record<string, string[]>> {
   const categories = Array.from(new Set(sections.flatMap((s) => s.fields).map((f) => f.category).filter(Boolean))) as string[];
   if (!categories.length) return {};
-  const { data } = await supabase.from("dropdown_settings").select("category_name, options").in("category_name", categories);
   const out: Record<string, string[]> = {};
-  for (const row of data ?? []) {
-    out[row.category_name] = (row.options ?? []).map((o: any) => text(o?.value)).filter(Boolean);
+
+  const { data: settings } = await supabase.from("dropdown_settings").select("category_name, options");
+  const byName = new Map((settings ?? []).map((r: any) => [String(r.category_name ?? "").trim().toLowerCase(), r.options]));
+  for (const cat of categories) {
+    const values = optionValues(byName.get(cat.toLowerCase()));
+    if (values.length) out[cat] = values;
+  }
+
+  const missingIds = Array.from(new Set(categories.filter((c) => !out[c] && MASTER_FIELD_BY_CATEGORY[c]).map((c) => MASTER_FIELD_BY_CATEGORY[c])));
+  if (missingIds.length) {
+    const { data: masters } = await supabase.from("tm_job_fields").select("id, options").in("id", missingIds);
+    const masterById = new Map((masters ?? []).map((m: any) => [Number(m.id), m.options]));
+    for (const cat of categories) {
+      if (out[cat]) continue;
+      const opts: any = masterById.get(MASTER_FIELD_BY_CATEGORY[cat]);
+      let values: string[] = [];
+      if (Array.isArray(opts)) values = optionValues(opts);
+      else if (opts?.isDependencyConfig && opts.manualMapping && typeof opts.manualMapping === "object") {
+        const labelKey = opts.dependencyConfig?.labelKey || "label";
+        values = Object.values(opts.manualMapping).flatMap((list: any) =>
+          (Array.isArray(list) ? list : []).map((o: any) => text(o && typeof o === "object" ? o[labelKey] ?? o.value : o)),
+        ).filter(Boolean);
+      }
+      if (values.length) out[cat] = Array.from(new Set(values)).sort((a, b) => a.localeCompare(b));
+    }
   }
   return out;
 }
