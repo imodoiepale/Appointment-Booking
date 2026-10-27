@@ -17,6 +17,8 @@ export const PAYMENTS_TABLE = "immigration_payments";
 /** The automation's UtilityHelpers.getShortMessage, so a status reads as it does in the WhatsApp group. */
 export function shortNotifStatus(full: string): string {
   const m = (full || "").toLowerCase();
+  // Issued documents the automation downloads (e.g. an E-Special Pass): their own status, ahead of ISSUED.
+  if (m.startsWith("document issued")) return "DOCUMENT ISSUED";
   if (m.includes("received")) return "APPLICATION RECEIVED";
   if (m.includes("deferred")) return "APPLICATION DEFERRED";
   if (m.includes("issued")) return "ISSUED";
